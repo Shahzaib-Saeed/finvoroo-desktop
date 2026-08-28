@@ -1,0 +1,22 @@
+{
+  "name": "finvoroo-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Finvoroo Desktop — native Windows shell for the Finvoroo ERP web app (online + offline).",
+  "type": "module",
+  "scripts": {
+    "build:frontend": "node scripts/build-frontend.mjs",
+    "dev": "npm run build:frontend && tauri dev",
+    "build": "npm run build:frontend && tauri build --bundles nsis && node scripts/publish-installer.mjs",
+    "build:windows-installer": "npm run build",
+    "publish-installer": "node scripts/publish-installer.mjs",
+    "tauri": "tauri",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.5"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.5"
+  }
+}

@@ -1,0 +1,7 @@
+/node_modules
+/webapp
+/src-tauri/target
+/src-tauri/gen
+/dist
+*.exe
+.DS_Store
