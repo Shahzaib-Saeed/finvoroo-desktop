@@ -50,7 +50,9 @@ jobs:
           repository: ${{ env.REACT_REPO }}
           ref: ${{ env.REACT_REF }}
           path: React-frontend
-          token: ${{ secrets.REACT_REPO_PAT || secrets.GITHUB_TOKEN }}
+          # Required when React is private: add REACT_REPO_PAT secret on this repo
+          # (GitHub PAT with read access to Shahzaib-Saeed/React).
+          token: ${{ secrets.REACT_REPO_PAT }}
 
       - name: Verify build layout (React-frontend + finvoroo-desktop)
         shell: pwsh
