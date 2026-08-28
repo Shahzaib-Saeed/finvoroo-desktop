@@ -1,0 +1,1478 @@
+/**
+ * Accounting reports — print layout (WYSIWYG).
+ * Resets workspace chrome offsets so reports print centered, not shifted right,
+ * and guarantees wide ledger tables print all their columns (no clipping).
+ */
+
+/* Balance sheet & financial summary — equal columns. */
+@media (min-width: 1024px) {
+  .balance-sheet-columns,
+  .financial-summary-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.balance-sheet-col {
+  min-width: 0;
+}
+
+.balance-sheet-row {
+  min-width: 0;
+  width: 100%;
+}
+
+.balance-sheet-amount {
+  width: 7rem;
+  flex-shrink: 0;
+}
+
+.balance-sheet-account-row {
+  display: grid;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+  min-height: 1.75rem;
+  column-gap: 0.5rem;
+}
+
+.balance-sheet-account-row--with-code {
+  grid-template-columns: 4.75rem minmax(0, 1fr) 7rem;
+}
+
+.balance-sheet-account-row--no-code {
+  grid-template-columns: minmax(0, 1fr) 7rem;
+}
+
+.balance-sheet-code {
+  width: 4.75rem;
+  flex-shrink: 0;
+  line-height: 1.35;
+  padding-top: 0.0625rem;
+}
+
+.balance-sheet-label {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.35;
+}
+
+@media (min-width: 640px) {
+  .balance-sheet-amount {
+    width: 7.75rem;
+  }
+
+  .balance-sheet-account-row--with-code {
+    grid-template-columns: 5rem minmax(0, 1fr) 7.75rem;
+  }
+
+  .balance-sheet-account-row--no-code {
+    grid-template-columns: minmax(0, 1fr) 7.75rem;
+  }
+
+  .balance-sheet-code {
+    width: 5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .balance-sheet-grand-totals {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* Screen fallback removed — page counters are not used in print footers. */
+
+@media print {
+  /* Default page (non-report documents). */
+  @page {
+    margin: 10mm;
+    size: auto;
+  }
+
+  /* Reports print in landscape so wide ledgers keep every column. */
+  @page report-landscape {
+    size: landscape;
+    margin: 8mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Workspace shell: remove sidebar offset and page padding */
+  .workspace-shell,
+  #root,
+  #root > .flex,
+  main[role='content'],
+  .report-print-root {
+    padding: 0 !important;
+    margin: 0 !important;
+    padding-inline-start: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    min-height: auto !important;
+  }
+
+  .report-print-root {
+    display: block !important;
+    page: report-landscape;
+  }
+
+  .report-print-root > * {
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Card-wrapped reports (ledgers, aging): drop the UI card chrome so the
+     printed page reads as a document, not a screenshot of a card. */
+  .report-print-root [data-slot='card'] {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Printable report document */
+  .report-print-sheet {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    overflow: visible !important;
+    page-break-inside: auto;
+  }
+
+  /* Any horizontal scroller must reveal its full content when printing. */
+  .report-print-sheet .overflow-x-auto,
+  .report-print-sheet .overflow-auto,
+  .report-print-sheet .overflow-hidden {
+    overflow: visible !important;
+  }
+
+  /*
+   * Report tables print at the body scale (approx. text-sm / 13px on screen).
+   * Slightly tighter for paper density while staying consistent across reports.
+   */
+  .report-print-sheet table {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+
+  .report-print-sheet h1 {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  .report-print-sheet h2 {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+  }
+
+  .report-print-sheet .text-xs,
+  .report-print-sheet th {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .report-print-sheet th,
+  .report-print-sheet td {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+
+  /*
+   * Cells that truncate on screen (truncate + max-w-0) would otherwise clip to
+   * near-zero width when printed, dropping their column. Let them wrap instead.
+   */
+  .report-print-sheet .truncate,
+  .report-print-sheet .max-w-0 {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  /* Numeric columns stay on one line for clean alignment. */
+  .report-print-sheet .tabular-nums {
+    white-space: nowrap !important;
+  }
+
+  /* Repeat table headers on each page and avoid splitting summary rows only. */
+  .report-print-sheet thead {
+    display: table-header-group !important;
+  }
+
+  .report-print-sheet:not(.general-ledger-print):not(.account-statement-print):not(.customer-ledger-print) tr {
+    page-break-inside: avoid;
+  }
+
+  .report-print-sheet a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  .report-print-sheet .text-primary {
+    color: #1d4ed8 !important;
+  }
+
+  .report-print-sheet .text-red-700,
+  .report-print-sheet .text-destructive {
+    color: #b91c1c !important;
+  }
+
+  .report-print-sheet .text-emerald-700 {
+    color: #047857 !important;
+  }
+
+  .report-print-sheet .bg-amber-50\/60,
+  .report-print-sheet .bg-amber-50\/40 {
+    background-color: #fffbeb !important;
+  }
+
+  /* Aging reports: keep party blocks and summary together when possible. */
+  .report-print-sheet .aging-party-section {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .report-print-sheet .aging-summary-matrix {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .report-print-sheet .aging-summary-matrix table,
+  .report-print-sheet .aging-detail-table table {
+    font-size: 11px !important;
+  }
+
+  /* Repeat table headers on each printed page. */
+  .report-print-sheet .aging-summary-matrix thead,
+  .report-print-sheet .aging-detail-table thead {
+    display: table-header-group !important;
+  }
+
+  .report-print-sheet .aging-summary-matrix tfoot,
+  .report-print-sheet .aging-detail-table tfoot {
+    display: table-footer-group !important;
+  }
+
+  /* Prefer keeping a vendor/customer bill group together across pages. */
+  .report-print-sheet .aging-detail-table tr.aging-party-group-start {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  .report-print-sheet .aging-detail-table tr.aging-party-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-print-sheet tr.ledger-party-group-start,
+  .report-print-sheet tr.ledger-party-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-print-sheet .aging-report-total-row,
+  .report-print-sheet .aging-report-grand-total {
+    background-color: #fafafa !important;
+    border-top-width: 2px !important;
+    border-top-color: #1e293b !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-print-sheet .aging-detail-table tr.bg-\[\#FAFAFA\] {
+    background-color: #fafafa !important;
+  }
+
+  .report-print-sheet .aging-detail-section-title span {
+    color: #64748b !important;
+    font-weight: 700 !important;
+  }
+
+  .report-print-sheet .aging-report-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .report-print-sheet .aging-report-header h2 {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+  }
+
+  .report-print-sheet .aging-report-header img {
+    max-height: 32px !important;
+    max-width: 32px !important;
+  }
+
+  /*
+   * Document footers flow after content — do not reserve extra page height.
+   * (Fixed footers + bottom padding caused blank trailing pages in PDF export.)
+   */
+  .report-print-sheet {
+    padding-bottom: 0 !important;
+  }
+
+  .report-print-sheet .aging-report-footer-print {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Balance sheet — portrait, compact, single-page friendly. */
+  @page balance-sheet-portrait {
+    size: portrait;
+    margin: 10mm 12mm;
+  }
+
+  .report-print-root.balance-sheet-report-root {
+    page: balance-sheet-portrait;
+  }
+
+  .report-print-sheet.balance-sheet-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .balance-sheet-print .balance-sheet-statement {
+    width: 100% !important;
+  }
+
+  .balance-sheet-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .balance-sheet-print .balance-sheet-columns {
+    display: table !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .balance-sheet-print .balance-sheet-columns > div {
+    display: table-cell !important;
+    width: 50% !important;
+    max-width: 50% !important;
+    vertical-align: top !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .balance-sheet-print .balance-sheet-columns > div:first-child {
+    border-right: 1px solid #cbd5e1 !important;
+  }
+
+  .balance-sheet-print .balance-sheet-grand-totals {
+    display: table !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    border-top-width: 3px !important;
+    border-top-style: double !important;
+    border-top-color: #0f172a !important;
+  }
+
+  .balance-sheet-print .balance-sheet-grand-totals > div {
+    display: table-cell !important;
+    width: 50% !important;
+    max-width: 50% !important;
+    vertical-align: middle !important;
+    box-sizing: border-box !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .balance-sheet-print .balance-sheet-grand-totals > div:first-child {
+    border-right: 1px solid #cbd5e1 !important;
+  }
+
+  .balance-sheet-print .balance-sheet-amount {
+    width: 6.25rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .balance-sheet-print .balance-sheet-code {
+    width: 3rem !important;
+    flex-shrink: 0 !important;
+    font-size: 9px !important;
+    line-height: 1.35 !important;
+  }
+
+  .balance-sheet-print .balance-sheet-account-row {
+    display: grid !important;
+    align-items: start !important;
+    min-height: 1.25rem !important;
+    column-gap: 0.35rem !important;
+  }
+
+  .balance-sheet-print .balance-sheet-account-row--with-code {
+    grid-template-columns: 3rem minmax(0, 1fr) 6.25rem !important;
+  }
+
+  .balance-sheet-print .balance-sheet-account-row--no-code {
+    grid-template-columns: minmax(0, 1fr) 6.25rem !important;
+  }
+
+  .balance-sheet-print .balance-sheet-negative-hint {
+    display: none !important;
+  }
+
+  .balance-sheet-print .balance-sheet-row:not(.balance-sheet-account-row),
+  .balance-sheet-print .balance-sheet-subtotal {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .balance-sheet-print
+    .balance-sheet-row:not(.balance-sheet-account-row)
+    > :first-child,
+  .balance-sheet-print .balance-sheet-subtotal > :first-child {
+    min-width: 0 !important;
+    flex: 1 1 0% !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
+  .balance-sheet-print .balance-sheet-label {
+    min-width: 0 !important;
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
+  }
+
+  .balance-sheet-print .balance-sheet-subsection {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .balance-sheet-print .balance-sheet-subtotal {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .balance-sheet-print .balance-sheet-closing {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .balance-sheet-print .balance-sheet-status {
+    display: none !important;
+  }
+
+  .balance-sheet-print .balance-sheet-balanced {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    background-color: #ecfdf5 !important;
+    border-color: #a7f3d0 !important;
+  }
+
+  .balance-sheet-print .balance-sheet-balanced p {
+    color: #065f46 !important;
+  }
+
+  .balance-sheet-print .balance-sheet-footer {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  .balance-sheet-print h1 {
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .balance-sheet-print .balance-sheet-header p,
+  .balance-sheet-print .balance-sheet-header span {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Financial summary — portrait, same column rules as balance sheet. */
+  @page financial-summary-portrait {
+    size: portrait;
+    margin: 10mm 12mm;
+  }
+
+  .report-print-root.financial-summary-report-root {
+    page: financial-summary-portrait;
+  }
+
+  .report-print-sheet.financial-summary-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .financial-summary-print .financial-summary-statement {
+    width: 100% !important;
+  }
+
+  .financial-summary-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .financial-summary-print .financial-summary-columns {
+    display: table !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .financial-summary-print .financial-summary-columns > div {
+    display: table-cell !important;
+    width: 50% !important;
+    max-width: 50% !important;
+    vertical-align: top !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .financial-summary-print .financial-summary-columns > div:first-child {
+    border-right: 1px solid #cbd5e1 !important;
+  }
+
+  .financial-summary-print .balance-sheet-subsection {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .financial-summary-print .balance-sheet-subtotal {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .financial-summary-print .balance-sheet-closing {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .financial-summary-print .balance-sheet-status {
+    display: none !important;
+  }
+
+  .financial-summary-print .balance-sheet-balanced {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    background-color: #ecfdf5 !important;
+    border-color: #a7f3d0 !important;
+  }
+
+  .financial-summary-print .balance-sheet-balanced p {
+    color: #065f46 !important;
+  }
+
+  .financial-summary-print .balance-sheet-footer {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  .financial-summary-print h1 {
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .financial-summary-print .balance-sheet-header p,
+  .financial-summary-print .balance-sheet-header span {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+  }
+
+  .financial-summary-print .balance-sheet-amount {
+    width: 6.25rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .financial-summary-print .balance-sheet-code {
+    width: 2.5rem !important;
+    font-size: 9px !important;
+  }
+
+  .financial-summary-print .balance-sheet-row,
+  .financial-summary-print .balance-sheet-subtotal {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .financial-summary-print .balance-sheet-row > :first-child,
+  .financial-summary-print .balance-sheet-subtotal > :first-child {
+    min-width: 0 !important;
+    flex: 1 1 0% !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
+  /* Profit & loss — portrait statement table. */
+  @page profit-loss-portrait {
+    size: portrait;
+    margin: 10mm 12mm;
+  }
+
+  .report-print-root.profit-loss-report-root {
+    page: profit-loss-portrait;
+  }
+
+  .report-print-sheet.profit-loss-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .profit-loss-print .profit-loss-statement {
+    width: 100% !important;
+  }
+
+  .profit-loss-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .profit-loss-print .profit-loss-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    font-size: 10px !important;
+  }
+
+  .profit-loss-print .profit-loss-table th,
+  .profit-loss-print .profit-loss-table td {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
+  .profit-loss-print .balance-sheet-amount {
+    width: 6.25rem !important;
+  }
+
+  .profit-loss-print .balance-sheet-code {
+    width: 2.5rem !important;
+    font-size: 9px !important;
+  }
+
+  .profit-loss-print .pl-section-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .profit-loss-print .pl-grand-total {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .profit-loss-print .balance-sheet-footer {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  .profit-loss-print h1 {
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .profit-loss-print .balance-sheet-header p,
+  .profit-loss-print .balance-sheet-header span {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Cash flow — portrait statement table. */
+  @page cash-flow-portrait {
+    size: portrait;
+    margin: 10mm 12mm;
+  }
+
+  .report-print-root.cash-flow-report-root {
+    page: cash-flow-portrait;
+  }
+
+  .report-print-sheet.cash-flow-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .cash-flow-print .cash-flow-statement {
+    width: 100% !important;
+  }
+
+  .cash-flow-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .cash-flow-print .cash-flow-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    font-size: 10px !important;
+  }
+
+  .cash-flow-print .balance-sheet-amount {
+    width: 6.25rem !important;
+  }
+
+  .cash-flow-print .cf-section-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .cash-flow-print .cf-grand-total {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-flow-print .cf-closing-notice {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    background-color: #ecfdf5 !important;
+  }
+
+  .cash-flow-print .balance-sheet-footer {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  .cash-flow-print h1 {
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .cash-flow-print .balance-sheet-header p,
+  .cash-flow-print .balance-sheet-header span {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+  }
+
+  .report-print-sheet.general-ledger-print,
+  .report-print-sheet.account-statement-print,
+  .report-print-sheet.customer-ledger-print,
+  .report-print-sheet.aged-payables-print,
+  .report-print-sheet.aged-receivables-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  /* Customer / vendor ledger (party statement) — landscape wide table. */
+  @page customer-ledger-landscape {
+    size: landscape;
+    margin: 6mm 8mm;
+  }
+
+  .report-print-root.customer-ledger-report-root {
+    page: customer-ledger-landscape;
+  }
+
+  .customer-ledger-print .overflow-x-auto {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .general-ledger-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    font-size: 9px !important;
+    line-height: 1.3 !important;
+    border: none !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .general-ledger-table thead {
+    display: table-header-group !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .general-ledger-table tfoot {
+    display: table-footer-group !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .general-ledger-table th {
+    background-color: #f8fafc !important;
+    border: none !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    font-size: 8px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    padding: 3px 4px !important;
+    color: #334155 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    vertical-align: bottom !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .general-ledger-table td {
+    padding: 2px 4px !important;
+    border: none !important;
+    vertical-align: top !important;
+    font-size: 9px !important;
+    font-weight: 400 !important;
+    color: #334155 !important;
+  }
+
+  /* Protect amount columns from the global wrap/expand rules. */
+  .customer-ledger-print.general-ledger-print col.ledger-col-money {
+    width: 8.5% !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .ledger-col-money,
+  .customer-ledger-print.general-ledger-print td.ledger-col-money,
+  .customer-ledger-print.general-ledger-print th.ledger-col-money,
+  .customer-ledger-print.general-ledger-print td.ledger-col-money a,
+  .customer-ledger-print.general-ledger-print td.ledger-col-money span {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    text-align: right !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .ledger-col-type,
+  .customer-ledger-print.general-ledger-print td.ledger-col-type,
+  .customer-ledger-print.general-ledger-print th.ledger-col-type {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    text-align: center !important;
+    font-size: 8px !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .ledger-col-date,
+  .customer-ledger-print.general-ledger-print td.ledger-col-date {
+    white-space: nowrap !important;
+    font-size: 8px !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .ledger-col-party {
+    width: 9% !important;
+    max-width: 9% !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .ledger-col-party .text-sm,
+  .customer-ledger-print.general-ledger-print .ledger-col-party .text-xs {
+    font-size: 8px !important;
+    line-height: 1.2 !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .ledger-col-cf,
+  .customer-ledger-print.general-ledger-print td.ledger-col-cf {
+    white-space: normal !important;
+    word-break: break-all !important;
+    font-size: 7.5px !important;
+    line-height: 1.15 !important;
+    overflow: hidden !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .ledger-col-desc,
+  .customer-ledger-print.general-ledger-print td.ledger-col-desc {
+    white-space: normal !important;
+    word-break: break-word !important;
+    font-size: 8px !important;
+    line-height: 1.2 !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .ledger-col-ref,
+  .customer-ledger-print.general-ledger-print td.ledger-col-ref {
+    white-space: nowrap !important;
+    font-size: 8px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .gl-balance-forward-row td,
+  .customer-ledger-print.general-ledger-print .gl-account-total td,
+  .customer-ledger-print.general-ledger-print .general-ledger-table tfoot td {
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    font-size: 9px !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .gl-account-total td.ledger-col-money,
+  .customer-ledger-print.general-ledger-print .general-ledger-table tfoot td.ledger-col-money {
+    white-space: nowrap !important;
+    overflow: visible !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .general-ledger-table tfoot td {
+    border-top: 2px solid #64748b !important;
+    padding-top: 4px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .gl-balance-forward-row,
+  .customer-ledger-print.general-ledger-print .gl-account-total {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .customer-ledger-print.general-ledger-print tr {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  .customer-ledger-print.general-ledger-print .aging-report-footer-print {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .customer-ledger-print table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    font-size: 9px !important;
+  }
+
+  .customer-ledger-print thead {
+    display: table-header-group !important;
+  }
+
+  .customer-ledger-print tfoot {
+    display: table-row-group !important;
+  }
+
+  .customer-ledger-print tr {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  /* General ledger — landscape wide table, WYSIWYG with on-screen layout. */
+  .report-print-root.general-ledger-report-root {
+    page: report-landscape;
+  }
+
+  .general-ledger-print .general-ledger-statement {
+    width: 100% !important;
+  }
+
+  .general-ledger-print .aging-report-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .general-ledger-print .aging-report-header h2 {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+  }
+
+  .general-ledger-print .overflow-x-auto {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .general-ledger-print .general-ledger-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    border: none !important;
+  }
+
+  .general-ledger-print [data-print-table] {
+    min-width: 0 !important;
+  }
+
+  .general-ledger-print .general-ledger-table thead {
+    display: table-header-group !important;
+  }
+
+  .general-ledger-print .general-ledger-table tfoot {
+    display: table-footer-group !important;
+  }
+
+  .general-ledger-print .general-ledger-table th {
+    background-color: #f8fafc !important;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: normal !important;
+    padding: 4px 6px !important;
+    color: #475569 !important;
+  }
+
+  .general-ledger-print .general-ledger-table td {
+    padding: 2px 6px !important;
+    border: none !important;
+    vertical-align: middle !important;
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    color: #334155 !important;
+  }
+
+  .general-ledger-print .general-ledger-table tr {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  .general-ledger-print .gl-account-spacer td {
+    height: 14px !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .general-ledger-print .gl-balance-forward-row td:first-child,
+  .general-ledger-print .gl-balance-forward-row td:first-child div,
+  .general-ledger-print .gl-balance-forward-row td:first-child span,
+  .customer-ledger-print.general-ledger-print .gl-balance-forward-row td:first-child,
+  .customer-ledger-print.general-ledger-print .gl-balance-forward-row td:first-child div,
+  .customer-ledger-print.general-ledger-print .gl-balance-forward-row td:first-child span,
+  .account-statement-print.general-ledger-print .gl-balance-forward-row td:first-child,
+  .account-statement-print.general-ledger-print .gl-balance-forward-row td:first-child div,
+  .account-statement-print.general-ledger-print .gl-balance-forward-row td:first-child span,
+  .general-ledger-print .gl-account-total td,
+  .customer-ledger-print.general-ledger-print .gl-account-total td,
+  .account-statement-print.general-ledger-print .gl-account-total td {
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    vertical-align: top !important;
+  }
+
+  .general-ledger-print .gl-balance-forward-row td:first-child div,
+  .general-ledger-print .gl-balance-forward-row td:first-child span,
+  .customer-ledger-print.general-ledger-print .gl-balance-forward-row td:first-child div,
+  .customer-ledger-print.general-ledger-print .gl-balance-forward-row td:first-child span {
+    line-height: 1.25 !important;
+  }
+
+  .general-ledger-print .general-ledger-table .tabular-nums {
+    font-size: 11px !important;
+  }
+
+  .general-ledger-print .gl-balance-forward-row,
+  .general-ledger-print .gl-account-total,
+  .general-ledger-print .general-ledger-table tfoot tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .general-ledger-print .gl-balance-forward-row {
+    page-break-after: avoid !important;
+    break-after: avoid-page !important;
+  }
+
+  .general-ledger-print .gl-account-total {
+    font-weight: 600 !important;
+  }
+
+  .general-ledger-print .general-ledger-table tfoot td {
+    border-top: 2px solid #94a3b8 !important;
+    border-bottom: none !important;
+    font-weight: 600 !important;
+    padding-top: 6px !important;
+  }
+
+  .general-ledger-print .general-ledger-document-footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-top: 6px;
+  }
+
+  .general-ledger-print h1 {
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Account statement — landscape wide table (matches GL print density). */
+  @page account-statement-landscape {
+    size: landscape;
+    margin: 8mm 10mm;
+  }
+
+  .report-print-root.account-statement-report-root {
+    page: account-statement-landscape;
+  }
+
+  .report-print-sheet.account-statement-print {
+    page: account-statement-landscape;
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .account-statement-print .account-statement-statement {
+    width: 100% !important;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  }
+
+  .account-statement-print .account-statement-header,
+  .account-statement-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .account-statement-print.general-ledger-print .overflow-x-auto {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .account-statement-print.general-ledger-print .general-ledger-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    border: none !important;
+    font-family: inherit !important;
+  }
+
+  .account-statement-print.general-ledger-print .general-ledger-table th,
+  .account-statement-print.general-ledger-print .general-ledger-table td {
+    font-family: inherit !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .account-statement-print.general-ledger-print .general-ledger-table th {
+    background-color: #f8fafc !important;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: normal !important;
+    padding: 4px 6px !important;
+    color: #475569 !important;
+  }
+
+  .account-statement-print.general-ledger-print .general-ledger-table td {
+    padding: 2px 6px !important;
+    border: none !important;
+    vertical-align: top !important;
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    color: #334155 !important;
+  }
+
+  .account-statement-print .account-statement-ref,
+  .account-statement-print .general-ledger-table td:nth-child(2) {
+    white-space: nowrap !important;
+    word-break: normal !important;
+  }
+
+  .account-statement-print .general-ledger-table thead {
+    display: table-header-group !important;
+  }
+
+  .account-statement-print .gl-balance-forward-row,
+  .account-statement-print .gl-account-total {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .account-statement-print .grid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Account balances — landscape tabular statement. */
+  @page account-balances-landscape {
+    size: landscape;
+    margin: 8mm 10mm;
+  }
+
+  .report-print-root.account-balances-report-root {
+    page: account-balances-landscape;
+  }
+
+  .report-print-sheet.account-balances-print {
+    page: account-balances-landscape;
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .account-balances-print .account-balances-statement {
+    width: 100% !important;
+  }
+
+  .account-balances-print.general-ledger-print .account-balances-table,
+  .account-balances-print.general-ledger-print .general-ledger-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    font-size: 11px !important;
+    border: none !important;
+  }
+
+  .account-balances-print.general-ledger-print .account-balances-table th,
+  .account-balances-print.general-ledger-print .account-balances-table td,
+  .account-balances-print.general-ledger-print .general-ledger-table th,
+  .account-balances-print.general-ledger-print .general-ledger-table td {
+    font-family: inherit !important;
+  }
+
+  .account-balances-print.general-ledger-print .account-balances-table th,
+  .account-balances-print.general-ledger-print .general-ledger-table th {
+    background-color: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid #0f172a !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    padding: 4px 6px !important;
+  }
+
+  .account-balances-print.general-ledger-print .account-balances-table td,
+  .account-balances-print.general-ledger-print .general-ledger-table td {
+    padding: 3px 6px !important;
+    border: none !important;
+    vertical-align: middle !important;
+    font-size: 11px !important;
+  }
+
+  .account-balances-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .account-balances-print table {
+    width: 100% !important;
+    table-layout: auto !important;
+    font-size: 11px !important;
+  }
+
+  .account-balances-print th {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  .account-balances-print td,
+  .account-balances-print .balance-sheet-amount {
+    font-size: 11px !important;
+  }
+
+  .account-balances-print thead {
+    display: table-header-group !important;
+  }
+
+  .account-balances-print tfoot {
+    display: table-row-group !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .account-balances-print .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  .account-balances-print .balance-sheet-footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Aged payables / receivables — landscape ledger-style aging tables. */
+  @page aged-payables-landscape {
+    size: landscape;
+    margin: 6mm 8mm;
+  }
+
+  @page aged-receivables-landscape {
+    size: landscape;
+    margin: 6mm 8mm;
+  }
+
+  .report-print-root.aged-payables-report-root {
+    page: aged-payables-landscape;
+  }
+
+  .report-print-root.aged-receivables-report-root {
+    page: aged-receivables-landscape;
+  }
+
+  .report-print-sheet.aged-payables-print,
+  .report-print-sheet.aged-receivables-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .aged-aging-print.general-ledger-print .general-ledger-statement {
+    width: 100% !important;
+  }
+
+  .aged-aging-print.general-ledger-print .general-ledger-statement header h1 {
+    font-size: 15px !important;
+    line-height: 1.25 !important;
+  }
+
+  .aged-aging-print.general-ledger-print .general-ledger-statement header p,
+  .aged-aging-print.general-ledger-print .general-ledger-statement header span {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+  }
+
+  .aged-aging-print.general-ledger-print .general-ledger-statement footer,
+  .aged-aging-print.general-ledger-print .general-ledger-statement footer p,
+  .aged-aging-print.general-ledger-print .general-ledger-statement footer span {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Inherit GL table typography (11px body / 10px headers); only add column layout rules. */
+  .aged-aging-print.general-ledger-print .general-ledger-table,
+  .aged-aging-print .general-ledger-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    border: none !important;
+  }
+
+  .aged-aging-print .general-ledger-table thead {
+    display: table-header-group !important;
+  }
+
+  .aged-aging-print .general-ledger-table th {
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .aged-aging-print .general-ledger-table th.ledger-col-party {
+    text-align: left !important;
+  }
+
+  .aged-aging-print .general-ledger-table td {
+    overflow: hidden !important;
+    max-width: 0 !important;
+    text-align: center !important;
+    vertical-align: top !important;
+  }
+
+  .aged-aging-print .general-ledger-table td.ledger-col-party {
+    text-align: left !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .aged-aging-print .general-ledger-table td.ledger-col-cf,
+  .aged-aging-print .general-ledger-table th.ledger-col-cf {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    hyphens: auto !important;
+  }
+
+  .aged-aging-print .general-ledger-table td.ledger-col-date,
+  .aged-aging-print .general-ledger-table td.ledger-col-ref,
+  .aged-aging-print .general-ledger-table td.ledger-col-age {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .aged-aging-print .general-ledger-table td.ledger-col-data {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+  }
+
+  .aged-aging-print .general-ledger-table td.ledger-col-money,
+  .aged-aging-print .general-ledger-table th.ledger-col-money,
+  .aged-aging-print .general-ledger-table td.ledger-col-money span {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: center !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+
+  .aged-aging-print .aging-report-total-row,
+  .aged-aging-print .aging-report-grand-total,
+  .aged-aging-print .gl-account-total {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .aged-aging-print .aging-report-total-row td,
+  .aged-aging-print .gl-account-total td {
+    font-weight: 600 !important;
+    border-top: 2px solid #64748b !important;
+    padding-top: 6px !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    max-width: none !important;
+    text-align: left !important;
+    font-size: 11px !important;
+  }
+
+  .aged-aging-print .overflow-x-auto {
+    overflow: visible !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .aged-aging-print .aging-detail-table {
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .aged-aging-print tr {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  [data-sonner-toaster],
+  [data-radix-popper-content-wrapper],
+  [role='dialog'] {
+    display: none !important;
+  }
+}

@@ -1,0 +1,65 @@
+/**
+ * Industry accent themes — applied via html[data-industry-accent].
+ * Universal ERP: blue primary (default in globals.css).
+ * Pharmacy operations: emerald primary on pharmacy routes.
+ */
+
+html[data-industry-accent='pharmacy'] {
+    --primary: var(--color-emerald-600);
+    --primary-foreground: var(--color-white);
+    --ring: var(--color-emerald-500);
+    --chart-1: var(--color-emerald-500);
+}
+
+html.dark[data-industry-accent='pharmacy'] {
+    --primary: var(--color-emerald-500);
+    --primary-foreground: var(--color-white);
+    --ring: var(--color-emerald-400);
+    --chart-1: var(--color-emerald-400);
+}
+
+/* Sidebar: pharmacy zone group keeps emerald icon hint even on universal pages */
+.sidebar [data-industry-zone='pharmacy'] [data-slot='accordion-menu-icon'] {
+    color: var(--color-emerald-600);
+}
+
+html.dark .sidebar [data-industry-zone='pharmacy'] [data-slot='accordion-menu-icon'] {
+    color: var(--color-emerald-400);
+}
+
+/* Mega menu: pharmacy links use emerald active/hover (zone-colored, not route-colored) */
+.mega-menu-link--pharmacy.is-active {
+    background-color: var(--color-emerald-600) !important;
+    color: var(--color-white) !important;
+}
+
+.mega-menu-link--pharmacy:not(.is-active):hover {
+    background-color: var(--color-emerald-50);
+    color: var(--color-emerald-950);
+}
+
+html.dark .mega-menu-link--pharmacy:not(.is-active):hover {
+    background-color: color-mix(in oklab, var(--color-emerald-500) 12%, transparent);
+    color: var(--color-emerald-100);
+}
+
+/* Section nav reports dropdown — use theme primary instead of hard-coded blue */
+.section-nav-link.is-active {
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.section-nav-link:not(.is-active):hover {
+    color: var(--primary);
+}
+
+.section-nav-dropdown-item.is-active {
+    background-color: color-mix(in oklab, var(--primary) 10%, transparent);
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.section-nav-dropdown-item:not(.is-active):hover {
+    color: var(--primary);
+}

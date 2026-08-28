@@ -1,0 +1,10 @@
+# Serve the Print Agent installer as a download (do not execute on the server).
+<IfModule mod_mime.c>
+  AddType application/octet-stream .exe
+</IfModule>
+<IfModule mod_headers.c>
+  <FilesMatch "\.(exe|zip)$">
+    Header set Content-Type "application/octet-stream"
+    Header set Content-Disposition "attachment"
+  </FilesMatch>
+</IfModule>

@@ -1,26 +1,26 @@
 # Builds FinvorooDesktop-Setup.exe on windows-latest.
 #
-# Standalone finvoroo-desktop repository layout:
-#   finvoroo-desktop.git  → this repo (checked out to finvoroo-desktop/)
-#   React.git             → checked out to React-frontend/ (sibling folder)
-#
-# Matches local dev layout expected by scripts/build-frontend.mjs.
-# Laravel-api-backend and finvoroo-print-agent are separate repos — not used here.
+# Single-repo layout (finvoroo-desktop.git):
+#   package.json, src-tauri/     ← desktop shell
+#   React-frontend/              ← bundled React source for CI build
+#   webapp/                      ← generated (gitignored), embedded in installer
 
 name: Finvoroo Desktop Windows installer
 
 on:
   workflow_dispatch:
-    inputs:
-      react_ref:
-        description: 'React repo branch, tag, or SHA (default main)'
-        required: false
-        default: main
   push:
     branches:
       - main
     tags:
       - 'desktop-v*'
+    paths:
+      - 'React-frontend/**'
+      - 'src-tauri/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/finvoroo-desktop-windows.yml'
 
 permissions:
   contents: read
@@ -31,53 +31,25 @@ jobs:
     permissions:
       contents: write
 
-    env:
-      REACT_REPO: Shahzaib-Saeed/React
-      REACT_REF: >-
-        ${{ github.event.inputs.react_ref
-            || github.event.client_payload.react_ref
-            || 'main' }}
-
     steps:
-      - name: Checkout finvoroo-desktop
+      - name: Checkout finvoroo-desktop (includes React-frontend/)
         uses: actions/checkout@v4
-        with:
-          path: finvoroo-desktop
 
-      - name: Checkout React-frontend from React repo
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.REACT_REPO }}
-          ref: ${{ env.REACT_REF }}
-          path: React-frontend
-          # Required when React is private: add REACT_REPO_PAT secret on this repo
-          # (GitHub PAT with read access to Shahzaib-Saeed/React).
-          token: ${{ secrets.REACT_REPO_PAT }}
-
-      - name: Verify build layout (React-frontend + finvoroo-desktop)
+      - name: Verify React-frontend is bundled in this repo
         shell: pwsh
         run: |
-          $missing = @()
           if (-not (Test-Path 'React-frontend/package.json')) {
-            $missing += "React-frontend/ (from ${{ env.REACT_REPO }}@${{ env.REACT_REF }})"
-          }
-          if (-not (Test-Path 'finvoroo-desktop/package.json')) {
-            $missing += 'finvoroo-desktop/ (this repository root content)'
-          }
-          if ($missing.Count -gt 0) {
             Write-Error @"
-          Missing required directories for the desktop build:
-            $($missing -join "`n  ")
-
-          Expected CI layout (siblings, same as local dev):
-            finvoroo-desktop/   ← this repo
-            React-frontend/     ← cloned from ${{ env.REACT_REPO }}
-
-          Laravel and finvoroo-print-agent are NOT part of this build.
+          React-frontend/ is missing from finvoroo-desktop.git.
+          Copy your React source into React-frontend/ and push, then re-run.
           "@
             exit 1
           }
-          Write-Host "Build layout OK (React @ ${{ env.REACT_REF }}, finvoroo-desktop present)."
+          if (-not (Test-Path 'package.json')) {
+            Write-Error 'Desktop package.json missing at repo root.'
+            exit 1
+          }
+          Write-Host 'Single-repo layout OK (React-frontend/ + desktop shell).'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -86,7 +58,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             React-frontend/package-lock.json
-            finvoroo-desktop/package-lock.json
+            package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -96,54 +68,48 @@ jobs:
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: finvoroo-desktop/src-tauri
+          workspaces: src-tauri
 
       - name: Install React-frontend dependencies
         working-directory: React-frontend
         run: npm ci
 
       - name: Install finvoroo-desktop dependencies
-        working-directory: finvoroo-desktop
         run: npm ci
 
-      - name: Build React production bundle into finvoroo-desktop/webapp/
-        working-directory: finvoroo-desktop
+      - name: Build React production bundle into webapp/
         run: npm run build:frontend
 
       - name: Verify React bundle in webapp/
         shell: pwsh
         run: |
-          $index = 'finvoroo-desktop/webapp/index.html'
-          if (-not (Test-Path $index)) {
-            Write-Error "Missing $index — React-frontend build failed or did not output to finvoroo-desktop/webapp/."
+          if (-not (Test-Path 'webapp/index.html')) {
+            Write-Error 'Missing webapp/index.html — React build failed.'
             exit 1
           }
-          $assets = Get-ChildItem 'finvoroo-desktop/webapp/assets' -ErrorAction SilentlyContinue
+          $assets = Get-ChildItem 'webapp/assets' -ErrorAction SilentlyContinue
           if (-not $assets -or $assets.Count -eq 0) {
-            Write-Error 'finvoroo-desktop/webapp/assets/ is empty — the frontend bundle is incomplete.'
+            Write-Error 'webapp/assets/ is empty — frontend bundle incomplete.'
             exit 1
           }
-          Write-Host "webapp bundle OK ($($assets.Count) asset file(s)) — safe to run Tauri NSIS build."
+          Write-Host "webapp bundle OK ($($assets.Count) asset file(s))."
 
       - name: Build Windows NSIS installer (Tauri)
-        working-directory: finvoroo-desktop
         run: npx tauri build --bundles nsis
 
       - name: Publish FinvorooDesktop-Setup.exe
-        working-directory: finvoroo-desktop
         run: npm run publish-installer
 
       - name: Verify FinvorooDesktop-Setup.exe
         shell: pwsh
         run: |
-          $installer = 'finvoroo-desktop/dist/FinvorooDesktop-Setup.exe'
-          if (-not (Test-Path $installer)) {
-            Write-Error "Installer not found at $installer — NSIS build or publish-installer step failed."
+          if (-not (Test-Path 'dist/FinvorooDesktop-Setup.exe')) {
+            Write-Error 'Installer not found at dist/FinvorooDesktop-Setup.exe.'
             exit 1
           }
-          $sizeMb = [math]::Round((Get-Item $installer).Length / 1MB, 2)
+          $sizeMb = [math]::Round((Get-Item 'dist/FinvorooDesktop-Setup.exe').Length / 1MB, 2)
           if ($sizeMb -lt 5) {
-            Write-Error "Installer is only ${sizeMb} MB — expected tens of MB; webapp/ was likely empty during tauri build."
+            Write-Error "Installer is only ${sizeMb} MB — webapp/ was likely empty."
             exit 1
           }
           Write-Host "Installer OK (${sizeMb} MB)."
@@ -153,8 +119,8 @@ jobs:
         with:
           name: FinvorooDesktop-Setup
           path: |
-            finvoroo-desktop/dist/FinvorooDesktop-Setup.exe
-            finvoroo-desktop/src-tauri/target/release/bundle/nsis/FinvorooDesktop-Setup.exe
+            dist/FinvorooDesktop-Setup.exe
+            src-tauri/target/release/bundle/nsis/FinvorooDesktop-Setup.exe
           retention-days: 30
           if-no-files-found: error
 
@@ -162,7 +128,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/desktop-v')
         uses: softprops/action-gh-release@v2
         with:
-          files: finvoroo-desktop/dist/FinvorooDesktop-Setup.exe
+          files: dist/FinvorooDesktop-Setup.exe
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

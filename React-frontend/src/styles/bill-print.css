@@ -1,0 +1,76 @@
+/**
+ * Print matches the on-screen commercial vendor bill (one A4 page).
+ */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  html.print-bill-document-only body * {
+    visibility: hidden;
+  }
+
+  html.print-bill-document-only #bill-document,
+  html.print-bill-document-only #bill-document *,
+  html.print-bill-document-only #bill-print-document,
+  html.print-bill-document-only #bill-print-document * {
+    visibility: visible;
+  }
+
+  html.print-bill-document-only #bill-document,
+  html.print-bill-document-only #bill-print-document {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid #111 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html.print-bill-document-only body:has(#bill-document) #bill-print-document {
+    display: none !important;
+  }
+
+  html.print-bill-document-only main,
+  html.print-bill-document-only [role='content'] {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  html.print-bill-document-only [data-sonner-toaster],
+  html.print-bill-document-only [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+
+  html.print-bill-document-only .print\:hidden {
+    display: none !important;
+  }
+
+  html.print-bill-document-only #bill-document table,
+  html.print-bill-document-only #bill-print-document table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  html.print-bill-document-only #bill-document tr,
+  html.print-bill-document-only #bill-print-document tr {
+    page-break-inside: avoid;
+  }
+}

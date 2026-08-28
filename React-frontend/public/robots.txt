@@ -1,0 +1,3 @@
+# Finvoroo ERP application — do not index authenticated or workspace pages.
+User-agent: *
+Disallow: /

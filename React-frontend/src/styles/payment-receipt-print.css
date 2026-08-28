@@ -1,0 +1,94 @@
+/**
+ * Print only the payment receipt (#payment-receipt-document), not the workspace shell.
+ * Activated by adding .print-payment-receipt-document-only on <html> before window.print().
+ */
+
+@media print {
+  html.print-payment-receipt-document-only body * {
+    visibility: hidden;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document,
+  html.print-payment-receipt-document-only #payment-receipt-document * {
+    visibility: visible;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html.print-payment-receipt-document-only main,
+  html.print-payment-receipt-document-only [role='content'] {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-header-row {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-meta-col {
+    text-align: right !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-meta-table {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-meta-table td {
+    text-align: right !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-party-row--split {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 1.5rem !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-party-row--split .receipt-from-col,
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-party-row--split .receipt-details-col {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    width: 50% !important;
+    max-width: 50% !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-party-row--split .receipt-details-col {
+    border-left: 1px solid #e4e4e7 !important;
+    padding-left: 1.5rem !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-lines-table,
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-lines-table th,
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-lines-table td {
+    border: 1px solid #d4d4d8 !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-lines-table th {
+    background: #f4f4f5 !important;
+  }
+
+  html.print-payment-receipt-document-only #payment-receipt-document .receipt-screen-only {
+    display: none !important;
+  }
+}

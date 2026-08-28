@@ -1,0 +1,36 @@
+DirectoryIndex index.html
+
+RewriteEngine On
+
+# Laravel API
+RewriteRule ^api(/.*)?$ index.php [L]
+
+# Static files — do not rewrite
+RewriteRule ^react/assets/ - [L]
+RewriteRule ^react/media/ - [L]
+RewriteRule ^react/downloads/ - [L]
+RewriteRule ^react/version\.json$ - [L]
+RewriteRule ^downloads/ - [L]
+RewriteRule ^_next/ - [L]
+
+# Real files and folders
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Print Agent installer
+RewriteRule ^downloads/finvoroo-print-agent/?$ /downloads/FinvorooPrintAgent-Setup.exe [L,R=302]
+
+# ERP app (login, dashboard, workspace, etc.)
+RewriteRule ^(auth|dashboard|workspace|select-company|companies|profile|help|superadmin)(/.*)?$ react/index.html [L]
+
+# Homepage = landing page
+RewriteRule ^$ index.html [L]
+
+# Do not index authenticated ERP routes on this host
+<IfModule mod_headers.c>
+  SetEnvIf Request_URI "^/(auth|dashboard|workspace|select-company|companies|profile|help|superadmin)(/|$)" ERP_APP
+  SetEnvIf Request_URI "^/react/" ERP_APP
+  Header always set X-Robots-Tag "noindex, nofollow" env=ERP_APP
+</IfModule>
+

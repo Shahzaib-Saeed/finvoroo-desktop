@@ -1,0 +1,117 @@
+/**
+ * Print only the expense voucher (#expense-print-document), not the workspace or show layout.
+ */
+
+@media print {
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  html.print-expense-document-only body * {
+    visibility: hidden;
+  }
+
+  html.print-expense-document-only #expense-print-document,
+  html.print-expense-document-only #expense-print-document * {
+    visibility: visible;
+  }
+
+  html.print-expense-document-only #expense-print-document {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html.print-expense-document-only main,
+  html.print-expense-document-only [role='content'] {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  html.print-expense-document-only [data-sonner-toaster],
+  html.print-expense-document-only [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-header-row {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-meta-col {
+    text-align: right !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-meta-table {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-meta-table td {
+    text-align: right !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-party-row--split {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 1.5rem !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-party-row--split .expense-print-party-left,
+  html.print-expense-document-only #expense-print-document .expense-print-party-row--split .expense-print-party-right {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    width: 50% !important;
+    max-width: 50% !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-party-row--split .expense-print-party-right {
+    border-left: 1px solid #d4d4d8 !important;
+    padding-left: 1.5rem !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-journal-table,
+  html.print-expense-document-only #expense-print-document .expense-print-journal-table th,
+  html.print-expense-document-only #expense-print-document .expense-print-journal-table td {
+    border: 1px solid #d4d4d8 !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-journal-table th {
+    background: #f4f4f5 !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-amount-box {
+    border: 2px solid #18181b !important;
+    background: #fafafa !important;
+  }
+
+  html.print-expense-document-only #expense-print-document .expense-print-signatures {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    gap: 1rem !important;
+  }
+}

@@ -1,0 +1,145 @@
+import {
+  BookOpen,
+  PackageSearch,
+  Receipt,
+  Scale,
+  TrendingDown,
+  TrendingUp,
+  Warehouse,
+} from 'lucide-react';
+
+/**
+ * Starter configurations for the "Create New Report" gallery. Every
+ * template targets a real, existing dataset/field combination (the same
+ * 5 row-oriented datasets the builder itself lists via
+ * GET /workspace/reports/builder/datasets) — nothing here is backend-new,
+ * it's just a pre-filled definition the executor already knows how to run.
+ */
+export const REPORT_TEMPLATES = [
+  {
+    id: 'general-ledger-detail',
+    label: 'General Ledger Detail',
+    description: 'Every posted journal line with running balance, ready to filter by account or date.',
+    icon: BookOpen,
+    category: 'accounting',
+    datasetKey: 'accounting.general_ledger',
+    definition: {
+      date_range: { relative_key: 'year_to_date' },
+      columns: ['entry_date', 'code', 'account_name', 'reference', 'debit', 'credit', 'balance'],
+      filters: null,
+      sort: [{ field: 'entry_date', direction: 'asc' }],
+      group_by: [],
+      aggregations: [],
+      calculated_fields: [],
+    },
+  },
+  {
+    id: 'trial-balance-summary',
+    label: 'Trial Balance',
+    description: 'Debit and credit totals per account for the selected period.',
+    icon: Scale,
+    category: 'accounting',
+    datasetKey: 'accounting.trial_balance',
+    definition: {
+      date_range: { relative_key: 'year_to_date' },
+      columns: ['code', 'account_name', 'total_debit', 'total_credit'],
+      filters: null,
+      sort: [{ field: 'code', direction: 'asc' }],
+      group_by: [],
+      aggregations: [],
+      calculated_fields: [],
+    },
+  },
+  {
+    id: 'sales-by-customer',
+    label: 'Sales by Customer',
+    description: 'Invoiced revenue grouped and totaled by customer.',
+    icon: TrendingUp,
+    category: 'sales',
+    datasetKey: 'sales.ar_ledger',
+    definition: {
+      date_range: { relative_key: 'this_quarter' },
+      columns: ['customer_name', 'amount_abs'],
+      filters: { type: 'condition', field: 'entry_type', operator: 'equals', value: 'invoice' },
+      sort: [],
+      group_by: ['customer_name'],
+      aggregations: [{ field: 'amount_abs', function: 'sum', alias: 'total_sales' }],
+      calculated_fields: [],
+    },
+  },
+  {
+    id: 'customer-invoice-ledger',
+    label: 'Outstanding Customers',
+    description: 'Customer invoice activity — reference, status, and amount per invoice.',
+    icon: Receipt,
+    category: 'sales',
+    datasetKey: 'sales.ar_ledger',
+    definition: {
+      date_range: { relative_key: 'this_year' },
+      columns: ['txn_date', 'customer_name', 'reference_no', 'status', 'amount_abs'],
+      filters: { type: 'condition', field: 'entry_type', operator: 'equals', value: 'invoice' },
+      sort: [{ field: 'txn_date', direction: 'desc' }],
+      group_by: [],
+      aggregations: [],
+      calculated_fields: [],
+    },
+  },
+  {
+    id: 'vendor-payables-summary',
+    label: 'Vendor Payables Summary',
+    description: 'Bill activity grouped and totaled by vendor.',
+    icon: TrendingDown,
+    category: 'purchasing',
+    datasetKey: 'purchasing.ap_ledger',
+    definition: {
+      date_range: { relative_key: 'this_quarter' },
+      columns: ['vendor_name', 'amount_abs'],
+      filters: { type: 'condition', field: 'entry_type', operator: 'equals', value: 'bill' },
+      sort: [],
+      group_by: ['vendor_name'],
+      aggregations: [{ field: 'amount_abs', function: 'sum', alias: 'total_payables' }],
+      calculated_fields: [],
+    },
+  },
+  {
+    id: 'inventory-valuation',
+    label: 'Inventory Valuation',
+    description: 'On-hand quantity and cost value for every stock-tracked product.',
+    icon: Warehouse,
+    category: 'inventory',
+    datasetKey: 'inventory.stock_summary',
+    definition: {
+      date_range: null,
+      columns: ['sku', 'name', 'category', 'quantity', 'unit_cost', 'value'],
+      filters: null,
+      sort: [{ field: 'value', direction: 'desc' }],
+      group_by: [],
+      aggregations: [],
+      calculated_fields: [],
+    },
+  },
+  {
+    id: 'low-stock-report',
+    label: 'Low & Out of Stock',
+    description: 'Products at or below their reorder point, or fully out of stock.',
+    icon: PackageSearch,
+    category: 'inventory',
+    datasetKey: 'inventory.stock_summary',
+    definition: {
+      date_range: null,
+      columns: ['sku', 'name', 'quantity', 'stock_status'],
+      filters: { type: 'condition', field: 'stock_status', operator: 'in', values: ['low', 'out'] },
+      sort: [{ field: 'quantity', direction: 'asc' }],
+      group_by: [],
+      aggregations: [],
+      calculated_fields: [],
+    },
+  },
+];
+
+export const TEMPLATE_CATEGORY_LABELS = {
+  accounting: 'Accounting',
+  sales: 'Sales',
+  purchasing: 'Purchasing',
+  inventory: 'Inventory',
+};

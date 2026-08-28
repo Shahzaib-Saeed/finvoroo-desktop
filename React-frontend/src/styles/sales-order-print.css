@@ -1,0 +1,109 @@
+/**
+ * Print only the sales order document (#sales-order-print-document).
+ */
+
+@media print {
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  html.print-sales-order-document-only body * {
+    visibility: hidden;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document,
+  html.print-sales-order-document-only #sales-order-print-document * {
+    visibility: visible;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html.print-sales-order-document-only main,
+  html.print-sales-order-document-only [role='content'] {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  html.print-sales-order-document-only [data-sonner-toaster],
+  html.print-sales-order-document-only [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-header-row {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-meta-col {
+    text-align: right !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-meta-table {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-meta-table td {
+    text-align: right !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-party-row--split {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 1.5rem !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-party-row--split .so-print-billto-col,
+  html.print-sales-order-document-only #sales-order-print-document .so-print-party-row--split .so-print-shipto-col {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    width: 50% !important;
+    max-width: 50% !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-shipto-col {
+    border-left: 1px solid #d4d4d8 !important;
+    padding-left: 1.5rem !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-lines-table,
+  html.print-sales-order-document-only #sales-order-print-document .so-print-lines-table th,
+  html.print-sales-order-document-only #sales-order-print-document .so-print-lines-table td {
+    border: 1px solid #d4d4d8 !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-lines-table th {
+    background: #f4f4f5 !important;
+  }
+
+  html.print-sales-order-document-only #sales-order-print-document .so-print-lines-table .so-print-num {
+    text-align: center !important;
+  }
+}
