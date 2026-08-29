@@ -143,10 +143,16 @@ export function DispensePayDialog({
 
   const focusDiscountField = useCallback((which) => {
     const el = which === 'percent' ? discountPercentRef.current : discountAmountRef.current;
-    if (!el) return;
+    if (!el) return false;
     el.focus({ preventScroll: true });
     el.select();
+    return true;
   }, []);
+
+  const focusRsOff = useCallback(() => {
+    if (canDiscount && focusDiscountField('amount')) return;
+    focusTender();
+  }, [canDiscount, focusDiscountField, focusTender]);
 
   const focusQuickAt = useCallback(
     (index) => {
@@ -263,12 +269,18 @@ export function DispensePayDialog({
       setTenderRaw(String(seed));
       prevPayDueRef.current = payDue;
 
-      const id = requestAnimationFrame(() => focusTender());
+      // Always land on Rs off. Radix auto-focus and a later due-total
+      // update can steal it onto Cash received — pin it twice.
+      const first = requestAnimationFrame(() => focusRsOff());
+      const again = window.setTimeout(() => focusRsOff(), 40);
       wasOpenRef.current = true;
-      return () => cancelAnimationFrame(id);
+      return () => {
+        cancelAnimationFrame(first);
+        window.clearTimeout(again);
+      };
     }
     wasOpenRef.current = open;
-  }, [open, applyOpeningWholeRupeeDiscount, focusTender, payDue, suggestions]);
+  }, [open, applyOpeningWholeRupeeDiscount, focusRsOff, payDue, suggestions]);
 
   useEffect(() => {
     if (!open) return;
@@ -325,19 +337,17 @@ export function DispensePayDialog({
     if (e.key === 'ArrowRight' && which === 'percent') {
       e.preventDefault();
       if (suggestions.length) focusQuickAt(0);
-      else focusTender();
       return;
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (canConfirm) confirmCash();
-      else focusTender();
+      e.stopPropagation();
+      confirmCash();
       return;
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (suggestions.length) focusQuickAt(0);
-      else focusTender();
     }
   };
 
@@ -373,6 +383,10 @@ export function DispensePayDialog({
         overlayClassName="bg-slate-900/50 backdrop-blur-[2px]"
         data-pos-no-scan
         data-pharmacy-typing
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          focusRsOff();
+        }}
       >
         <DialogHeader className="mb-0 space-y-0 border-b border-slate-200 bg-white px-5 py-3 pe-12 text-left">
           <DialogTitle className="text-[16px] font-bold text-slate-900">Complete sale</DialogTitle>
@@ -437,7 +451,7 @@ export function DispensePayDialog({
           </div>
         ) : null}
 
-        <div className="space-y-4 px-5 py-4">
+        <div className="space-y-3 px-5 pt-3 pb-2">
           {canDiscount ? (
             <div>
               <p className="mb-2 text-[13px] font-semibold text-slate-800">Discount (optional)</p>
@@ -533,7 +547,7 @@ export function DispensePayDialog({
           </div>
         </div>
 
-        <DialogFooter className="mb-0 flex-row gap-2.5 border-t border-slate-200 bg-white px-5 py-3 pt-0 sm:justify-between">
+        <DialogFooter className="mb-0 flex-row gap-2.5 border-t border-slate-200 bg-white px-5 pt-4 pb-3 sm:justify-between sm:space-x-0">
           <Button
             type="button"
             variant="outline"

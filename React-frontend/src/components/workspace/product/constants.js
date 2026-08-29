@@ -262,6 +262,8 @@ function buildPharmacyPayload(form) {
     p.manufacturer_id ||
     p.prescription_required ||
     p.controlled_drug ||
+    p.pack_size ||
+    p.units_per_pack ||
     (Array.isArray(form.barcodes) && form.barcodes.length > 0) ||
     form.mrp !== '' ||
     form.wholesale_price !== '';

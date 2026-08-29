@@ -23,6 +23,21 @@ const BatchExpiryPage = lazy(() =>
 const MedicineReportsPage = lazy(() =>
   import('./pages/MedicineReportsPage').then((m) => ({ default: m.MedicineReportsPage })),
 );
+const PosItemSalesReportPage = lazy(() =>
+  import('./pages/reports/PosItemSalesReportPage').then((m) => ({
+    default: m.PosItemSalesReportPage,
+  })),
+);
+const ManufacturerExpiryReportPage = lazy(() =>
+  import('./pages/reports/ManufacturerExpiryReportPage').then((m) => ({
+    default: m.ManufacturerExpiryReportPage,
+  })),
+);
+const StockValuationReportPage = lazy(() =>
+  import('./pages/reports/StockValuationReportPage').then((m) => ({
+    default: m.StockValuationReportPage,
+  })),
+);
 const PharmacySettingsPage = lazy(() =>
   import('./pages/PharmacySettingsPage').then((m) => ({ default: m.PharmacySettingsPage })),
 );
@@ -121,6 +136,36 @@ export function PharmacyIndustryRoutes() {
           <IndustryModuleGate feature="pharmacy_shell">
             <Lazy>
               <MedicineReportsPage />
+            </Lazy>
+          </IndustryModuleGate>
+        }
+      />
+      <Route
+        path="/workspace/:id/pharmacy/reports/item-sales"
+        element={
+          <IndustryModuleGate feature="pharmacy_shell">
+            <Lazy>
+              <PosItemSalesReportPage />
+            </Lazy>
+          </IndustryModuleGate>
+        }
+      />
+      <Route
+        path="/workspace/:id/pharmacy/reports/manufacturer-expiry"
+        element={
+          <IndustryModuleGate feature="batch_expiry">
+            <Lazy>
+              <ManufacturerExpiryReportPage />
+            </Lazy>
+          </IndustryModuleGate>
+        }
+      />
+      <Route
+        path="/workspace/:id/pharmacy/reports/stock-valuation"
+        element={
+          <IndustryModuleGate feature="pharmacy_shell">
+            <Lazy>
+              <StockValuationReportPage />
             </Lazy>
           </IndustryModuleGate>
         }

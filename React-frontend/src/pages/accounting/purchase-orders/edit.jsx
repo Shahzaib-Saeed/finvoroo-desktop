@@ -4,6 +4,8 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { resolveIndustryFeatures } from '@/industries/resolve';
+import { useAuthStore } from '@/store/authStore';
 import { purchaseOrdersApi } from './api/purchase-orders.api';
 import { PurchaseOrderForm } from './components/PurchaseOrderForm';
 import { usePurchaseOrderForm } from './hooks/usePurchaseOrderForm';
@@ -13,6 +15,8 @@ export function PurchaseOrderEditPage() {
   const { id: workspaceId, purchaseOrderId } = useParams();
   const navigate = useNavigate();
   const base = `/workspace/${workspaceId}/accounting/purchase-orders`;
+  const activeCompany = useAuthStore((s) => s.activeCompany);
+  const isPharmacy = !!resolveIndustryFeatures(activeCompany).pharmacy_shell;
 
   const [purchaseOrder, setPurchaseOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -77,6 +81,38 @@ export function PurchaseOrderEditPage() {
     );
   }
 
+  const extraActions = (
+    <DocumentCreateRelatedDropdown
+      workspaceId={workspaceId}
+      sourceType="purchase_order"
+      sourceId={purchaseOrderId}
+      targets={[
+        { target: 'quotation' },
+        { target: 'sales_order' },
+        { target: 'invoice' },
+        { target: 'bill' },
+        { target: 'purchase_order' },
+      ]}
+    />
+  );
+
+  const form = (
+    <PurchaseOrderForm
+      {...poForm}
+      isEdit
+      onSubmit={poForm.handleSubmit}
+      onCancel={() => navigate(`${base}/${purchaseOrderId}`)}
+      backTo={`${base}/${purchaseOrderId}`}
+      pageTitle={`Edit ${purchaseOrder.po_number}`}
+      pageSubtitle={purchaseOrder.vendor?.name || 'Update this purchase order'}
+      extraActions={extraActions}
+    />
+  );
+
+  if (isPharmacy) {
+    return <div className="w-full min-w-0">{form}</div>;
+  }
+
   return (
     <div className="space-y-6 w-full min-w-0">
       <PageHeader
@@ -84,18 +120,7 @@ export function PurchaseOrderEditPage() {
         subtitle={purchaseOrder.vendor?.name}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <DocumentCreateRelatedDropdown
-              workspaceId={workspaceId}
-              sourceType="purchase_order"
-              sourceId={purchaseOrderId}
-              targets={[
-                { target: 'quotation' },
-                { target: 'sales_order' },
-                { target: 'invoice' },
-                { target: 'bill' },
-                { target: 'purchase_order' },
-              ]}
-            />
+            {extraActions}
             <Button variant="outline" size="sm" asChild>
               <Link to={`${base}/${purchaseOrderId}`}>
                 <ArrowLeft className="size-4 mr-1" /> Back
@@ -104,12 +129,7 @@ export function PurchaseOrderEditPage() {
           </div>
         }
       />
-      <PurchaseOrderForm
-        {...poForm}
-        isEdit
-        onSubmit={poForm.handleSubmit}
-        onCancel={() => navigate(`${base}/${purchaseOrderId}`)}
-      />
+      {form}
     </div>
   );
 }

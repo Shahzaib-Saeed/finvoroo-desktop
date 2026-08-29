@@ -4,11 +4,13 @@ import {
   Loader2,
   PackageSearch,
   Plus,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetBody,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -21,20 +23,17 @@ import { formatPackStock } from "../lib/pharmacy-pricing";
 import { PharmacyShortcutHint } from "./PharmacyKbd";
 import { MedicineThumb } from "./MedicineThumb";
 
-const GRID_BORDER = "#d1e7dd";
-const GRID_HEADER = "#065f46";
-
 const LOOKUP_COLS_SALE = [
   { key: "image", className: "w-[56px]" },
-  { key: "medicine", className: "w-[32%]" },
-  { key: "form", className: "w-[5rem]" },
-  { key: "stock", className: "w-[5rem]" },
-  { key: "packStock", className: "w-[4.75rem]" },
-  { key: "purchase", className: "w-[5.25rem]" },
-  { key: "sale", className: "w-[5.25rem]" },
-  { key: "unitSale", className: "w-[5rem]" },
-  { key: "manufacturer", className: "w-[11%]" },
-  { key: "pack", className: "w-[3.5rem]" },
+  { key: "medicine", className: "w-[28%]" },
+  { key: "form", className: "w-[4.75rem]" },
+  { key: "stock", className: "w-[4.5rem]" },
+  { key: "packStock", className: "w-[4.25rem]" },
+  { key: "purchase", className: "w-[4.75rem]" },
+  { key: "sale", className: "w-[4.75rem]" },
+  { key: "unitSale", className: "w-[4.5rem]" },
+  { key: "manufacturer", className: "w-[8rem]" },
+  { key: "pack", className: "w-[3.25rem]" },
 ];
 
 /** POS sale lookup — essential columns for laptops / small Windows screens. */
@@ -49,8 +48,12 @@ const LOOKUP_COLS_SALE_NARROW = [
 
 const NARROW_LOOKUP_MQ = "(max-width: 1536px)";
 
-function useLookupSheetWidth(open) {
-  const [widthPx, setWidthPx] = useState(null);
+const LOOKUP_SHEET_WIDTH_FULL = 940;
+const LOOKUP_SHEET_WIDTH_NARROW = 640;
+
+function useLookupSheetWidth(open, narrowViewport) {
+  const fallback = narrowViewport ? LOOKUP_SHEET_WIDTH_NARROW : LOOKUP_SHEET_WIDTH_FULL;
+  const [widthPx, setWidthPx] = useState(() => (open ? fallback : null));
 
   useLayoutEffect(() => {
     if (!open) {
@@ -59,23 +62,21 @@ function useLookupSheetWidth(open) {
     }
 
     const measure = () => {
-      const stop =
-        document.querySelector('[data-lookup-stop="qty"]') ||
-        document.querySelector("[data-dispense-qty]") ||
-        document.querySelector('[data-grn-field^="qty-"]');
-      if (!stop) {
-        setWidthPx(null);
+      const dispenseQty = document.querySelector("[data-dispense-qty]");
+      if (dispenseQty) {
+        const qtyRight = dispenseQty.getBoundingClientRect().right;
+        const vw = window.innerWidth;
+        const fromQty = Math.round(vw - qtyRight);
+        const minGridPx = Math.max(560, Math.round(vw * 0.46));
+        const maxAllowed = Math.max(480, vw - minGridPx);
+        const cap = Math.min(fromQty, maxAllowed, Math.round(vw * 0.58), 980);
+        setWidthPx(Math.max(480, Math.min(cap, LOOKUP_SHEET_WIDTH_FULL)));
         return;
       }
-      const qtyRight = stop.getBoundingClientRect().right;
-      const vw = window.innerWidth;
-      const fromQty = Math.round(vw - qtyRight);
-      const minGridPx = Math.max(560, Math.round(vw * 0.46));
-      const maxAllowed = Math.max(400, vw - minGridPx);
-      const cap = Math.min(fromQty, maxAllowed, Math.round(vw * 0.54), 920);
-      setWidthPx(Math.max(400, cap));
+      setWidthPx(fallback);
     };
 
+    setWidthPx(fallback);
     measure();
     const frame = requestAnimationFrame(measure);
     window.addEventListener("resize", measure);
@@ -83,9 +84,9 @@ function useLookupSheetWidth(open) {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", measure);
     };
-  }, [open]);
+  }, [open, narrowViewport, fallback]);
 
-  return widthPx;
+  return open ? (widthPx ?? fallback) : null;
 }
 
 function useNarrowLookupViewport() {
@@ -105,14 +106,17 @@ function useNarrowLookupViewport() {
   return narrow;
 }
 
-function Th({ children, align = "left", compact = false, title }) {
+/** Shared grid — emerald header only; body uses neutral lines. */
+const GRID_LINE = "border-r border-b border-slate-200 last:border-r-0";
+const GRID_HEAD = "border-r border-emerald-700/35 border-b-2 border-emerald-900 last:border-r-0";
+
+function Th({ children, align = "left", title }) {
   return (
     <th
       title={title}
-      style={{ borderColor: "rgba(255,255,255,0.12)", background: GRID_HEADER }}
       className={cn(
-        "border-b border-r px-2 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-white/95 whitespace-nowrap last:border-r-0",
-        compact && "py-2",
+        GRID_HEAD,
+        "sticky top-0 z-10 bg-emerald-800 px-2.5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-white/95 whitespace-nowrap",
         align === "center" && "text-center",
         align === "right" && "text-right",
         align === "left" && "text-left",
@@ -134,24 +138,11 @@ function Td({
 }) {
   return (
     <td
-      style={{
-        borderColor: GRID_BORDER,
-        ...(selected && lead
-          ? {
-              boxShadow: suggested
-                ? "inset 3px 0 0 0 #d97706"
-                : "inset 3px 0 0 0 #065f46",
-            }
-          : {}),
-      }}
       className={cn(
-        "border-b border-r p-0 align-middle leading-snug text-slate-900 last:border-r-0",
-        compact ? "px-2 py-1.5 text-[12px]" : "px-2 py-2 text-[13px]",
-        selected
-          ? suggested
-            ? "bg-amber-50/90"
-            : "bg-emerald-50/90"
-          : "bg-white",
+        GRID_LINE,
+        "px-2.5 align-middle leading-snug text-slate-900",
+        compact ? "py-1.5 text-[12px]" : "py-2 text-[13px]",
+        selected && lead && (suggested ? "shadow-[inset_3px_0_0_0_#f59e0b]" : "shadow-[inset_3px_0_0_0_#10b981]"),
         align === "center" && "text-center",
         align === "right" && "text-right",
         align === "left" && "text-left",
@@ -197,12 +188,12 @@ function PriceCell({ children, muted = false, accent = false }) {
   return (
     <span
       className={cn(
-        "tabular-nums text-[13px]",
+        "tabular-nums text-[12px]",
         accent
-          ? "font-semibold text-emerald-800"
+          ? "font-semibold text-emerald-700"
           : muted
-            ? "font-medium text-slate-600"
-            : "font-medium text-slate-900",
+            ? "font-medium text-slate-500"
+            : "font-medium text-slate-700",
       )}
     >
       {children}
@@ -227,7 +218,7 @@ function NumCell({ children, className, warn = false }) {
 function StockCell({ stock, outOfStock }) {
   if (outOfStock) {
     return (
-      <span className="text-[13px] font-bold uppercase tracking-wide text-red-600">
+      <span className="inline-flex h-5 items-center rounded-full bg-red-50 px-1.5 text-[10px] font-bold uppercase tracking-wide text-red-700">
         Out
       </span>
     );
@@ -237,10 +228,10 @@ function StockCell({ stock, outOfStock }) {
   const low = Number.isFinite(n) && n > 0 && n <= 5;
 
   return (
-    <div className="inline-flex flex-col items-center leading-none">
+    <div className="inline-flex items-center justify-center gap-1">
       <NumCell warn={low}>{stock ?? "0"}</NumCell>
       {low ? (
-        <span className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+        <span className="inline-flex h-4 items-center rounded bg-amber-100/80 px-1 text-[9px] font-bold uppercase tracking-wide text-amber-800">
           Low
         </span>
       ) : null}
@@ -276,27 +267,31 @@ const LookupRow = memo(function LookupRow({
       data-out-of-stock={outOfStock ? "1" : undefined}
       data-suggested-link={suggested ? "1" : undefined}
       className={cn(
-        "transition-colors",
-        outOfStock ? "cursor-not-allowed opacity-60" : "cursor-pointer",
-        !selected && !suggested && "hover:[&>td]:bg-slate-50",
-        suggested && !selected && "hover:[&>td]:bg-amber-50/70",
+        "group transition-colors",
+        outOfStock ? "cursor-not-allowed opacity-55" : "cursor-pointer",
+        selected
+          ? suggested
+            ? "bg-amber-50/90 shadow-[inset_0_0_0_1px_rgb(245_158_11_/_0.45)]"
+            : "bg-emerald-50/80 shadow-[inset_0_0_0_1px_rgb(16_185_129_/_0.4)]"
+          : "bg-white even:bg-slate-50/40",
+        !selected && !outOfStock && "hover:bg-slate-50",
       )}
     >
       <Td align="center" lead {...cellTone}>
-        <div className="flex justify-center py-0.5">
+        <div className="flex justify-center">
           <MedicineThumb
             src={lookup.image || null}
             alt=""
             letter={row.name}
-            size={isSaleNarrow ? "sm" : "md"}
-            className={cn("rounded-md", outOfStock && "opacity-70")}
+            size="sm"
+            className={cn(outOfStock && "opacity-70 grayscale-[0.15]")}
           />
         </div>
       </Td>
       <Td {...cellTone}>
-        <div className="flex min-w-0 items-start gap-1.5 px-0.5">
+        <div className="flex min-w-0 items-start gap-1.5">
           <div className="min-w-0 flex-1">
-            <p className="text-left text-[13px] font-semibold leading-snug text-slate-900 line-clamp-2">
+            <p className="text-left text-[13px] font-medium leading-snug text-slate-900 line-clamp-2 group-hover:text-emerald-900">
               {row.name || "—"}
             </p>
             {sub ? (
@@ -369,7 +364,7 @@ const LookupRow = memo(function LookupRow({
         <Td
           align={isSaleLayout ? "left" : "center"}
           {...cellTone}
-          className="max-w-0 text-[12px] font-medium text-slate-600"
+          className="text-[12px] font-medium text-slate-600"
         >
           <span className="block truncate" title={makerLabel}>
             {makerLabel}
@@ -408,7 +403,7 @@ export function MedicinePickSheet({
   const rowsRef = useRef(rows);
   const onCreateNewRef = useRef(onCreateNew);
   const narrowViewport = useNarrowLookupViewport();
-  const sheetWidthPx = useLookupSheetWidth(open);
+  const sheetWidthPx = useLookupSheetWidth(open, narrowViewport);
   const linkedId = invoiceLinkedProductId ? String(invoiceLinkedProductId) : "";
   const lookupLayout = narrowViewport ? "sale-narrow" : "sale";
   const lookupCols = narrowViewport ? LOOKUP_COLS_SALE_NARROW : LOOKUP_COLS_SALE;
@@ -450,32 +445,32 @@ export function MedicinePickSheet({
       ?.scrollIntoView?.({ block: "nearest" });
   }, [focusIdx, open]);
 
+  const panelWidth = sheetWidthPx;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
         side="right"
-        close
+        close={false}
         overlay
         data-pharmacy-pick-sheet
-        overlayClassName="pointer-events-none !z-[70] bg-slate-900/20"
+        overlayClassName="pointer-events-none !z-[70] bg-slate-900/25"
         style={
-          sheetWidthPx
+          panelWidth
             ? {
-                width: sheetWidthPx,
-                maxWidth: sheetWidthPx,
+                '--pick-sheet-w': `${panelWidth}px`,
+                width: panelWidth,
+                maxWidth: panelWidth,
+                minWidth: panelWidth,
               }
             : undefined
         }
         className={cn(
-          "!z-[70] flex h-full min-w-0 flex-col gap-0 overflow-hidden border-s border-slate-200 bg-white p-0 text-slate-900 antialiased",
-          "shadow-[-4px_0_24px_rgba(15,23,42,0.06)]",
-          !sheetWidthPx &&
-            (narrowViewport
-              ? "w-[min(34rem,calc(100vw-28rem))] !max-w-[min(34rem,calc(100vw-28rem))]"
-              : "w-[min(48rem,calc(100vw-26rem))] !max-w-[min(48rem,calc(100vw-26rem))]"),
+          "!z-[70] flex h-full !max-w-none flex-col gap-0 overflow-hidden border-s border-slate-200/80 bg-white p-0 text-slate-900 antialiased",
+          "[width:var(--pick-sheet-w)] !w-[var(--pick-sheet-w)]",
+          "shadow-[-12px_0_40px_rgba(15,23,42,0.12)]",
           "data-pharmacy-pick-sheet",
           "data-[state=open]:duration-200 data-[state=closed]:duration-150",
-          "[&>button]:top-3 [&>button]:end-3 [&>button]:size-8 [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:text-slate-600 [&>button]:opacity-100 [&>button]:shadow-xs [&>button]:hover:bg-slate-50",
         )}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
@@ -489,47 +484,51 @@ export function MedicinePickSheet({
           if (e.target.closest?.(anchorSelector)) e.preventDefault();
         }}
       >
-        <SheetHeader className="shrink-0 space-y-0 border-b border-slate-200 bg-white px-4 py-2.5 pe-11 text-left">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-2.5">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-700">
-                <PackageSearch className="size-3.5" />
-              </div>
-              <div className="min-w-0">
-                <SheetTitle className="text-[15px] font-semibold tracking-tight !text-slate-900">
-                  Medicine lookup
-                </SheetTitle>
-                <SheetDescription className="mt-0.5 text-[12px] font-medium !text-slate-600">
-                  {query ? (
-                    <>
-                      Searching{" "}
-                      <span className="font-semibold text-slate-900">{query}</span>
-                    </>
-                  ) : (
-                    "Keep typing · Enter adds the highlighted row"
-                  )}
-                </SheetDescription>
-              </div>
+        <SheetHeader className="shrink-0 space-y-0 border-b border-slate-200 bg-white px-4 py-3.5 text-left">
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+              <PackageSearch className="size-4" />
             </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            <div className="min-w-0 flex-1">
+              <SheetTitle className="text-[15px] font-semibold tracking-tight !text-slate-900">
+                Medicine lookup
+              </SheetTitle>
+              <SheetDescription className="mt-0.5 text-[12px] font-medium !text-slate-500">
+                {query ? (
+                  <>
+                    Searching{" "}
+                    <span className="font-semibold text-slate-800">{query}</span>
+                  </>
+                ) : (
+                  "Keep typing — Enter adds the highlighted row"
+                )}
+              </SheetDescription>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
               {showCreate ? (
                 <Button
                   type="button"
                   size="sm"
-                  className="h-7 gap-1 border border-slate-300 bg-white px-2.5 text-[11px] font-semibold text-slate-800 hover:bg-slate-50"
+                  variant="outline"
+                  className="h-8 gap-1 border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 shadow-none hover:bg-slate-50"
                   onClick={handleCreate}
                 >
-                  <Plus className="size-3" />
+                  <Plus className="size-3.5" />
                   {createLabel
-                    ? `Create “${createLabel.slice(0, 20)}${createLabel.length > 20 ? "…" : ""}”`
-                    : "New product"}
+                    ? `Create “${createLabel.slice(0, 18)}${createLabel.length > 18 ? "…" : ""}”`
+                    : "New"}
                 </Button>
               ) : null}
               {loading ? (
-                <Loader2 className="size-3 animate-spin text-slate-500" />
+                <Loader2 className="size-4 animate-spin text-slate-400" />
               ) : null}
               <span
-                className="inline-flex h-7 items-center rounded border border-slate-300 bg-slate-50 px-2 text-[12px] font-semibold tabular-nums text-slate-800"
+                className={cn(
+                  "inline-flex h-8 items-center rounded-full px-2.5 text-[11px] font-semibold tabular-nums",
+                  rows.length
+                    ? "bg-emerald-50 text-emerald-800"
+                    : "bg-slate-100 text-slate-500",
+                )}
                 title={
                   catalogCount > rows.length
                     ? `${catalogCount.toLocaleString()} in catalog`
@@ -538,14 +537,22 @@ export function MedicinePickSheet({
               >
                 {rows.length} {rows.length === 1 ? "match" : "matches"}
               </span>
+              <SheetClose
+                type="button"
+                aria-label="Close medicine lookup"
+                className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/25"
+              >
+                <X className="size-4 stroke-[2]" />
+                <span className="sr-only">Close</span>
+              </SheetClose>
             </div>
           </div>
         </SheetHeader>
 
-        <SheetBody className="min-h-0 flex-1 overflow-hidden bg-white p-0">
+        <SheetBody className="min-h-0 flex-1 overflow-hidden bg-slate-50/60 p-3">
           <div
             ref={bodyRef}
-            className="h-full overflow-x-auto overflow-y-auto bg-white"
+            className="h-full overflow-x-auto overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100"
             onMouseDown={(e) => {
               if (e.target.closest?.("[data-lookup-idx]")) e.preventDefault();
             }}
@@ -558,7 +565,7 @@ export function MedicinePickSheet({
               if (row) onPickRef.current?.(row);
             }}
           >
-            <table className="w-full min-w-0 table-fixed border-collapse text-[13px]">
+            <table className="w-full table-fixed border-collapse text-[13px] [&_tbody_tr:last-child_td]:border-b-0">
               <colgroup>
                 {lookupCols.map((col) => (
                   <col key={col.key} className={col.className} />
@@ -566,18 +573,18 @@ export function MedicinePickSheet({
               </colgroup>
               <thead className="sticky top-0 z-10">
                 <tr>
-                  <Th align="center" compact title="Product photo">
+                  <Th align="center" title="Product photo">
                     Photo
                   </Th>
-                  <Th align="left" compact>
+                  <Th align="left">
                     Medicine
                   </Th>
                   {!narrowViewport ? (
-                    <Th align="center" compact title="Tablet, syrup, injection…">
+                    <Th align="center" title="Tablet, syrup, injection…">
                       Form
                     </Th>
                   ) : null}
-                  <Th align="center" compact title="Units in stock">
+                  <Th align="center" title="Units in stock">
                     Stock
                   </Th>
                   {!narrowViewport ? (
@@ -597,11 +604,11 @@ export function MedicinePickSheet({
                     /Unit
                   </Th>
                   {!narrowViewport ? (
-                    <Th align="left" compact title="Manufacturer">
+                    <Th align="left" title="Manufacturer">
                       Maker
                     </Th>
                   ) : null}
-                  <Th align="center" compact title="Pieces in one pack">
+                  <Th align="center" title="Pieces in one pack">
                     Size
                   </Th>
                 </tr>
@@ -611,10 +618,7 @@ export function MedicinePickSheet({
                   <tr>
                     <td
                       colSpan={colCount}
-                      className={cn(
-                        "border-b px-6 py-28 text-center text-slate-700",
-                      )}
-                      style={{ borderColor: GRID_BORDER }}
+                      className="border-b border-slate-200 px-6 py-24 text-center text-slate-600"
                     >
                       <Loader2 className="mx-auto size-6 animate-spin text-emerald-600" />
                       <p className="mt-3 text-sm font-semibold">
@@ -626,8 +630,7 @@ export function MedicinePickSheet({
                   <tr>
                     <td
                       colSpan={colCount}
-                      className="border-b px-6 py-16 text-center text-slate-700"
-                      style={{ borderColor: GRID_BORDER }}
+                      className="border-b border-slate-200 px-6 py-16 text-center text-slate-600"
                     >
                       <div className="mx-auto flex size-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
                         <PackageSearch className="size-6 text-slate-400" />
@@ -676,20 +679,20 @@ export function MedicinePickSheet({
           </div>
         </SheetBody>
 
-        <SheetFooter className="shrink-0 !flex-row items-center justify-between gap-2 border-t border-slate-200 bg-white px-3 py-2">
-          <p className="min-w-0 truncate text-[12px] font-medium text-slate-600">
+        <SheetFooter className="shrink-0 !flex-row items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-3">
+          <p className="min-w-0 truncate text-[12px] text-slate-500">
             {blockZeroStock ? (
               <>
-                <span className="font-semibold text-red-600">Out</span> rows cannot be added
+                <span className="font-medium text-red-600">Out of stock</span> rows cannot be added
               </>
             ) : (
-              "Enter adds the highlighted row"
+              "Press Enter to add the highlighted medicine"
             )}
           </p>
-          <span className="hidden shrink-0 items-center gap-2 text-[11px] text-slate-600 sm:inline-flex">
-            <PharmacyShortcutHint keys={["↑↓"]} label="Move" />
-            <PharmacyShortcutHint keys={["Enter"]} label="Select" />
-            <PharmacyShortcutHint keys={["Esc"]} label="Close" />
+          <span className="hidden shrink-0 items-center gap-2.5 sm:inline-flex">
+            <PharmacyShortcutHint keys={["↑↓"]} label="Move" className="text-slate-500" />
+            <PharmacyShortcutHint keys={["Enter"]} label="Add" className="text-slate-500" />
+            <PharmacyShortcutHint keys={["Esc"]} label="Close" className="text-slate-500" />
           </span>
         </SheetFooter>
       </SheetContent>

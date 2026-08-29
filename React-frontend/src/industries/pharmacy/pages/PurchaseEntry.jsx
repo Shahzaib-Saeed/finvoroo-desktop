@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { pharmacyApi } from '../api/pharmacy.api';
 import { InvoicePageQueue, InvoiceScanButton, revokeInvoicePages } from '../components/InvoicePageQueue';
 import { InvoiceImagePreview } from '../components/InvoiceImagePreview';
+import { InvoiceOcrJsonDialog } from '../components/InvoiceOcrJsonDialog';
 import {
   PurchaseReceiveWorkspace,
   buildScanBootstrapFromExtractionLines,
@@ -36,6 +37,15 @@ import { countVerifyRows } from '../lib/invoice-match-quality';
 import { prefetchMedicineCatalog } from '../lib/medicine-catalog-cache';
 import { applyPurchaseDefaultsToRows } from '../lib/pharmacy-purchase-defaults';
 import { clearScanDraft } from '../lib/pharmacy-purchase-draft';
+import { engineFromExtraction, formatOcrEngineName } from '../lib/ocr-engine-label';
+import { stampOcrLineOrigins, stampOcrLinesFromPages } from '../lib/ocr-training-dataset';
+import {
+  SCAN_UX,
+  applyOcrHighlights,
+  interpretInvoiceScanResult,
+  pharmacistScanMessage,
+  pickWorstScanUx,
+} from '../lib/invoice-scan-ux';
 import { PurchaseScanMoreMenu } from '../components/PurchaseScanToolbar';
 import {
   PurchaseReceiveMainActions,
@@ -44,6 +54,17 @@ import {
 
 /** One Gemini call at a time — parallel pages hit rate limits and look like a failed scan. */
 const SCAN_CONCURRENCY = 1;
+
+function newBillGroupId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 function unwrap(res) {
   return res?.data?.data ?? res?.data ?? null;
@@ -70,6 +91,11 @@ export function PurchaseEntryPage() {
   const [activeExtractionId, setActiveExtractionId] = useState(null);
   // Every scanned page of the invoice on screen, in page order.
   const [invoiceExtractionIds, setInvoiceExtractionIds] = useState([]);
+  // Invoice header read by the OCR pass: supplier block, invoice number/date,
+  // printed totals. Used to prefill the receive form.
+  const [scanDocument, setScanDocument] = useState(null);
+  // Which OCR engine produced the rows on screen, shown next to the page strip.
+  const [scanEngine, setScanEngine] = useState(null);
   const [loadingHistoryItem, setLoadingHistoryItem] = useState(false);
   const [pharmacySettings, setPharmacySettings] = useState({});
   const [deletingId, setDeletingId] = useState(null);
@@ -78,8 +104,12 @@ export function PurchaseEntryPage() {
   const [confirm, setConfirm] = useState(null);
   const previewBlobsRef = useRef([]);
   const invoicePagesRef = useRef([]);
+  const [scanReview, setScanReview] = useState({ ux: SCAN_UX.CLEAN, message: '' });
+  const [ocrDebug, setOcrDebug] = useState(null);
+  const [ocrJsonOpen, setOcrJsonOpen] = useState(false);
   const [receiveWorkspaceKey, setReceiveWorkspaceKey] = useState(0);
   const [embeddedToolbar, setEmbeddedToolbar] = useState(null);
+  const billGroupRef = useRef(newBillGroupId());
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -233,10 +263,27 @@ export function PurchaseEntryPage() {
         extractionLines,
         pharmacySettings,
         'Imported from invoice scan (review before posting).',
+        scanDocument,
       ),
       extractionId: activeExtractionId,
+      scanUx: scanReview.ux,
+      // Gemini consent panel already shows this copy — don't repeat it in the grid.
+      scanReviewMessage: invoicePages.some((p) => p.needsFallback)
+        ? ''
+        : scanReview.ux !== SCAN_UX.CLEAN
+          ? scanReview.message
+          : '',
     };
-  }, [activeExtractionId, scanned, scanning, rows, pharmacySettings]);
+  }, [
+    activeExtractionId,
+    scanned,
+    scanning,
+    rows,
+    pharmacySettings,
+    scanDocument,
+    scanReview,
+    invoicePages,
+  ]);
 
   const pagesPending = useMemo(
     () => invoicePages.filter((p) => p.status === 'pending' || p.status === 'error').length,
@@ -271,6 +318,10 @@ export function PurchaseEntryPage() {
       setScanned(false);
       setActiveExtractionId(null);
       setInvoiceExtractionIds([]);
+      setScanDocument(null);
+      setScanEngine(null);
+      setScanReview({ ux: SCAN_UX.CLEAN, message: '' });
+      billGroupRef.current = newBillGroupId();
       setError('');
       setReceiveWorkspaceKey(0);
       clearScanDraft(companyId);
@@ -320,29 +371,44 @@ export function PurchaseEntryPage() {
   };
 
   const viewHistoryImage = async (row) => {
-    if (!row?.id) return;
+    const ids =
+      Array.isArray(row?.page_ids) && row.page_ids.length
+        ? row.page_ids
+        : row?.id
+          ? [row.id]
+          : [];
+    if (!ids.length) return;
     try {
-      const res = await pharmacyApi.extractionImage(row.id);
-      const blob = res.data;
-      if (!(blob instanceof Blob) || (blob.type && !blob.type.startsWith('image/') && blob.type !== 'application/octet-stream')) {
-        throw new Error('not-an-image');
-      }
-      const url = URL.createObjectURL(blob);
-      previewBlobsRef.current.forEach((u) => URL.revokeObjectURL(u));
-      previewBlobsRef.current = [url];
-      setPreview({
-        open: true,
-        index: 0,
-        blobUrls: [url],
-        pages: [
-          {
-            id: row.id,
+      const loaded = [];
+      const blobUrls = [];
+      for (let i = 0; i < ids.length; i += 1) {
+        try {
+          const res = await pharmacyApi.extractionImage(ids[i]);
+          const blob = res.data;
+          if (
+            !(blob instanceof Blob) ||
+            (blob.type &&
+              !blob.type.startsWith('image/') &&
+              blob.type !== 'application/octet-stream')
+          ) {
+            continue;
+          }
+          const url = URL.createObjectURL(blob);
+          blobUrls.push(url);
+          loaded.push({
+            id: ids[i],
             src: url,
-            title: row.original_filename || `Scan #${row.id}`,
-            caption: `${row.item_count || 0} lines · ${row.status || 'draft'}`,
-          },
-        ],
-      });
+            title: `Page ${i + 1}`,
+            caption: row.original_filename || `Scan #${row.id}`,
+          });
+        } catch {
+          /* skip a missing page photo */
+        }
+      }
+      if (!loaded.length) throw new Error('not-an-image');
+      previewBlobsRef.current.forEach((u) => URL.revokeObjectURL(u));
+      previewBlobsRef.current = blobUrls;
+      setPreview({ open: true, index: 0, blobUrls, pages: loaded });
     } catch {
       toast.error('Could not open that invoice image.');
     }
@@ -392,8 +458,31 @@ export function PurchaseEntryPage() {
     }
   };
 
-  const scanAllPages = async ({ append = false } = {}) => {
-    const queue = invoicePages.filter((p) => p.status === 'pending' || p.status === 'error');
+  /**
+   * Pages are scanned independently and can, in principle, land on different
+   * engines — a page that fails validation is corrected while its neighbours
+   * are not. The badge reports the primary and whether any page needed a
+   * second opinion, which is what matters when a number looks wrong.
+   */
+  const summarizeScanEngine = (successes) => {
+    const engines = (successes || []).map((r) => r.engine).filter((e) => e?.provider);
+    if (!engines.length) return null;
+    const corrected = engines.find((e) => e.fallbackUsed && e.fallbackProvider);
+    return {
+      provider: engines[0].provider,
+      model: engines[0].model,
+      fallbackProvider: corrected?.fallbackProvider || '',
+      fallbackReason: corrected?.fallbackReason || '',
+      correctedPages: engines.filter((e) => e.fallbackUsed).length,
+      pages: engines.length,
+    };
+  };
+
+  const scanAllPages = async ({ append = false, pageIds = null, allowFallback = false } = {}) => {
+    const queue = invoicePages.filter((p) => {
+      if (pageIds?.length) return pageIds.includes(p.id);
+      return p.status === 'pending' || p.status === 'error';
+    });
     if (!queue.length) {
       if (!invoicePages.length) {
         setError('Add at least one invoice page photo first.');
@@ -411,52 +500,117 @@ export function PurchaseEntryPage() {
     const results = new Array(queue.length).fill(null);
     const pageErrors = [];
     let completed = 0;
+    const pageIndexById = new Map(invoicePages.map((p, i) => [p.id, i + 1]));
 
     const scanPage = async (page, slot) => {
       setInvoicePages((prev) =>
         prev.map((p) => (p.id === page.id ? { ...p, status: 'scanning', error: '' } : p)),
       );
 
-      try {
-        const form = new FormData();
-        form.append('image', page.file);
-        const res = await pharmacyApi.parseInvoice(form);
-        const data = unwrap(res);
-        const items = data?.items || [];
-        if (!items.length) {
-          throw new Error('No line items on this page.');
+      const applyInterpreted = (interpreted, extra = {}) => {
+        const items = interpreted.items.length
+          ? interpreted.items
+          : extra.bestItems || [];
+        const ux = items.length
+          ? (interpreted.hasUsableRows ? interpreted.ux : SCAN_UX.REVIEW)
+          : SCAN_UX.EMPTY;
+        const message = items.length
+          ? pharmacistScanMessage(ux, items.length)
+          : interpreted.pharmacistMessage;
+
+        if (items.length) {
+          results[slot] = {
+            rows: stampOcrLineOrigins(
+              applyOcrHighlights(mapApiItems(items), interpreted.issues).map((row) => ({
+                ...row,
+                _scanPageId: page.id,
+              })),
+              interpreted.meta?.extraction_id || extra.extractionId || null,
+            ),
+            extractionId: interpreted.meta?.extraction_id || extra.extractionId || null,
+            document: interpreted.document || extra.document || null,
+            engine: {
+              provider: interpreted.meta?.provider || extra.provider || '',
+              model: interpreted.meta?.model || '',
+              fallbackUsed: Boolean(interpreted.fallbackUsed),
+              fallbackProvider: interpreted.fallbackProvider || '',
+              fallbackReason: interpreted.fallbackReason || '',
+            },
+            ux,
+            advisories: (interpreted.issues || []).filter((issue) => issue?.severity === 'advisory'),
+            ocrDebug: interpreted.ocrDebug || extra.ocrDebug || null,
+          };
+
+          if (interpreted.ocrDebug) setOcrDebug(interpreted.ocrDebug);
+
+          setInvoicePages((prev) =>
+            prev.map((p) =>
+              p.id === page.id
+                ? {
+                    ...p,
+                    status: 'done',
+                    itemCount: items.length,
+                    error: '',
+                    pharmacistMessage: message,
+                    needsFallback: Boolean(interpreted.needsFallback),
+                    fallbackProvider: interpreted.fallbackProvider || p.fallbackProvider || '',
+                    reasonCode: interpreted.reasonCode || '',
+                    issues: interpreted.issues || [],
+                    primaryLines: [],
+                    bestItems: items,
+                  }
+                : p,
+            ),
+          );
+          return;
         }
 
-        results[slot] = {
-          rows: mapApiItems(items),
-          extractionId: data?.meta?.extraction_id || data?.extraction?.id || null,
-        };
-
+        pageErrors.push(message);
         setInvoicePages((prev) =>
           prev.map((p) =>
             p.id === page.id
-              ? { ...p, status: 'done', itemCount: items.length, error: '' }
+              ? {
+                  ...p,
+                  status: 'error',
+                  error: message,
+                  pharmacistMessage: message,
+                  needsFallback: Boolean(interpreted.needsFallback),
+                  fallbackProvider: interpreted.fallbackProvider || p.fallbackProvider || '',
+                  reasonCode: interpreted.reasonCode || '',
+                  issues: [],
+                  primaryLines: [],
+                  primaryItemCount: 0,
+                }
               : p,
           ),
         );
+      };
+
+      try {
+        if (!(page.file instanceof Blob)) {
+          throw new Error('This page has no photo to scan.');
+        }
+        const form = new FormData();
+        form.append('image', page.file);
+        if (allowFallback) form.append('allow_fallback', '1');
+        form.append('bill_group', billGroupRef.current);
+        const pageIndex = pageIndexById.get(page.id) || slot + 1;
+        form.append('page_index', String(pageIndex));
+        const res = await pharmacyApi.parseInvoice(form);
+        applyInterpreted(interpretInvoiceScanResult({ data: unwrap(res) }), {
+          bestItems: page.bestItems,
+        });
       } catch (e) {
-        const status = Number(e?.response?.status || 0);
-        // The API already returns the real Gemini reason — never mask it.
-        const msg =
-          e?.response?.data?.message
-          || e?.message
-          || (status ? `Scan failed (HTTP ${status}).` : 'Could not scan this page.');
-        pageErrors.push(msg);
-        setInvoicePages((prev) =>
-          prev.map((p) => (p.id === page.id ? { ...p, status: 'error', error: msg } : p)),
-        );
+        applyInterpreted(interpretInvoiceScanResult({ error: e }), {
+          bestItems: page.bestItems,
+        });
       } finally {
         completed += 1;
         setScanProgress({ current: completed, total: queue.length });
       }
     };
 
-    // Pages are independent Gemini calls — a few in flight turns a 5-page bill
+    // Pages are independent OCR calls — a few in flight turns a 5-page bill
     // from five round trips into roughly two.
     let cursor = 0;
     const workers = Array.from(
@@ -473,12 +627,18 @@ export function PurchaseEntryPage() {
     await Promise.all(workers);
 
     const successes = results.filter(Boolean);
-    const sessionHasScannedPages = invoicePages.some((p) => p.status === 'done');
+    const replacingIds = new Set(pageIds || []);
+    const sessionHasScannedPages = scanned || invoicePages.some((p) => p.status === 'done');
     const shouldAppend = Boolean(append) && sessionHasScannedPages;
+    const previousRows = shouldAppend
+      ? rows.filter((r) => {
+          if (!String(r.product_description || '').trim() && !r.matched_product_id) return false;
+          if (replacingIds.size && replacingIds.has(r._scanPageId)) return false;
+          return true;
+        })
+      : [];
     const merged = [
-      ...(shouldAppend
-        ? rows.filter((r) => String(r.product_description || '').trim() || r.matched_product_id)
-        : []),
+      ...previousRows,
       // Keep page order regardless of which request finished first.
       ...successes.flatMap((r) => r.rows),
     ];
@@ -489,28 +649,42 @@ export function PurchaseEntryPage() {
     if (successes.length) {
       setRows(merged.length ? merged : [emptyExtractionRow()]);
       setScanned(true);
+      // The header comes off whichever page actually printed one — on most
+      // multi-page bills that is the first, but not always.
+      const scannedDocument =
+        successes.find((r) => r.document?.invoice?.invoice_number || r.document?.supplier?.name)
+          ?.document
+        || successes.find((r) => r.document)?.document
+        || null;
+      if (scannedDocument) setScanDocument(scannedDocument);
       setActiveExtractionId(lastExtractionId);
       setReceiveWorkspaceKey((k) => k + 1);
       loadHistory();
-      toast.success(
-        shouldAppend
-          ? `Added ${successes.flatMap((r) => r.rows).length} line${successes.flatMap((r) => r.rows).length === 1 ? '' : 's'} from ${successes.length} page${successes.length === 1 ? '' : 's'}`
-          : `Extracted ${merged.length} line${merged.length === 1 ? '' : 's'} from ${successes.length} page${successes.length === 1 ? '' : 's'}`,
-      );
+      const ux = pickWorstScanUx(successes.map((r) => r.ux));
+      const message = pharmacistScanMessage(ux, merged.length);
+      setScanReview({ ux, message });
+      if (ux === SCAN_UX.CLEAN) {
+        toast.success(message);
+      }
+      setScanEngine(summarizeScanEngine(successes));
+      const lastDebug = [...successes].reverse().find((r) => r.ocrDebug)?.ocrDebug;
+      if (lastDebug) setOcrDebug(lastDebug);
 
-      const pageIds = [
+      const nextPageIds = [
         ...(shouldAppend ? invoiceExtractionIds : []),
         ...successes.map((r) => r.extractionId).filter(Boolean),
       ];
-      setInvoiceExtractionIds(pageIds);
-      if (!pageErrors.length) {
+      setInvoiceExtractionIds(nextPageIds);
+      if (!pageErrors.length && ux === SCAN_UX.CLEAN) {
         // A page that failed to scan would make the invoice look short of its
         // printed total, so only a complete invoice is reconciled.
-        await reconcileInvoiceTotals(pageIds);
+        await reconcileInvoiceTotals(nextPageIds);
       }
     } else if (!scanAbortRef.current) {
-      const unique = [...new Set(pageErrors.filter(Boolean))];
-      setError(unique.join(' · ') || 'No lines could be read from this page.');
+      setScanReview({
+        ux: SCAN_UX.EMPTY,
+        message: pharmacistScanMessage(SCAN_UX.EMPTY),
+      });
     }
 
     setScanning(false);
@@ -519,6 +693,22 @@ export function PurchaseEntryPage() {
 
   const cancelScan = () => {
     scanAbortRef.current = true;
+  };
+
+  const useGeminiForPage = (page) => {
+    if (!page?.id || scanning) return;
+    scanAllPages({
+      append: invoicePages.some((p) => p.id !== page.id && p.status === 'done'),
+      pageIds: [page.id],
+      allowFallback: true,
+    });
+  };
+
+  const declineGeminiForPage = (page) => {
+    if (!page?.id) return;
+    setInvoicePages((prev) =>
+      prev.map((p) => (p.id === page.id ? { ...p, needsFallback: false } : p)),
+    );
   };
 
   const openHistoryItem = async (row) => {
@@ -533,18 +723,69 @@ export function PurchaseEntryPage() {
         toast.error('This scan has no line items.');
         return;
       }
+      const pageRecords =
+        Array.isArray(detail.pages) && detail.pages.length
+          ? detail.pages
+          : [
+              {
+                id: detail.id,
+                item_count: items.length,
+                has_image: detail.has_image,
+                original_filename: detail.original_filename,
+              },
+            ];
       setRows(
-        applyClientProductMatches(
-          applyPurchaseDefaultsToRows(apiItemsToExtractionRows(items), pharmacySettings),
-          productOptions,
+        stampOcrLinesFromPages(
+          applyClientProductMatches(
+            applyPurchaseDefaultsToRows(apiItemsToExtractionRows(items), pharmacySettings),
+            productOptions,
+          ),
+          pageRecords,
+          detail.id,
         ),
       );
       setScanned(true);
+      setScanReview({ ux: SCAN_UX.CLEAN, message: '' });
       setActiveExtractionId(detail.id);
+      setScanEngine(engineFromExtraction(detail));
+      setScanDocument(detail.document || null);
+      if (detail.ocr_debug) setOcrDebug(detail.ocr_debug);
+      if (detail.bill_group) billGroupRef.current = detail.bill_group;
+      const pageIds =
+        Array.isArray(detail.page_ids) && detail.page_ids.length ? detail.page_ids : [detail.id];
+      setInvoiceExtractionIds(pageIds);
       setReceiveWorkspaceKey((k) => k + 1);
       revokeInvoicePages(invoicePages);
-      setInvoicePages([]);
-      toast.success(`Loaded scan #${detail.id} · ${items.length} lines`);
+
+      const restored = await Promise.all(
+        pageRecords.map(async (p) => {
+          let previewUrl = '';
+          if (p.has_image !== false) {
+            try {
+              const img = await pharmacyApi.extractionImage(p.id);
+              if (img?.data instanceof Blob) previewUrl = URL.createObjectURL(img.data);
+            } catch {
+              /* thumbnail is optional */
+            }
+          }
+          return {
+            id: `hist-${p.id}`,
+            extractionId: p.id,
+            file: null,
+            previewUrl,
+            status: 'done',
+            itemCount: p.item_count || 0,
+            error: '',
+          };
+        }),
+      );
+      setInvoicePages(restored);
+      const pages = detail.page_count || pageRecords.length || 1;
+      toast.success(
+        pages > 1
+          ? `Loaded ${pages}-page bill · ${items.length} lines`
+          : `Loaded scan #${detail.id} · ${items.length} lines`,
+      );
       if (detail.status === 'draft') {
         pharmacyApi.updateExtraction(detail.id, { status: 'reviewed' }).catch(() => {});
       }
@@ -560,7 +801,9 @@ export function PurchaseEntryPage() {
     setConfirm({
       type: 'delete-one',
       title: 'Delete this scan?',
-      description: `${row.original_filename || `Scan #${row.id}`} will be removed, including its photo and extracted lines.`,
+      description: `${row.original_filename || `Scan #${row.id}`}${
+        row.page_count > 1 ? ` (${row.page_count} pages)` : ''
+      } will be removed, including its photo${row.page_count > 1 ? 's' : ''} and extracted lines.`,
       action: 'Delete scan',
       row,
     });
@@ -675,9 +918,11 @@ export function PurchaseEntryPage() {
               <h1 className="truncate text-[16px] font-bold tracking-tight text-slate-900">
                 Scan supplier bill
               </h1>
-              <Badge variant="secondary" className="hidden h-5 gap-1 px-1.5 text-[10px] font-normal sm:inline-flex">
+              <Badge variant="secondary" className="inline-flex h-5 gap-1 px-1.5 text-[10px] font-normal">
                 <Sparkles className="size-3" />
-                Gemini
+                {scanned && scanEngine?.provider
+                  ? formatOcrEngineName(scanEngine.provider)
+                  : 'AI supported'}
               </Badge>
               {activeExtractionId ? (
                 <span className="text-[10px] text-slate-400">#{activeExtractionId}</span>
@@ -685,7 +930,15 @@ export function PurchaseEntryPage() {
             </div>
             <p className="text-[11px] text-slate-500">
               {scanned
-                ? 'Verify lines · batches · post stock on this page'
+                ? scanEngine?.provider
+                  ? `Verify lines · read by ${formatOcrEngineName(scanEngine.provider)}${
+                      scanEngine.fallbackProvider
+                      && formatOcrEngineName(scanEngine.fallbackProvider)
+                        !== formatOcrEngineName(scanEngine.provider)
+                        ? ` · corrected by ${formatOcrEngineName(scanEngine.fallbackProvider)}`
+                        : ''
+                    }`
+                  : 'Verify lines · batches · post stock on this page'
                 : 'Scan supplier bill · match catalogue · receive stock'}
             </p>
           </div>
@@ -746,8 +999,10 @@ export function PurchaseEntryPage() {
           ) : (
             <PurchaseScanMoreMenu
               disabled={!scanned || scanning}
+              ocrJsonDisabled={!ocrDebug}
               onAddRow={addScanRow}
               onPrint={printScan}
+              onViewOcrJson={() => setOcrJsonOpen(true)}
             />
           )}
         </div>
@@ -755,20 +1010,22 @@ export function PurchaseEntryPage() {
 
       <div className="flex min-h-0 flex-1 flex-col">
         {scanned && invoicePages.length > 0 ? (
-          <div className="shrink-0 border-b border-slate-200 bg-slate-50/40 px-4 py-2.5">
+          <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-1">
             <InvoicePageQueue
               variant="toolbar"
               pages={invoicePages}
               onPagesChange={onPagesChange}
               onPreviewPage={openPagePreview}
               disabled={scanning}
+              onUseFallback={useGeminiForPage}
+              onDeclineFallback={declineGeminiForPage}
               scanAction={
                 pagesPending ? (
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
                       size="sm"
-                      className="h-8 bg-emerald-700 px-3 text-[12px] font-semibold hover:bg-emerald-800"
+                      className="h-7 bg-emerald-700 px-2.5 text-[11px] font-semibold hover:bg-emerald-800"
                       disabled={scanning}
                       onClick={() =>
                         scanAllPages({ append: invoicePages.some((p) => p.status === 'done') })
@@ -776,12 +1033,12 @@ export function PurchaseEntryPage() {
                     >
                       {scanning ? (
                         <>
-                          <Loader2 className="size-3.5 me-1 animate-spin" />
+                          <Loader2 className="size-3 me-1 animate-spin" />
                           {scanProgress.current}/{scanProgress.total}
                         </>
                       ) : (
                         <>
-                          <ScanLine className="size-3.5 me-1" />
+                          <ScanLine className="size-3 me-1" />
                           Scan {pagesPending}
                         </>
                       )}
@@ -791,7 +1048,7 @@ export function PurchaseEntryPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 px-2.5 text-[12px]"
+                        className="h-7 px-2 text-[11px]"
                         onClick={cancelScan}
                       >
                         Cancel
@@ -802,7 +1059,7 @@ export function PurchaseEntryPage() {
               }
             />
             {error ? (
-              <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+              <div className="mt-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-800">
                 {error}
               </div>
             ) : null}
@@ -825,6 +1082,8 @@ export function PurchaseEntryPage() {
                       onPagesChange={onPagesChange}
                       onPreviewPage={openPagePreview}
                       disabled={scanning}
+                      onUseFallback={useGeminiForPage}
+                      onDeclineFallback={declineGeminiForPage}
                       scanAction={
                         invoicePages.length > 0 ? (
                           <InvoiceScanButton
@@ -910,6 +1169,11 @@ export function PurchaseEntryPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <InvoiceOcrJsonDialog
+        open={ocrJsonOpen}
+        onOpenChange={setOcrJsonOpen}
+        debug={ocrDebug}
+      />
     </div>
   );
 }

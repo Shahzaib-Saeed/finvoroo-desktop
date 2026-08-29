@@ -53,7 +53,7 @@ function isStaleProductIdError(err) {
   ) || Object.keys(errors).some((k) => k.includes('product_id'));
 }
 
-function buildCheckoutThermalProps(data, bootstrap, currency) {
+function buildCheckoutThermalProps(data, bootstrap, currency, cashTendered = 0) {
   const company = {
     ...(bootstrap?.company || {}),
     ...(data?.invoice?.company || {}),
@@ -66,19 +66,25 @@ function buildCheckoutThermalProps(data, bootstrap, currency) {
     null;
   const logoInlined = logoRaw ? getCachedReceiptImageUrl(resolveCompanyLogoUrl(company) || logoRaw) : null;
 
-  return thermalReceiptFromPos(data, {
-    company: {
-      ...company,
-      logo_url: logoInlined || company.logo_url,
-      logo: logoInlined || company.logo,
+  return thermalReceiptFromPos(
+    {
+      ...data,
+      cash_tendered: cashTendered || data?.cash_tendered || data?.receipt?.cash_tendered,
     },
-    currency,
-    widthMm: 80,
-    showLogo: bootstrap?.settings?.receipt_show_logo !== false,
-    showBrandingBack: !!bootstrap?.settings?.receipt_branding_back,
-    posFeeLabel: bootstrap?.settings?.pos_fee_label || 'POS Fee',
-    wholeRupees: true,
-  });
+    {
+      company: {
+        ...company,
+        logo_url: logoInlined || company.logo_url,
+        logo: logoInlined || company.logo,
+      },
+      currency,
+      widthMm: 80,
+      showLogo: bootstrap?.settings?.receipt_show_logo !== false,
+      showBrandingBack: !!bootstrap?.settings?.receipt_branding_back,
+      posFeeLabel: bootstrap?.settings?.pos_fee_label || 'POS Fee',
+      wholeRupees: true,
+    },
+  );
 }
 
 function isTypingTarget(el) {
@@ -1161,10 +1167,14 @@ export function usePharmacyDispense() {
         };
 
         if (!allowCredit) {
-          const tender = resolvedPayments.reduce((sum, p) => sum + money(p.amount), 0);
-          const due = money(totals.total);
-          if (tender + 0.009 < due) {
-            toast.error(`Payment incomplete — due ${formatMoney(due, currency)}`);
+          const tender = roundWholeRupee(
+            resolvedPayments.reduce((sum, p) => sum + money(p.amount), 0),
+          );
+          const due = roundWholeRupee(totals.total);
+          if (tender < due) {
+            toast.error(
+              `Payment incomplete — due ${formatPharmacyPosMoney((n) => formatMoney(n, currency), due)}`,
+            );
             focusTender();
             return false;
           }
@@ -1172,8 +1182,11 @@ export function usePharmacyDispense() {
 
         const data = unwrap(await posApi.checkout(payload));
         const soldProductIds = lines.map((l) => l.product_id).filter(Boolean);
+        const tendered = roundWholeRupee(
+          resolvedPayments.reduce((sum, p) => sum + money(p.amount), 0),
+        );
         const printAfterPost = shouldPrint
-          ? buildCheckoutThermalProps(data, bootstrap, currency)
+          ? buildCheckoutThermalProps(data, bootstrap, currency, tendered)
           : null;
 
         setPaymentExpanded(false);
@@ -1337,7 +1350,7 @@ export function usePharmacyDispense() {
       return postCheckout({
         allowCredit: false,
         printReceipt: payDialogPrint,
-        payments: [{ method: 'cash', amount: tender, reference: null }],
+        payments: [{ method: 'cash', amount: Math.max(tender, money(totals.total)), reference: null }],
       });
     },
     [currency, payDialogPrint, postCheckout, totals.total],

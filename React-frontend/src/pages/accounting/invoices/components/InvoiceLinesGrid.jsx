@@ -398,7 +398,9 @@ export const InvoiceLinesGrid = memo(function InvoiceLinesGrid({
   restrictByStock = true,
   getMaxQtyForLine,
   postedLocked = false,
+  variant = 'default',
 }) {
+  const isPharmacy = variant === 'pharmacy';
   const productDialog = useProductDialog();
   const taxDialog = useTaxDialog();
   const canEditProduct = useCan(["products.edit"]);
@@ -568,9 +570,23 @@ export const InvoiceLinesGrid = memo(function InvoiceLinesGrid({
         }}
       />
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-foreground/[0.09] bg-gradient-to-b from-muted/60 to-muted/30 px-4 py-3">
+      <div
+        className={cn(
+          'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b px-4 py-3',
+          isPharmacy
+            ? 'border-emerald-100 bg-emerald-50/70'
+            : 'border-foreground/[0.09] bg-gradient-to-b from-muted/60 to-muted/30',
+        )}
+      >
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">Line items</h3>
+          <h3
+            className={cn(
+              'text-sm font-semibold tracking-tight',
+              isPharmacy ? 'text-emerald-950' : 'text-foreground',
+            )}
+          >
+            {isPharmacy ? 'Medicines' : 'Line items'}
+          </h3>
           <p className="text-[11px] text-muted-foreground mt-0.5 hidden sm:block">
             Enter → next column · Tab next field · Ctrl+S save · Ctrl+Shift+S save &amp; close ·
             Ctrl+Enter add line · Ctrl+D duplicate · Shift+Delete remove · Paste from Excel
@@ -582,7 +598,12 @@ export const InvoiceLinesGrid = memo(function InvoiceLinesGrid({
           size="sm"
           onClick={onAddLine}
           disabled={postedLocked}
-          className="shrink-0 w-full sm:w-auto bg-background/80"
+          className={cn(
+            'shrink-0 w-full sm:w-auto',
+            isPharmacy
+              ? 'border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50'
+              : 'bg-background/80',
+          )}
         >
           <Plus className="size-4 mr-1" />
           Add line
@@ -626,14 +647,27 @@ export const InvoiceLinesGrid = memo(function InvoiceLinesGrid({
                 ))}
               </colgroup>
               <thead className="sticky top-0 z-10">
-                <tr className="bg-muted/80 backdrop-blur-sm border-b border-foreground/[0.09]">
+                <tr
+                  className={cn(
+                    'border-b',
+                    isPharmacy
+                      ? 'border-emerald-900/20 bg-emerald-800'
+                      : 'bg-muted/80 backdrop-blur-sm border-foreground/[0.09]',
+                  )}
+                >
                   {!dragDisabled ? (
-                    <th className="w-8 p-0 border-r">
+                    <th className={cn('w-8 p-0 border-r', isPharmacy && 'border-white/15')}>
                       <span className="sr-only">Reorder</span>
                     </th>
                   ) : null}
                   {cols.map((col) => (
-                    <th key={col.key} className={invoiceLineThClass(col.key)}>
+                    <th
+                      key={col.key}
+                      className={cn(
+                        invoiceLineThClass(col.key),
+                        isPharmacy && 'bg-emerald-800 text-white/95 border-white/15',
+                      )}
+                    >
                       {col.key === LINE_COL.ACTIONS ? (
                         <span className="sr-only">Actions</span>
                       ) : (

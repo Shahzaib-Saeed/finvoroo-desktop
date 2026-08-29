@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { applyPurchaseLineDefaults } from '../lib/pharmacy-purchase-defaults';
+import { rememberOcrProductMapping } from '../lib/remember-ocr-product-mapping';
 import {
   emptyExtractionRow,
   extractionRowToProductPrefill,
@@ -15,6 +16,7 @@ import { ExpiryMaskInput } from './ExpiryMaskInput';
 import { useProductDialog } from '@/components/workspace/product/product-dialog-provider';
 import { productToPickerOption } from './CatalogueMatchPicker';
 import { rowNeedsVerify } from '../lib/invoice-match-quality';
+import { describeMatchDiagnostics } from '../lib/pharmacy-match-engine';
 import {
   PURCHASE_CELL_INPUT,
   PURCHASE_CELL_NUMBER,
@@ -41,6 +43,7 @@ export function PurchaseExtractionGrid({
   disabled = false,
   pharmacySettings = {},
   hideAddButton = false,
+  vendorId = 0,
 }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const productDialog = useProductDialog();
@@ -93,12 +96,18 @@ export function PurchaseExtractionGrid({
             pharmacySettings,
           );
           update(index, patch);
+          rememberOcrProductMapping({
+            vendorId,
+            invoiceLabel: row.product_description,
+            productId: opt.value,
+            itemCode: row.item_code,
+          });
           toast.success(`Created & linked · ${opt.label}`);
           requestAnimationFrame(() => focusPurchaseField(index, 'batch'));
         },
       });
     },
-    [pharmacySettings, productDialog, rows, update],
+    [pharmacySettings, productDialog, rows, update, vendorId],
   );
 
   useEffect(() => {
@@ -161,9 +170,14 @@ export function PurchaseExtractionGrid({
               <PurchaseGridTh align="center">Batch</PurchaseGridTh>
               <PurchaseGridTh align="center">Expiry</PurchaseGridTh>
               <PurchaseGridTh align="center" data-lookup-stop="qty">Qty</PurchaseGridTh>
-              <PurchaseGridTh align="center">Bonus</PurchaseGridTh>
-              <PurchaseGridTh align="right">Trade</PurchaseGridTh>
-              <PurchaseGridTh align="center">Disc%</PurchaseGridTh>
+              <PurchaseGridTh
+                align="center"
+                title="Bonus / free quantity from the supplier. These units go into stock but you do not pay for them."
+              >
+                Bonus
+              </PurchaseGridTh>
+              <PurchaseGridTh align="right">Purchase price</PurchaseGridTh>
+              <PurchaseGridTh align="center">Disc %</PurchaseGridTh>
               <PurchaseGridTh align="right">Disc amt</PurchaseGridTh>
               <PurchaseGridTh align="center">Tax%</PurchaseGridTh>
               <PurchaseGridTh align="right">Tax amt</PurchaseGridTh>
@@ -201,6 +215,12 @@ export function PurchaseExtractionGrid({
                   pharmacySettings,
                 );
                 update(index, patch);
+                rememberOcrProductMapping({
+                  vendorId,
+                  invoiceLabel: row.product_description,
+                  productId: opt.value,
+                  itemCode: row.item_code,
+                });
                 requestAnimationFrame(() => focusPurchaseField(index, 'batch'));
               };
 
@@ -233,6 +253,8 @@ export function PurchaseExtractionGrid({
                       selectedImage={row.matched_product_image || ''}
                       billLabel={billName}
                       catalogLabel={linked ? catalogName : ''}
+                      learnedName={row.global_corrected_name || ''}
+                      matchExplanation={describeMatchDiagnostics(row.match_diagnostics)}
                       invoiceMatchMode
                       linked={linked}
                       needsVerify={needsVerify}
@@ -315,11 +337,25 @@ export function PurchaseExtractionGrid({
                     />
                   </PurchaseGridTd>
 
-                  <PurchaseGridTd>
+                  <PurchaseGridTd
+                    className={
+                      Number(row.bonus) > 0
+                        ? 'bg-sky-50 shadow-[inset_0_0_0_2px_#0284c7]'
+                        : undefined
+                    }
+                    title={
+                      Number(row.bonus) > 0
+                        ? 'This line includes free/bonus units. They go into stock; you do not pay for them.'
+                        : undefined
+                    }
+                  >
                     <Input
                       data-grn-field={`bonus-${index}`}
                       data-pharmacy-typing
-                      className={PURCHASE_CELL_NUMBER}
+                      className={cn(
+                        PURCHASE_CELL_NUMBER,
+                        Number(row.bonus) > 0 && 'bg-sky-50 font-semibold text-sky-950 focus:bg-sky-50',
+                      )}
                       value={row.bonus}
                       disabled={disabled}
                       onChange={(e) => update(index, { bonus: e.target.value })}

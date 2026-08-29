@@ -50,102 +50,112 @@ export function DispenseHeaderBar({
   }, []);
 
   return (
-    <header className="flex min-h-[64px] shrink-0 items-center gap-4 border-b border-slate-200/80 bg-white px-4 py-2.5">
-      <TooltipProvider delayDuration={300}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              asChild
-              variant="ghost"
-              size="icon"
-              className="size-9 shrink-0 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            >
-              <Link to={`/workspace/${companyId}/pharmacy`} aria-label="Back to Operations">
-                <ArrowLeft className="size-4" />
-              </Link>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Back to Operations</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+    <header className="relative shrink-0 bg-white">
+      <div className="grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-1.5 lg:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
+        {/* Brand */}
+        <div className="flex min-w-0 items-center gap-2">
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="icon"
+                  className="size-10 shrink-0 rounded-xl border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+                >
+                  <Link to={`/workspace/${companyId}/pharmacy`} aria-label="Back to Operations">
+                    <ArrowLeft className="size-4 text-slate-600" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Back to Operations</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-      <div className="flex shrink-0 items-center gap-2.5">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-800 text-white">
-          <Pill className="size-4" />
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-800 text-white shadow-sm">
+              <Pill className="size-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-[15px] font-semibold leading-tight tracking-tight text-slate-900">
+                Finvoroo
+              </h1>
+              <p className="truncate text-[11px] font-medium text-slate-500">Pharmacy POS</p>
+            </div>
+          </div>
         </div>
-        <div>
-          <h1 className="text-[16px] font-bold tracking-tight text-black">Finvoroo</h1>
-          <p className="text-[11px] font-bold text-black">Pharmacy POS</p>
+
+        {/* Center actions — true center column */}
+        <div className="col-span-3 flex justify-center lg:col-span-1 lg:col-start-2">
+          <DispenseMainActions {...toolbarProps} />
         </div>
-      </div>
 
-      <div className="hidden min-w-0 flex-1 justify-center px-2 md:flex">
-        <DispenseMainActions {...toolbarProps} />
-      </div>
-
-      <div className="hidden shrink-0 border-l border-slate-200 pl-4 text-right lg:block">
-        <div className="flex items-center justify-end gap-2">
-          <p className="truncate text-[13px] font-bold text-black">{companyName}</p>
-          {!online && offlineSyncEnabled ? (
-            <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
-              Offline
-            </span>
-          ) : null}
-          {terminalCode ? (
-            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
-              {terminalCode}
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-0.5 truncate text-[11px] font-medium text-black">
-          {terminalLabel}
-          {shiftOpen && shiftId ? (
-            <>
-              <span className="mx-1.5 text-slate-300">·</span>
-              <span className="font-medium text-emerald-700">Shift #{shiftId} open</span>
-            </>
-          ) : (
-            <>
-              <span className="mx-1.5 text-slate-300">·</span>
-              <button
-                type="button"
-                onClick={onOpenShift}
-                className="font-semibold text-amber-700 hover:underline"
-              >
-                Open shift
-              </button>
-            </>
-          )}
-        </p>
-      </div>
-
-      <div className="ms-auto flex shrink-0 items-center gap-3 border-l border-slate-200 pl-4">
-        <div className="hidden text-right xl:block">
-          <p className="text-[14px] font-bold tabular-nums leading-tight text-black">
-            {formatClock(now)}
+        {/* Store / register */}
+        <div className="hidden min-w-0 text-right lg:block">
+          <div className="flex items-center justify-end gap-1.5">
+            <p className="truncate text-[13px] font-semibold text-slate-900">{companyName}</p>
+            {!online && offlineSyncEnabled ? (
+              <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 ring-1 ring-amber-100">
+                Offline
+              </span>
+            ) : null}
+            {terminalCode ? (
+              <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 ring-1 ring-emerald-200">
+                {terminalCode}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500">
+            {terminalLabel}
+            {shiftOpen && shiftId ? (
+              <>
+                <span className="mx-1.5 text-slate-300">·</span>
+                <span className="font-semibold text-emerald-700">Shift #{shiftId} open</span>
+              </>
+            ) : (
+              <>
+                <span className="mx-1.5 text-slate-300">·</span>
+                <button
+                  type="button"
+                  onClick={onOpenShift}
+                  className="font-semibold text-amber-700 hover:underline"
+                >
+                  Open shift
+                </button>
+              </>
+            )}
           </p>
-          <p className="text-[10px] font-semibold text-black">{formatDate(now)}</p>
         </div>
 
-        <DispenseUserChip
-          cashierName={cashierName}
-          userRole={userRole}
-          onShift={toolbarProps?.onShift || onOpenShift}
-          shiftOpen={shiftOpen}
-        />
+        {/* Clock + user */}
+        <div className="flex items-center justify-end gap-2 sm:gap-2.5">
+          <div className="hidden text-right xl:block">
+            <p className="text-[12px] font-semibold tabular-nums leading-tight text-slate-900">
+              {formatClock(now)}
+            </p>
+            <p className="text-[10px] font-medium text-slate-500">{formatDate(now)}</p>
+          </div>
 
-        <DispenseMoreMenu {...toolbarProps} />
+          <DispenseUserChip
+            cashierName={cashierName}
+            userRole={userRole}
+            onShift={toolbarProps?.onShift || onOpenShift}
+            shiftOpen={shiftOpen}
+          />
 
-        <div className="flex md:hidden">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-9 border-slate-200 px-2"
-            onClick={toolbarProps?.onSearch}
-          >
-            <Pill className="size-4 text-emerald-600" />
-          </Button>
+          <DispenseMoreMenu {...toolbarProps} />
+
+          <div className="flex md:hidden">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="size-10 rounded-xl border-slate-200 bg-white p-0 shadow-sm"
+              onClick={toolbarProps?.onSearch}
+            >
+              <Pill className="size-4 text-emerald-600" />
+            </Button>
+          </div>
         </div>
       </div>
     </header>

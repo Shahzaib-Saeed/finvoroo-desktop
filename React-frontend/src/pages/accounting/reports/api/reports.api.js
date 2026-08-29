@@ -26,4 +26,5 @@ export const reportsApi = {
   vendorLedger: (params) => api.get('/workspace/reports/vendor-ledger', { params }),
   customerAging: (params) => api.get('/workspace/reports/customer-aging', { params }),
   vendorAging: (params) => api.get('/workspace/reports/vendor-aging', { params }),
+  categoryTrading: (params) => api.get('/workspace/reports/category-trading', { params }),
 };

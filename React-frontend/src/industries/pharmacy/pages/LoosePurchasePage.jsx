@@ -421,7 +421,6 @@ export function LoosePurchasePage() {
                             linked={!!line.product_id}
                             disabled={saving}
                             blockZeroStock={false}
-                            lookupMode="purchase"
                             onSelect={(product) => pickProduct(index, product)}
                             onCreateNew={() => openCreateProduct(index)}
                           />

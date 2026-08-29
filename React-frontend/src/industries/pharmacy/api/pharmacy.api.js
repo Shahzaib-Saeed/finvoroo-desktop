@@ -10,13 +10,24 @@ export const pharmacyApi = {
   createManufacturer: (data) => api.post('/workspace/pharmacy/manufacturers', data),
   expiryReport: (params) =>
     api.get('/workspace/pharmacy/expiry-report', { params }),
+  itemSalesReport: (params) =>
+    api.get('/workspace/pharmacy/reports/item-sales', { params }),
+  manufacturerExpiryReport: (params) =>
+    api.get('/workspace/pharmacy/reports/manufacturer-expiry', { params }),
+  stockValuationReport: (params) =>
+    api.get('/workspace/pharmacy/reports/stock-valuation', { params }),
+  /** Supplier-scoped restock suggestions for the Create Purchase Order screen. */
+  purchaseSuggestions: (params) =>
+    api.get('/workspace/pharmacy/purchase-suggestions', { params }),
+  recordPurchaseSuggestionFeedback: (data) =>
+    api.post('/workspace/pharmacy/purchase-suggestions/feedback', data),
   productBatches: (productId) =>
     api.get(`/workspace/pharmacy/products/${productId}/batches`),
   /** Bulk, company-wide batch/expiry snapshot — offline cache seed (pharmacy-batch-store.js). */
   batchesIndex: (params) => api.get('/workspace/pharmacy/batches/index', { params }),
   purchaseHistory: (productId) =>
     api.get(`/workspace/pharmacy/products/${productId}/purchase-history`),
-  /** Parse-only Gemini vision — never posts a bill. */
+  /** Parse-only OCR — Mistral first; Gemini only when allow_fallback is set. */
   parseInvoice: (formData) =>
     api.post('/workspace/pharmacy/parse-invoice', formData, {
       timeout: 120000,
@@ -49,4 +60,10 @@ export const pharmacyApi = {
   /** Save supplier bill line → catalog links learned from receive posting. */
   rememberSupplierProductAliases: (data) =>
     api.post('/workspace/pharmacy/supplier-product-aliases/remember', data),
+  exportOcrProductMappings: (params) =>
+    api.get('/workspace/pharmacy/ocr-product-mappings/training', { params }),
+  submitOcrTrainingCorrections: (data) =>
+    api.post('/workspace/pharmacy/ocr-training/corrections', data),
+  exportOcrTrainingDataset: (params) =>
+    api.get('/workspace/pharmacy/ocr-training/export', { params }),
 };

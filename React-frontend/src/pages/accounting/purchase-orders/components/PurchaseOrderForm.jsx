@@ -1,10 +1,15 @@
 import { Loader2, Save } from 'lucide-react';
+import { useMemo } from 'react';
 import { useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { SourceDocumentBanner } from '@/components/accounting/SourceDocumentBanner';
+import { PharmacyPurchaseOrderForm } from '@/industries/pharmacy/components/PharmacyPurchaseOrderForm';
+import { PoSmartSuggestions } from '@/industries/pharmacy/components/PoSmartSuggestions';
+import { resolveIndustryFeatures } from '@/industries/resolve';
+import { useAuthStore } from '@/store/authStore';
 import { PoVendorSection } from './PoVendorSection';
 import { PoDetailsSection } from './PoDetailsSection';
 import { InvoiceLinesGrid } from '../../invoices/components/InvoiceLinesGrid';
@@ -38,6 +43,7 @@ export function PurchaseOrderForm({
   onUpdateLineDiscountPercent,
   onUpdateLineNetTotal,
   onSelectProduct,
+  onAddSuggestedProduct,
   onAddLine,
   onRemoveLine,
   onSubmit,
@@ -45,14 +51,78 @@ export function PurchaseOrderForm({
   customFieldDefinitions = [],
   setMetadataField,
   addMetadataSelectOption,
+  pageTitle,
+  pageSubtitle,
+  backTo,
+  extraActions,
 }) {
   const { id: workspaceId } = useParams();
   const currency = baseCurrency;
+  const activeCompany = useAuthStore((s) => s.activeCompany);
+  const showSmartSuggestions = !!resolveIndustryFeatures(activeCompany).pharmacy_shell;
+  const excludeProductIds = useMemo(
+    () =>
+      (form.lines || [])
+        .map((line) => Number(line.product_id))
+        .filter((id) => Number.isFinite(id) && id > 0),
+    [form.lines],
+  );
+
+  if (showSmartSuggestions) {
+    return (
+      <PharmacyPurchaseOrderForm
+        form={form}
+        errors={errors}
+        saving={saving}
+        loadingLookups={loadingLookups}
+        loadingConversion={loadingConversion}
+        conversionSource={conversionSource}
+        conversionWarnings={conversionWarnings}
+        vendors={vendors}
+        products={products}
+        taxRates={taxRates}
+        taxRatesById={taxRatesById}
+        productsById={productsById}
+        lineColumns={lineColumns}
+        totals={totals}
+        currencySymbols={currencySymbols}
+        baseCurrency={baseCurrency}
+        isEdit={isEdit}
+        readOnly={readOnly}
+        canCreateProduct={canCreateProduct}
+        canCreateVendor={canCreateVendor}
+        onFieldChange={onFieldChange}
+        onVendorChange={onVendorChange}
+        onUpdateLine={onUpdateLine}
+        onUpdateLineDiscountFixed={onUpdateLineDiscountFixed}
+        onUpdateLineDiscountPercent={onUpdateLineDiscountPercent}
+        onUpdateLineNetTotal={onUpdateLineNetTotal}
+        onSelectProduct={onSelectProduct}
+        onAddSuggestedProduct={onAddSuggestedProduct}
+        onAddLine={onAddLine}
+        onRemoveLine={onRemoveLine}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+        customFieldDefinitions={customFieldDefinitions}
+        setMetadataField={setMetadataField}
+        addMetadataSelectOption={addMetadataSelectOption}
+        pageTitle={pageTitle}
+        pageSubtitle={pageSubtitle}
+        backTo={backTo}
+        extraActions={extraActions}
+      />
+    );
+  }
 
   if (loadingLookups || loadingConversion) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col items-center justify-center gap-3 py-20 text-sm text-muted-foreground">
+        <Loader2 className="size-8 animate-spin" />
+        <p>
+          {loadingConversion
+            ? 'Loading the source document…'
+            : 'Loading vendors and products…'}
+        </p>
       </div>
     );
   }
@@ -91,6 +161,16 @@ export function PurchaseOrderForm({
             />
           </div>
         </div>
+
+        {showSmartSuggestions ? (
+          <PoSmartSuggestions
+            vendorId={form.vendor_id}
+            excludeProductIds={excludeProductIds}
+            currency={currencySymbols?.[currency] || currency}
+            readOnly={readOnly}
+            onAdd={onAddSuggestedProduct}
+          />
+        ) : null}
 
         <div className="border-t">
           <InvoiceLinesGrid

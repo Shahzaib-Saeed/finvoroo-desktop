@@ -29,6 +29,8 @@ export function PurchasePayDialog({
   const [paid, setPaid] = useState(false);
   const [paidRaw, setPaidRaw] = useState('');
   const paidRef = useRef(null);
+  const unpaidChoiceRef = useRef(null);
+  const confirmRef = useRef(() => {});
 
   const paidAmount = parseTenderInput(paidRaw);
   const stillDue = money(Math.max(0, amountDue - paidAmount));
@@ -41,15 +43,24 @@ export function PurchasePayDialog({
     });
   }, []);
 
+  const focusUnpaidChoice = useCallback(() => {
+    requestAnimationFrame(() => {
+      unpaidChoiceRef.current?.focus?.({ preventScroll: true });
+    });
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     setPaid(false);
     setPaidRaw(amountDue > 0 ? String(amountDue) : '');
-  }, [open, amountDue]);
+    focusUnpaidChoice();
+  }, [open, amountDue, focusUnpaidChoice]);
 
   useEffect(() => {
-    if (open && paid) focusPaid();
-  }, [open, paid, focusPaid]);
+    if (!open) return;
+    if (paid) focusPaid();
+    else focusUnpaidChoice();
+  }, [open, paid, focusPaid, focusUnpaidChoice]);
 
   const confirm = useCallback(() => {
     if (saving) return;
@@ -61,17 +72,37 @@ export function PurchasePayDialog({
     onConfirm?.({ paid: cash > 0.009, amount: cash, andNext });
   }, [amountDue, andNext, onConfirm, paid, paidAmount, saving]);
 
-  const handlePaidKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      confirm();
-    }
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      setPaid(false);
-    }
-  };
+  useEffect(() => {
+    confirmRef.current = confirm;
+  }, [confirm]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKey = (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        setPaid(true);
+        return;
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        setPaid(false);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        confirmRef.current();
+      }
+    };
+
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,20 +112,9 @@ export function PurchasePayDialog({
         data-pos-no-scan
         data-pharmacy-typing
         data-purchase-pay-dialog
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !paid) {
-            e.preventDefault();
-            confirm();
-          }
-          if (e.key === 'ArrowRight' && !paid) {
-            e.preventDefault();
-            setPaid(true);
-          }
-          if (e.key === 'ArrowLeft' && paid) {
-            e.preventDefault();
-            setPaid(false);
-          }
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          unpaidChoiceRef.current?.focus?.({ preventScroll: true });
         }}
       >
         <DialogHeader className="mb-0 space-y-0 border-b border-slate-200 bg-white px-5 py-3.5 pe-12 text-left">
@@ -118,6 +138,7 @@ export function PurchasePayDialog({
           <p className="text-[13px] font-semibold text-slate-800">Is this bill paid?</p>
           <div className="grid grid-cols-2 gap-2">
             <button
+              ref={unpaidChoiceRef}
               type="button"
               disabled={saving}
               onClick={() => setPaid(false)}
@@ -164,7 +185,6 @@ export function PurchasePayDialog({
                 className="h-11 rounded border-slate-300 bg-white text-center text-[22px] font-semibold tabular-nums shadow-none focus-visible:ring-emerald-600/30"
                 value={paidRaw}
                 onChange={(e) => setPaidRaw(e.target.value.replace(/[^\d.]/g, ''))}
-                onKeyDown={handlePaidKeyDown}
               />
               {paidAmount + 0.009 < amountDue ? (
                 <p className="mt-2 text-[11px] text-amber-800">

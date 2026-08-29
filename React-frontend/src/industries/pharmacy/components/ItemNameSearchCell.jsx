@@ -68,10 +68,27 @@ function findProductInPool(pool, productId) {
   return source.find((r) => String(r.id) === String(productId)) || null;
 }
 
-function InvoiceMatchDisplay({ bill, catalog, linked, needsVerify, needsMatch }) {
+function InvoiceMatchDisplay({
+  bill,
+  catalog,
+  linked,
+  needsVerify,
+  needsMatch,
+  hideTitles = false,
+  confidence = 0,
+  learnedName = '',
+  matchExplanation = '',
+}) {
+  const pct = Number(confidence) > 0 && Number(confidence) < 1
+    ? ` · ${Math.round(Number(confidence) * 100)}%`
+    : '';
+  // Hovering the linked name shows which signals produced the link.
+  const catalogTitle = hideTitles
+    ? undefined
+    : [catalog, matchExplanation].filter(Boolean).join('\n\n');
   return (
     <div className="min-w-0 flex-1 leading-snug">
-      <p className="truncate text-[12px] font-medium text-slate-500" title={bill}>
+      <p className="truncate text-[12px] font-medium text-slate-500" title={hideTitles ? undefined : bill}>
         {bill}
       </p>
       {linked && catalog ? (
@@ -80,13 +97,17 @@ function InvoiceMatchDisplay({ bill, catalog, linked, needsVerify, needsMatch })
             'mt-0.5 truncate text-[13px] font-semibold',
             needsVerify ? 'text-amber-800' : 'text-emerald-800',
           )}
-          title={catalog}
+          title={catalogTitle}
         >
           {catalog}
-          {needsVerify ? ' · verify' : ''}
+          {needsVerify ? ` · verify${pct}` : ''}
         </p>
       ) : needsMatch ? (
-        <p className="mt-0.5 text-[11px] font-medium text-red-600">Not linked</p>
+        <p className="mt-0.5 text-[11px] font-medium text-red-600">
+          {learnedName
+            ? `Learned as ${learnedName} — pick your product`
+            : 'Not linked'}
+        </p>
       ) : null}
     </div>
   );
@@ -94,7 +115,7 @@ function InvoiceMatchDisplay({ bill, catalog, linked, needsVerify, needsMatch })
 
 /** Full-height POS grid input — matches DispenseCartGrid CELL_INPUT. */
 const POS_CELL_INPUT =
-  'h-12 w-full min-h-12 border-0 rounded-none bg-transparent pl-9 pr-3 text-[14px] font-bold text-black shadow-none outline-none placeholder:text-black/35 focus:bg-transparent focus:ring-0 focus-visible:!outline-none disabled:opacity-50';
+  'h-11 w-full min-h-11 border-0 rounded-none bg-transparent pl-9 pr-3 text-[13px] font-medium text-slate-900 shadow-none outline-none placeholder:text-slate-400 focus:bg-transparent focus:ring-0 focus-visible:!outline-none disabled:opacity-50';
 
 /**
  * Purchase-grid item name cell — type to search, opens medicine lookup sheet.
@@ -131,18 +152,15 @@ export function ItemNameSearchCell({
   billLabel = '',
   catalogLabel = '',
   lookupMode = 'auto',
+  onConfirmLink,
+  matchSuggestions = [],
+  matchConfidence = 0,
+  learnedName = '',
+  matchExplanation = '',
 }) {
   const fillCell = variant === 'cell';
-  const priceModeResolved =
-    lookupMode === 'sale'
-      ? 'sale'
-      : lookupMode === 'purchase'
-        ? 'purchase'
-        : invoiceMatchMode
-          ? 'purchase'
-          : typeof getAvailableStock === 'function'
-            ? 'sale'
-            : 'purchase';
+  // Same medicine lookup sheet as POS sale — everywhere.
+  const priceModeResolved = 'sale';
   const hasSelection = Boolean(selectedLabel);
   const [editing, setEditing] = useState(!hasSelection && !keyboardBrowseMode);
   const [q, setQ] = useState('');
@@ -250,14 +268,18 @@ export function ItemNameSearchCell({
       ];
     };
 
-    if (invoiceMatchMode && (pinId || pinLabel)) {
+    // Pin the currently linked product only while the pharmacist is browsing,
+    // never while they are typing a different name. Pinning Neudopa above
+    // "azotek" is what made the wrong green match look like the search winner.
+    const typedQuery = String(q || '').trim();
+    if (!typedQuery && invoiceMatchMode && (pinId || pinLabel)) {
       list = pinCurrent();
-    } else if (pinId && !String(q || '').trim()) {
+    } else if (!typedQuery && pinId) {
       list = pinCurrent();
     }
 
     if (invoiceMatchMode && list.length === 0) {
-      const fallbackTerm = String(catalogLabel || billLabel || q || '').trim();
+      const fallbackTerm = String(learnedName || catalogLabel || billLabel || q || '').trim();
       if (fallbackTerm) {
         const alt = filterMedicineCatalog(pool, fallbackTerm, MEDICINE_LOOKUP_VISIBLE);
         if (alt.length) list = alt;
@@ -275,6 +297,7 @@ export function ItemNameSearchCell({
     catalogLabel,
     billLabel,
     selectedLabel,
+    learnedName,
   ]);
 
   const rowsRef = useRef(rows);
@@ -365,7 +388,7 @@ export function ItemNameSearchCell({
 
     // Keep bill label visible in the cell; only seed catalog name into the search box.
     const seed = invoiceMatchMode
-      ? String(catalogLabel || '').trim()
+      ? String(catalogLabel || learnedName || '').trim()
       : String(selectedLabel || '').trim();
 
     setEditing(true);
@@ -376,8 +399,8 @@ export function ItemNameSearchCell({
         productId: selectedProductId,
         label: catalogLabel || selectedLabel,
       });
-    } else if (invoiceMatchMode && billLabel) {
-      openSheet({ seedQuery: '' });
+    } else if (invoiceMatchMode && (billLabel || learnedName)) {
+      openSheet({ seedQuery: String(learnedName || '').trim() });
     } else {
       openSheet({ seedQuery: '' });
     }
@@ -391,6 +414,7 @@ export function ItemNameSearchCell({
     disabled,
     hasSelection,
     invoiceMatchMode,
+    learnedName,
     openSheet,
     ref,
     selectedLabel,
@@ -813,11 +837,11 @@ export function ItemNameSearchCell({
         data-pharmacy-item-search
         data-dispense-item-search={rowIndex}
       >
-        <button
-          type="button"
-          disabled={disabled}
+        <div
+          tabIndex={disabled ? -1 : 0}
           data-grn-item={rowIndex}
           onClick={() => {
+            if (disabled) return;
             onFocusRow?.(rowIndex);
             startEditing();
           }}
@@ -883,7 +907,31 @@ export function ItemNameSearchCell({
                 linked={linked}
                 needsVerify={needsVerify}
                 needsMatch={needsMatch}
+                hideTitles={sheetOpen}
+                confidence={matchConfidence}
+                learnedName={learnedName}
+                matchExplanation={matchExplanation}
               />
+              {needsVerify && linked && onConfirmLink ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="shrink-0 rounded bg-amber-600 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white hover:bg-amber-700"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onConfirmLink();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onConfirmLink();
+                  }}
+                >
+                  OK
+                </span>
+              ) : null}
             </>
           ) : (
             <>
@@ -933,7 +981,26 @@ export function ItemNameSearchCell({
               + New
             </button>
           ) : null}
-        </button>
+        </div>
+        {showInvoiceCell && matchSuggestions.length > 0 && !fillCell ? (
+          <div className="flex flex-wrap gap-1 px-1 pb-1">
+            {matchSuggestions.slice(0, 3).map((s) => (
+              <button
+                key={s.product_id}
+                type="button"
+                className="rounded border border-amber-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-amber-950 hover:bg-amber-50"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSelect?.({ id: s.product_id, name: s.product_name }, rowIndex);
+                }}
+              >
+                {s.product_name}
+                {s.confidence ? ` ${Math.round(Number(s.confidence) * 100)}%` : ''}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {showCreateBtn && !fillCell ? (
           <button
             type="button"
@@ -992,7 +1059,7 @@ export function ItemNameSearchCell({
           <div className="min-w-0 flex-1">
             <p
               className="truncate text-[12px] font-semibold leading-tight text-slate-900"
-              title={billLabel}
+              title={sheetOpen ? undefined : billLabel}
             >
               {billLabel}
             </p>

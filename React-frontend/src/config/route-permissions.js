@@ -140,6 +140,7 @@ export const ROUTE_PERMISSIONS = [
 
   { pattern: '/workspace/:id/accounting/reports', permission: 'reports.view' },
   { pattern: '/workspace/:id/accounting/reports/financial-summary', permission: 'reports.view' },
+  { pattern: '/workspace/:id/accounting/reports/category-trading', permission: 'reports.view' },
   { pattern: '/workspace/:id/accounting/reports/income-statement', permission: 'reports.view' },
   { pattern: '/workspace/:id/accounting/reports/profit-loss', permission: 'reports.view' },
   { pattern: '/workspace/:id/accounting/reports/profit-loss-by-job', permission: 'reports.view' },
@@ -176,6 +177,9 @@ export const ROUTE_PERMISSIONS = [
   { pattern: '/workspace/:id/pharmacy/pos', permission: 'pos.view' },
   { pattern: '/workspace/:id/pharmacy/batch-expiry', permission: 'dashboard.view' },
   { pattern: '/workspace/:id/pharmacy/reports', permission: 'reports.view' },
+  { pattern: '/workspace/:id/pharmacy/reports/item-sales', permission: 'reports.view' },
+  { pattern: '/workspace/:id/pharmacy/reports/manufacturer-expiry', permission: 'reports.view' },
+  { pattern: '/workspace/:id/pharmacy/reports/stock-valuation', permission: 'reports.view' },
   { pattern: '/workspace/:id/pharmacy/medicine-reports', permission: 'reports.view' },
   { pattern: '/workspace/:id/pharmacy/settings', permission: 'accounting_settings.view' },
   { pattern: '/workspace/:id/pharmacy/import', permission: 'bills.view' },

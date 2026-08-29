@@ -13,11 +13,15 @@ import {
 } from '@/components/ui/select';
 import api from '@/lib/api';
 
-function Field({ label, children, className }) {
+function Field({ label, required, error, children, className }) {
   return (
     <div className={className}>
-      <Label className="mb-1 block text-xs font-medium text-slate-700">{label}</Label>
+      <Label className="mb-1 block text-xs font-medium text-slate-700">
+        {label}
+        {required ? <span className="ml-0.5 text-red-600">*</span> : null}
+      </Label>
       {children}
+      {error ? <p className="mt-1 text-[11px] text-red-600">{error}</p> : null}
     </div>
   );
 }
@@ -36,6 +40,7 @@ function setPharmacyField(setField, key, value) {
 export function PharmacyProductSection({
   form,
   setField,
+  errors = {},
   disabled = false,
   compact = false,
   /** full | advanced — advanced hides fields already on medicine essentials */
@@ -249,11 +254,17 @@ export function PharmacyProductSection({
                 disabled={disabled}
               />
             </Field>
-            <Field label="Units / pack">
+            <Field
+              label="Units / pack"
+              required
+              error={errors['pharmacy.units_per_pack'] || errors['pharmacy.pack_size']}
+            >
               <Input
                 type="number"
                 min={1}
                 step={1}
+                required
+                aria-required="true"
                 value={p.units_per_pack ?? ''}
                 onChange={(e) => setPharmacyField(setField, 'units_per_pack', e.target.value)}
                 disabled={disabled}

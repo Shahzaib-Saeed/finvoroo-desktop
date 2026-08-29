@@ -738,12 +738,16 @@ export function thermalReceiptPropsToEscPosTextBase64(props, { columns = 42 } = 
   const summaryTotal = wholeRupees ? Math.round(Number(total) || 0) : Number(total) || 0;
   const summaryPaid =
     wholeRupees ? Math.round(Number(props.amountPaid) || 0) : Number(props.amountPaid) || 0;
+  const explicitChange = Number(props.changeDue) || 0;
   const summaryChange = wholeRupees
-    ? Math.max(0, summaryPaid - summaryTotal)
-    : Math.max(0, Number(props.changeDue) || 0);
+    ? Math.max(0, explicitChange > 0.0001 ? Math.round(explicitChange) : summaryPaid - summaryTotal)
+    : Math.max(0, explicitChange || summaryPaid - summaryTotal);
   linesOut.push(padReceiptRow('Total', summaryMoney(total), columns));
+  if (summaryPaid > 0.0001 || summaryChange > 0.0001) {
+    linesOut.push('---');
+  }
   if (summaryPaid > 0.0001) {
-    linesOut.push(padReceiptRow('Cash Paid', summaryMoney(props.amountPaid), columns));
+    linesOut.push(padReceiptRow('Cash', summaryMoney(props.amountPaid), columns));
   }
   if (summaryChange > 0.0001) {
     linesOut.push(padReceiptRow('Change', summaryMoney(summaryChange), columns));

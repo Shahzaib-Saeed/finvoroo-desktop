@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { formatOcrEngineName } from '../lib/ocr-engine-label';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
 
@@ -29,6 +30,8 @@ export function InvoicePageQueue({
   scanAction = null,
   variant = 'card',
   className,
+  onUseFallback,
+  onDeclineFallback,
 }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
@@ -127,6 +130,8 @@ export function InvoicePageQueue({
           onBrowse={openPicker}
           onPreview={onPreviewPage}
           onRemove={removePage}
+          onUseFallback={onUseFallback}
+          onDeclineFallback={onDeclineFallback}
           {...bindDrop}
         />
       ) : (
@@ -140,6 +145,8 @@ export function InvoicePageQueue({
           onBrowse={openPicker}
           onPreview={onPreviewPage}
           onRemove={removePage}
+          onUseFallback={onUseFallback}
+          onDeclineFallback={onDeclineFallback}
           {...bindDrop}
         />
       )}
@@ -216,6 +223,8 @@ function ReviewCard({
   onBrowse,
   onPreview,
   onRemove,
+  onUseFallback,
+  onDeclineFallback,
   ...dropHandlers
 }) {
   return (
@@ -265,10 +274,16 @@ function ReviewCard({
           <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
             <Sparkles className="size-3 text-emerald-600" />
             {pendingCount > 0
-              ? 'Gemini will extract every line item for you to review'
+              ? 'AI will extract every line item for you to review'
               : 'All pages scanned — review the table below'}
           </p>
         </div>
+        <ScanFailurePanel
+          pages={pages}
+          disabled={disabled}
+          onUseFallback={onUseFallback}
+          onDeclineFallback={onDeclineFallback}
+        />
       </div>
     </div>
   );
@@ -285,61 +300,63 @@ function ToolbarStrip({
   onBrowse,
   onPreview,
   onRemove,
+  onUseFallback,
+  onDeclineFallback,
   ...dropHandlers
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">
-            Pages
-          </span>
-          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-700">
-            {pages.length}
-          </span>
-          {doneCount > 0 ? (
-            <span className="text-[11px] tabular-nums text-emerald-700">{doneCount} done</span>
-          ) : null}
-          {pendingCount > 0 && doneCount > 0 ? (
-            <span className="text-[11px] tabular-nums text-amber-700">{pendingCount} pending</span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={disabled}
-            className="text-[11px] font-medium text-slate-400 hover:text-red-700 disabled:opacity-40"
-            onClick={onClearAll}
-          >
-            Clear
-          </button>
-          {scanAction}
-        </div>
-      </div>
-
+    <div className="space-y-1">
       <div
-        className="flex items-center gap-2 overflow-x-auto px-3 py-2.5"
+        className="flex items-center gap-2 overflow-x-auto py-0.5"
         {...dropHandlers}
       >
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-400">
+          Pages
+        </span>
+        <span className="shrink-0 rounded bg-slate-100 px-1 py-px text-[10px] font-semibold tabular-nums text-slate-600">
+          {pages.length}
+        </span>
+        {doneCount > 0 ? (
+          <span className="shrink-0 text-[10px] tabular-nums text-emerald-700">{doneCount} done</span>
+        ) : null}
+        {pendingCount > 0 && doneCount > 0 ? (
+          <span className="shrink-0 text-[10px] tabular-nums text-amber-700">{pendingCount} pending</span>
+        ) : null}
         {pages.map((page, index) => (
           <PageThumb
             key={page.id}
             page={page}
             index={index}
-            size="sm"
+            size="xs"
             disabled={disabled}
             onPreview={() => onPreview?.(index)}
             onRemove={() => onRemove(page.id)}
           />
         ))}
-        <AddPageTile disabled={disabled} dragging={dragging} size="sm" onClick={onBrowse} />
+        <AddPageTile disabled={disabled} dragging={dragging} size="xs" onClick={onBrowse} />
+        <button
+          type="button"
+          disabled={disabled}
+          className="ms-auto shrink-0 text-[10px] font-medium text-slate-400 hover:text-red-700 disabled:opacity-40"
+          onClick={onClearAll}
+        >
+          Clear
+        </button>
+        {scanAction}
       </div>
+      <ScanFailurePanel
+        pages={pages}
+        disabled={disabled}
+        onUseFallback={onUseFallback}
+        onDeclineFallback={onDeclineFallback}
+      />
     </div>
   );
 }
 
 function AddPageTile({ disabled, dragging, size, onClick }) {
   const lg = size === 'lg';
+  const xs = size === 'xs';
 
   return (
     <button
@@ -348,14 +365,16 @@ function AddPageTile({ disabled, dragging, size, onClick }) {
       onClick={onClick}
       className={cn(
         'flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 bg-slate-50/80 text-slate-500 transition-colors',
-        lg ? 'h-[128px] w-[96px]' : 'h-[72px] w-[56px]',
+        lg ? 'h-[128px] w-[96px]' : xs ? 'h-11 w-9' : 'h-[72px] w-[56px]',
         !disabled && 'hover:border-emerald-400 hover:bg-emerald-50/60 hover:text-emerald-800',
         dragging && 'border-emerald-400 bg-emerald-50 text-emerald-800',
         disabled && 'cursor-not-allowed opacity-60',
       )}
     >
-      <Plus className={lg ? 'size-4' : 'size-3.5'} />
-      <span className={cn('font-medium', lg ? 'text-[10px]' : 'text-[9px]')}>Add</span>
+      <Plus className={lg ? 'size-4' : 'size-3'} />
+      {xs ? null : (
+        <span className={cn('font-medium', lg ? 'text-[10px]' : 'text-[9px]')}>Add</span>
+      )}
     </button>
   );
 }
@@ -364,6 +383,7 @@ function PageThumb({ page, index, disabled, onPreview, onRemove, size = 'sm' }) 
   const [src, setSrc] = useState(page.previewUrl || '');
   const recoveredUrlRef = useRef('');
   const lg = size === 'lg';
+  const xs = size === 'xs';
 
   useEffect(() => {
     setSrc(page.previewUrl || '');
@@ -385,10 +405,10 @@ function PageThumb({ page, index, disabled, onPreview, onRemove, size = 'sm' }) 
     <div
       className={cn(
         'group relative shrink-0 overflow-hidden rounded-lg border bg-white shadow-sm',
-        lg ? 'h-[128px] w-[96px]' : 'h-[72px] w-[56px]',
+        lg ? 'h-[128px] w-[96px]' : xs ? 'h-11 w-9' : 'h-[72px] w-[56px]',
         page.status === 'done' && 'border-emerald-300',
         page.status === 'scanning' && 'border-emerald-500 ring-2 ring-emerald-200',
-        page.status === 'error' && 'border-red-300',
+        page.status === 'error' && 'border-red-400',
         page.status === 'pending' && 'border-slate-200',
       )}
     >
@@ -410,15 +430,26 @@ function PageThumb({ page, index, disabled, onPreview, onRemove, size = 'sm' }) 
             <FileImage className="size-5 text-slate-400" />
           </span>
         )}
-        <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 text-white opacity-0 transition-colors group-hover:bg-slate-950/35 group-hover:opacity-100">
-          <ZoomIn className="size-4" />
-        </span>
+        {page.status === 'error' ? (
+          <span className="absolute inset-0 flex flex-col items-center justify-center bg-red-700/75 px-1.5 text-center">
+            <XCircle className={cn('text-white', lg ? 'size-6' : 'size-4')} />
+            {lg && page.error ? (
+              <span className="mt-1 line-clamp-4 text-[9px] font-medium leading-tight text-white">
+                {page.error}
+              </span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 text-white opacity-0 transition-colors group-hover:bg-slate-950/35 group-hover:opacity-100">
+            <ZoomIn className="size-4" />
+          </span>
+        )}
       </button>
 
       <span
         className={cn(
           'pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-slate-900/80 to-transparent px-1.5 text-white',
-          lg ? 'h-6 text-[10px]' : 'h-5 text-[9px]',
+          lg ? 'h-6 text-[10px]' : xs ? 'h-4 text-[8px]' : 'h-5 text-[9px]',
         )}
       >
         <span className="font-semibold tabular-nums">P{index + 1}</span>
@@ -448,6 +479,86 @@ function PageThumb({ page, index, disabled, onPreview, onRemove, size = 'sm' }) 
           <X className="size-3" />
         </button>
       ) : null}
+    </div>
+  );
+}
+
+function ScanFailurePanel({ pages, disabled, onUseFallback, onDeclineFallback }) {
+  const [dismissed, setDismissed] = useState(() => new Set());
+
+  const failed = (pages || []).filter(
+    (p) => p.needsFallback || (p.status === 'error' && (p.pharmacistMessage || p.error)),
+  ).filter((p) => !dismissed.has(p.id));
+
+  if (!failed.length) return null;
+
+  const dismiss = (pageId) => {
+    setDismissed((prev) => new Set([...prev, pageId]));
+  };
+
+  return (
+    <div className="mt-3 space-y-2">
+      {failed.map((page) => {
+        const index = pages.findIndex((p) => p.id === page.id);
+        const fallbackName = formatOcrEngineName(page.fallbackProvider) || 'Gemini';
+        const itemCount = Number(page.itemCount || page.bestItems?.length || 0);
+        const message =
+          page.pharmacistMessage
+          || (itemCount
+            ? 'Some information could not be read confidently. Please review the highlighted rows before posting.'
+            : 'This page could not be read. Try a clearer photo, or add the lines by hand.');
+        return (
+          <div
+            key={page.id}
+            className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-[12px] text-amber-950"
+          >
+            <div className="flex items-start gap-2">
+              <XCircle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold leading-relaxed">
+                  {itemCount
+                    ? message
+                    : `Page ${index + 1} — ${message}`}
+                </p>
+                {page.needsFallback && onUseFallback ? (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <p className="text-[11px] font-medium text-amber-950">
+                      Review with {fallbackName}?
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={disabled}
+                      className="h-7 bg-emerald-700 px-2.5 text-[11px] font-semibold hover:bg-emerald-800"
+                      onClick={() => onUseFallback(page)}
+                    >
+                      Yes, use {fallbackName}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={disabled}
+                      className="h-7 border-amber-200 bg-white px-2.5 text-[11px] text-amber-900 hover:bg-amber-100"
+                      onClick={() => onDeclineFallback?.(page)}
+                    >
+                      No, I&apos;ll review
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => dismiss(page.id)}
+                className="flex size-7 shrink-0 items-center justify-center rounded-md text-amber-700 hover:bg-amber-100"
+                aria-label="Dismiss message"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

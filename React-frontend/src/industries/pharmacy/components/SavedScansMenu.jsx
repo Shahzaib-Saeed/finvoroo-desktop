@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { engineFromExtraction, formatOcrEngineName } from '../lib/ocr-engine-label';
 
 function formatWhen(iso) {
   if (!iso) return '—';
@@ -93,6 +94,7 @@ export function SavedScansMenu({
           {rows.map((row) => {
             const active = String(activeId) === String(row.id);
             const deleting = String(deletingId) === String(row.id);
+            const engineName = formatOcrEngineName(engineFromExtraction(row)?.provider);
             return (
               <div
                 key={row.id}
@@ -108,10 +110,14 @@ export function SavedScansMenu({
                   onClick={() => onOpen?.(row)}
                 >
                   <p className="truncate text-[12px] font-medium text-slate-800">
-                    {row.original_filename || `Scan #${row.id}`}
+                    {row.page_count > 1
+                      ? `${row.original_filename || 'Invoice'} (${row.page_count} pages)`
+                      : row.original_filename || `Scan #${row.id}`}
                   </p>
                   <p className="truncate text-[11px] text-slate-500">
                     {formatWhen(row.created_at)} · {row.item_count} lines
+                    {row.page_count > 1 ? ` · ${row.page_count} pages` : ''}
+                    {engineName ? ` · ${engineName}` : ''}
                     <span
                       className={cn(
                         'ms-1.5 rounded px-1 py-px text-[9px] font-semibold capitalize',

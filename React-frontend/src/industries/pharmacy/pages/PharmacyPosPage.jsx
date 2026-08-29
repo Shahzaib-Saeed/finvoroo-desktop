@@ -15,11 +15,10 @@ import { PharmacyReturnDialog } from '../components/PharmacyReturnDialog';
 import { PosManagerDialog } from '@/pages/accounting/pos/components/PosManagerDialog';
 import { getStatus as getPrintAgentStatus } from '@/lib/print-agent';
 import { DispensePayDialog } from '../components/DispensePayDialog';
+import { DispenseTopShell } from '../components/DispenseTopShell';
 import { MedicinePickSheet } from '../components/MedicinePickSheet';
 import { DispenseCartGrid } from '../components/DispenseCartGrid';
 import { DispenseSaleRail } from '../components/DispenseSaleRail';
-import { DispenseContextBar } from '../components/DispenseContextBar';
-import { DispenseHeaderBar } from '../components/DispenseHeaderBar';
 import { prefetchMedicineCatalog } from '../lib/medicine-catalog-cache';
 import { usePharmacyDispense } from '../hooks/usePharmacyDispense';
 import { useAuthStore } from '@/store/authStore';
@@ -64,40 +63,39 @@ export function PharmacyPosPage() {
   }
 
   return (
-    <div className="flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-zinc-100 text-neutral-950 antialiased">
-      <DispenseHeaderBar
-        companyId={pos.companyId}
-        companyName={companyName}
-        terminalLabel={terminalLabel}
-        terminalCode={terminalCode}
-        shiftId={shiftId}
-        cashierName={cashierName}
-        userRole={userRole}
-        shiftOpen={!!pos.shift?.id}
-        online={pos.online}
-        offlineSyncEnabled={pos.offlineSyncEnabled}
-        onOpenShift={() => pos.setShiftOpen(true)}
-        toolbarProps={{
-          onShift: () => pos.setShiftOpen(true),
-          onSave: pos.saveSale,
-          onRecall: () => {
-            pos.refreshHolds();
-            pos.setHoldPanelOpen(true);
-          },
-          onReturn: () => pos.setReturnOpen(true),
-          onSearch: pos.openMedicineList,
-          onPrintSetup: () => {
-            navigate(`/workspace/${pos.companyId}/pharmacy/settings?tab=printing`);
-          },
-          onClear: pos.clearCart,
-          checkingOut: pos.checkingOut,
+    <div className="flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-white text-slate-900 antialiased">
+      <DispenseTopShell
+        headerProps={{
+          companyId: pos.companyId,
+          companyName,
+          terminalLabel,
+          terminalCode,
+          shiftId,
+          cashierName,
+          userRole,
           shiftOpen: !!pos.shift?.id,
-          holdsCount: pos.holds.length,
-          disabled: !pos.lines.length,
+          online: pos.online,
+          offlineSyncEnabled: pos.offlineSyncEnabled,
+          onOpenShift: () => pos.setShiftOpen(true),
+          toolbarProps: {
+            onShift: () => pos.setShiftOpen(true),
+            onSave: pos.saveSale,
+            onRecall: () => {
+              pos.refreshHolds();
+              pos.setHoldPanelOpen(true);
+            },
+            onReturn: () => pos.setReturnOpen(true),
+            onSearch: pos.openMedicineList,
+            onPrintSetup: () => {
+              navigate(`/workspace/${pos.companyId}/pharmacy/settings?tab=printing`);
+            },
+            onClear: pos.clearCart,
+            checkingOut: pos.checkingOut,
+            shiftOpen: !!pos.shift?.id,
+            holdsCount: pos.holds.length,
+            disabled: !pos.lines.length,
+          },
         }}
-      />
-
-      <DispenseContextBar
         customer={pos.customer}
         formatMoney={pos.formatMoney}
         onOpenCustomer={() => pos.setCustomerOpen(true)}
@@ -106,10 +104,9 @@ export function PharmacyPosPage() {
         onRxNoteChange={pos.setRxNote}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden p-3">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-            <DispenseCartGrid
+      <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden bg-slate-50/70 p-3">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+          <DispenseCartGrid
               lines={pos.lines}
               cartFocus={pos.cartFocus}
               entryRowVisible={pos.entryRowVisible}
@@ -129,11 +126,10 @@ export function PharmacyPosPage() {
               onSubmitRaw={pos.scanOrSearch}
               getAvailableStock={pos.getAvailableStock}
               warehouseId={pos.warehouseId}
-            />
-          </div>
+          />
         </div>
 
-        <div className="flex min-h-0 w-full shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)] lg:w-[300px] xl:w-[340px]">
+        <div className="flex min-h-0 w-full shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 lg:w-[300px] xl:w-[340px]">
         <DispenseSaleRail
           totals={pos.totals}
           formatMoney={pos.formatMoney}

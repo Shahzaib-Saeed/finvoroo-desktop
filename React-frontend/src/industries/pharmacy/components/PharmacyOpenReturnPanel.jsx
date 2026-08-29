@@ -475,7 +475,6 @@ export function PharmacyOpenReturnPanel({
                               linked={!!line.product_id}
                               disabled={saving}
                               blockZeroStock={false}
-                              lookupMode="purchase"
                               onFocusRow={onSelectRow}
                               onNavigateRow={(delta) =>
                                 navigateOpenReturnRow(index, delta, rowCount, onSelectRow)

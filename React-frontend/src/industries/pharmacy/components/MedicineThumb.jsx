@@ -38,8 +38,8 @@ export const MedicineThumb = memo(function MedicineThumb({
       <div
         className={cn(
           dim,
-          'flex shrink-0 items-center justify-center rounded-lg bg-emerald-50 font-bold text-emerald-800 ring-1 ring-emerald-100',
-          size === 'sm' ? 'text-[11px]' : 'text-sm',
+          'flex shrink-0 items-center justify-center rounded-lg bg-slate-100 font-semibold text-slate-600 ring-1 ring-slate-200/80',
+          size === 'sm' ? 'text-[10px]' : 'text-sm',
           className,
         )}
         aria-hidden

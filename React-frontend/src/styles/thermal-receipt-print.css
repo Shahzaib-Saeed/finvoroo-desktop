@@ -400,11 +400,17 @@
   font-size: 18px;
 }
 
+.thermal-settlement {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed #111;
+}
+
 .thermal-change-row {
   display: flex;
   justify-content: space-between;
   padding: 3px 1px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #000;
 }
@@ -415,7 +421,9 @@
 }
 
 .thermal-change-row--strong {
+  font-size: 15px;
   font-weight: 800;
+  margin-top: 1px;
 }
 
 .thermal-change-row--strong span:last-child {

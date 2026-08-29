@@ -1,6 +1,9 @@
 /**
- * Adapter between Gemini OCR review rows and ReceiveGrn emptyLine shape.
+ * Adapter between OCR review rows and the ReceiveGrn emptyLine shape.
  * Does not post bills — handoff only.
+ *
+ * The row shape here mirrors the canonical invoice row the API returns, which
+ * is deliberately independent of whichever OCR engine read the page.
  */
 
 export function emptyExtractionRow() {
@@ -9,6 +12,7 @@ export function emptyExtractionRow() {
     product_description: '',
     units: '',
     batch_no: '',
+    mfg_date: '',
     expiry_date: '',
     qty: '',
     bonus: '',
@@ -25,17 +29,24 @@ export function emptyExtractionRow() {
     matched_product_image: '',
     match_confidence: 0,
     match_status: 'unmatched',
+    match_source: '',
+    match_user_confirmed: false,
+    match_suggestions: [],
+    // Per-signal breakdown of why the product was (or was not) linked.
+    match_diagnostics: null,
+    global_corrected_name: '',
   };
 }
 
 export function apiItemsToExtractionRows(items) {
-  return (items || []).map((item) =>
+  const rows = (items || []).map((item) =>
     normalizeExtractionRow({
       ...emptyExtractionRow(),
       item_code: item.item_code ?? '',
       product_description: item.product_description ?? '',
       units: item.units ?? '',
       batch_no: item.batch_no ?? '',
+      mfg_date: item.mfg_date ?? '',
       expiry_date: item.expiry_date ?? '',
       qty: numOrEmpty(item.qty),
       bonus: numOrEmpty(item.bonus),
@@ -52,8 +63,105 @@ export function apiItemsToExtractionRows(items) {
       matched_product_image: item.matched_product_image ?? item.image_url ?? '',
       match_confidence: Number(item.match_confidence) || 0,
       match_status: item.match_status || 'unmatched',
+      match_source: item.match_source || '',
+      match_user_confirmed: item.match_user_confirmed === true,
+      match_suggestions: Array.isArray(item.match_suggestions) ? item.match_suggestions : [],
+      match_diagnostics: item.match_diagnostics ?? null,
+      global_corrected_name: item.global_corrected_name || '',
     }),
   );
+
+  return mergeBonusContinuationRows(rows);
+}
+
+/**
+ * Same-product zero-price follow-on rows are bonus, not a second QTY line.
+ * e.g. Hamza: Qty 10 / Bonus -, then Qty - / Bonus 3.
+ */
+export function mergeBonusContinuationRows(rows) {
+  if (!Array.isArray(rows) || rows.length < 2) return rows || [];
+  const out = [];
+  for (const row of rows) {
+    if (out.length === 0) {
+      out.push(row);
+      continue;
+    }
+    const prev = out[out.length - 1];
+    if (!isBonusContinuation(prev, row)) {
+      out.push(row);
+      continue;
+    }
+    const add = bonusContribution(prev, row);
+    if (batchesCompatible(prev, row)) {
+      out[out.length - 1] = {
+        ...prev,
+        bonus: String((n(prev.bonus) || 0) + add),
+      };
+      continue;
+    }
+    out.push({
+      ...row,
+      qty: '0',
+      bonus: String(add > 0 ? add : n(row.bonus) || n(row.qty) || 0),
+    });
+  }
+  return out;
+}
+
+function sameExtractionProduct(a, b) {
+  const idA = a?.matched_product_id != null ? String(a.matched_product_id) : '';
+  const idB = b?.matched_product_id != null ? String(b.matched_product_id) : '';
+  if (idA && idA === idB) return true;
+  const codeA = String(a?.item_code || '').trim().toLowerCase();
+  const codeB = String(b?.item_code || '').trim().toLowerCase();
+  if (codeA && codeA === codeB) return true;
+  const nameA = String(a?.product_description || '').trim().toLowerCase();
+  const nameB = String(b?.product_description || '').trim().toLowerCase();
+  return Boolean(nameA) && nameA === nameB;
+}
+
+function lineMoney(row) {
+  return Math.max(n(row?.trade_price) || 0, n(row?.gross_amount) || 0, n(row?.line_total) || 0);
+}
+
+function isPaidExtractionLine(row) {
+  return (n(row?.qty) || 0) > 0 && lineMoney(row) > 0;
+}
+
+function isUnpaidExtractionLine(row) {
+  return lineMoney(row) <= 0;
+}
+
+function bonusUnits(row) {
+  const bonus = n(row?.bonus);
+  if (bonus > 0) return bonus;
+  const qty = n(row?.qty);
+  return qty > 0 ? qty : 0;
+}
+
+function isBonusContinuation(prev, curr) {
+  return (
+    sameExtractionProduct(prev, curr) &&
+    isPaidExtractionLine(prev) &&
+    isUnpaidExtractionLine(curr) &&
+    bonusUnits(curr) > 0
+  );
+}
+
+function bonusContribution(prev, curr) {
+  const explicit = n(curr?.bonus);
+  if (explicit > 0) return explicit;
+  const qty = n(curr?.qty) || 0;
+  const prevBonus = n(prev?.bonus) || 0;
+  if (qty <= 0) return 0;
+  if (prevBonus > 0 && Math.abs(qty - prevBonus) < 0.0001) return 0;
+  return qty;
+}
+
+function batchesCompatible(a, b) {
+  const batchA = String(a?.batch_no || '').trim().toLowerCase();
+  const batchB = String(b?.batch_no || '').trim().toLowerCase();
+  return !batchA || !batchB || batchA === batchB;
 }
 
 function numOrEmpty(v) {
@@ -89,11 +197,12 @@ export function extractionRowToProductPrefill(row) {
     packing && !packNum ? `Packing: ${packing}` : null,
     row?.item_code ? `Supplier code: ${row.item_code}` : null,
     row?.batch_no ? `Batch: ${row.batch_no}` : null,
+    row?.mfg_date ? `Mfg: ${row.mfg_date}` : null,
     row?.expiry_date ? `Expiry: ${row.expiry_date}` : null,
   ].filter(Boolean);
 
   return {
-    name: String(row?.product_description || row?.matched_product_name || '').trim(),
+    name: String(row?.global_corrected_name || row?.matched_product_name || row?.product_description || '').trim(),
     type: 'inventory',
     sku: row?.item_code ? String(row.item_code).trim() : '',
     barcode: '',
@@ -124,6 +233,11 @@ function moneyRound(v) {
   return Math.round(v * 100) / 100;
 }
 
+function amountsNear(a, b) {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  return Math.abs(a - b) <= Math.max(0.05, Math.max(Math.abs(a), Math.abs(b)) * 0.002);
+}
+
 function lineDiscountAmount(normalized, gross) {
   if (hasValue(normalized.discount_amount)) return n(normalized.discount_amount);
   if (hasValue(normalized.discount_percent) && gross > 0) {
@@ -134,7 +248,10 @@ function lineDiscountAmount(normalized, gross) {
 
 /**
  * Resolve exclusive (pre-tax) unit price from OCR fields.
- * Serene-style bills sometimes OCR "Value Including / qty" as trade_price — detect and fix.
+ *
+ * Printed Rate / T.P is kept unless it is clearly tax-inclusive
+ * (rate × qty equals the line total and a tax amount is present).
+ * Never bake the discount into TP — discount stays in DISC AMT.
  */
 export function resolveOcrUnitPrice(normalized, qty = 1) {
   const q = Math.max(n(qty), 1);
@@ -144,31 +261,28 @@ export function resolveOcrUnitPrice(normalized, qty = 1) {
   const taxAmount = hasValue(normalized.tax_amount) ? n(normalized.tax_amount) : 0;
   const furtherTax = hasValue(normalized.further_tax) ? n(normalized.further_tax) : 0;
   const combinedTax = taxAmount + furtherTax;
-  const tol = (base) => Math.max(0.05, base * 0.002);
 
-  if (grossAmount != null && grossAmount > 0) {
-    return String(moneyRound(grossAmount / q));
-  }
-
-  if (tradePrice != null && lineTotal != null) {
+  if (tradePrice != null) {
     const tradeGross = tradePrice * q;
-    const disc = lineDiscountAmount(normalized, tradeGross);
-    const tradeLineNet = tradeGross - disc;
+    const rateLooksTaxInclusive =
+      combinedTax > 0 && lineTotal != null && amountsNear(tradeGross, lineTotal);
 
-    if (Math.abs(tradeLineNet - lineTotal) <= tol(lineTotal)) {
+    if (rateLooksTaxInclusive) {
+      if (grossAmount != null && grossAmount > 0) {
+        return String(moneyRound(grossAmount / q));
+      }
       const exclusiveLine = lineTotal - combinedTax;
       if (exclusiveLine > 0) {
         return String(moneyRound(exclusiveLine / q));
       }
     }
 
-    const expectedInc = tradeLineNet + combinedTax;
-    if (Math.abs(expectedInc - lineTotal) <= tol(lineTotal)) {
-      return String(tradePrice);
-    }
+    return String(tradePrice);
   }
 
-  if (tradePrice != null) return String(tradePrice);
+  if (grossAmount != null && grossAmount > 0) {
+    return String(moneyRound(grossAmount / q));
+  }
 
   if (lineTotal != null) {
     const exclusiveLine = lineTotal - combinedTax;
@@ -181,18 +295,45 @@ export function resolveOcrUnitPrice(normalized, qty = 1) {
 }
 
 /** Full line tax from bill (sales tax + further tax when OCR only captured one column). */
-export function resolveOcrLineTaxAmount(normalized, exclusiveLineNet) {
+export function resolveOcrLineTaxAmount(normalized, exclusiveLineNet, extras = {}) {
   const lineTotal = hasValue(normalized.line_total) ? n(normalized.line_total) : null;
   let tax = hasValue(normalized.tax_amount) ? n(normalized.tax_amount) : 0;
   if (hasValue(normalized.further_tax)) {
     tax += n(normalized.further_tax);
   }
 
-  if (lineTotal != null && exclusiveLineNet != null && exclusiveLineNet > 0) {
-    const impliedTax = moneyRound(lineTotal - exclusiveLineNet);
-    if (impliedTax > 0.001 && (tax <= 0 || impliedTax > tax + 0.02)) {
-      tax = impliedTax;
+  const exclusiveGross =
+    extras.exclusiveGross != null && extras.exclusiveGross > 0
+      ? extras.exclusiveGross
+      : exclusiveLineNet != null
+        ? exclusiveLineNet + lineDiscountAmount(normalized, exclusiveLineNet)
+        : null;
+  const discount =
+    extras.discount != null
+      ? extras.discount
+      : exclusiveGross != null
+        ? lineDiscountAmount(normalized, exclusiveGross)
+        : lineDiscountAmount(normalized, 0);
+
+  const taxLooksLikeDiscount = discount > 0.001 && amountsNear(tax, discount);
+  const impliedTax =
+    lineTotal != null && exclusiveLineNet != null && exclusiveLineNet > 0
+      ? moneyRound(lineTotal - exclusiveLineNet)
+      : null;
+  const impliedIsDiscount = impliedTax != null && discount > 0.001 && amountsNear(impliedTax, discount);
+  const totalIsGross =
+    lineTotal != null && exclusiveGross != null && exclusiveGross > 0 && amountsNear(lineTotal, exclusiveGross);
+
+  // Hamza-style: Tax Amount is "-" on most lines. OCR copies Disc Amount into
+  // tax, or "line total − (gross − discount)" equals the discount because Net
+  // was read as Gross. That is not GST.
+  if (totalIsGross || impliedIsDiscount || (taxLooksLikeDiscount && (impliedTax == null || impliedTax <= 0.001))) {
+    if (taxLooksLikeDiscount || tax <= 0 || impliedIsDiscount) {
+      tax = 0;
     }
+  } else if (impliedTax != null && impliedTax > 0.001 && tax > 0 && impliedTax > tax + 0.02) {
+    // Only complete a tax that was already printed (further tax). Never invent GST from a gap.
+    tax = impliedTax;
   }
 
   if (tax <= 0 && hasValue(normalized.tax_percent) && exclusiveLineNet != null && exclusiveLineNet > 0) {
@@ -249,7 +390,10 @@ export function repairOcrReceiveLine(line) {
   const exclusiveGross = n(unitPrice) * qty;
   const disc = lineDiscountAmount(ocrRow, gross);
   const exclusiveNet = Math.max(0, exclusiveGross - disc);
-  const resolvedTax = resolveOcrLineTaxAmount(ocrRow, exclusiveNet);
+  const resolvedTax = resolveOcrLineTaxAmount(ocrRow, exclusiveNet, {
+    exclusiveGross,
+    discount: disc,
+  });
   const resolvedBillTotal =
     billTotal > 0 ? String(billTotal) : ocrRow.line_total;
 
@@ -271,7 +415,12 @@ export function isOcrReceiveLine(line) {
 }
 
 /**
- * Line money for receive grid — scanned bill totals always win over recalculated GST.
+ * Line money for the receive grid.
+ *
+ * Amount is always TP × Qty − Disc Amt + Tax. Disc Amt is calculated from
+ * the percent on TP × Qty. Tax is the printed OCR figure (or GST % on a
+ * manual line). Never replace Amount with the OCR line total — that number
+ * is often a neighbour column or a net for the wrong qty.
  */
 export function computeReceiveLineAmounts(line, invGstFallback = 0) {
   const qty = Number(line.quantity) || 0;
@@ -288,33 +437,21 @@ export function computeReceiveLineAmounts(line, invGstFallback = 0) {
   const fromInvoice = isOcrReceiveLine(line);
   const hasInvoiceTax =
     line.tax_amount != null && String(line.tax_amount).trim() !== '';
-  const billLineTotal = Number(line.invoice_line_total);
-  const hasBillTotal =
-    fromInvoice && Number.isFinite(billLineTotal) && billLineTotal > 0;
+  const printedTax = hasInvoiceTax ? Number(line.tax_amount) || 0 : 0;
+  const taxLooksLikeDiscount =
+    discount > 0.001 && hasInvoiceTax && amountsNear(printedTax, discount);
 
   let tax = 0;
-  let totalExc = Math.max(0, gross - discount);
-  let totalInc = totalExc;
-
-  if (hasBillTotal) {
-    totalInc = billLineTotal;
-    if (hasInvoiceTax) {
-      tax = Number(line.tax_amount) || 0;
-    } else if (totalExc > 0 && totalExc < billLineTotal) {
-      tax = moneyRound(billLineTotal - totalExc);
-    }
-    totalExc = Math.max(0, billLineTotal - tax);
+  if (fromInvoice && hasInvoiceTax) {
+    tax = taxLooksLikeDiscount ? 0 : printedTax;
+  } else if (hasInvoiceTax && !line.tax_rate_id) {
+    tax = taxLooksLikeDiscount ? 0 : printedTax;
   } else {
-    if (fromInvoice && hasInvoiceTax) {
-      tax = Number(line.tax_amount) || 0;
-    } else if (hasInvoiceTax && !line.tax_rate_id) {
-      tax = Number(line.tax_amount) || 0;
-    } else {
-      tax = (Math.max(0, gross - discount) * gst) / 100;
-    }
-    totalExc = Math.max(0, gross - discount);
-    totalInc = totalExc + tax;
+    tax = (Math.max(0, gross - discount) * gst) / 100;
   }
+
+  const totalExc = Math.max(0, gross - discount);
+  const totalInc = totalExc + tax;
 
   const sale = Number(line.sale_price) || 0;
   const mrp = Number(line.mrp) || 0;
@@ -342,7 +479,84 @@ export function computeReceiveLineAmounts(line, invGstFallback = 0) {
     netMargin,
     advTax,
     received: qty + bonus,
-    billLocked: hasBillTotal,
+    billLocked: false,
+  };
+}
+
+/**
+ * Payable is always the sum of the Amount column the user can see, plus header
+ * extras they typed. Never use an AI-printed grand total — that is the check
+ * against the bill, not the figure we post.
+ *
+ * @param {boolean} scanLocked  scanned lines already include tax in Amount;
+ *   header GST % is then an extra, not applied again on each row
+ */
+export function summarizeReceiveLineTotals(
+  lines,
+  {
+    invGstPercent = 0,
+    docDiscPercent = 0,
+    docDiscount = 0,
+    otherCharges = 0,
+    purchaseExpense = 0,
+    advIncomeTax = 0,
+    scanLocked = false,
+  } = {},
+) {
+  const gstFallback = scanLocked ? 0 : Number(invGstPercent) || 0;
+  let subtotal = 0;
+  let lineDiscount = 0;
+  let tax = 0;
+  let lineAmountTotal = 0;
+  let saleTotal = 0;
+  let count = 0;
+  let strips = 0;
+  let unmatched = 0;
+
+  for (const line of lines || []) {
+    if (!line.product_id && !line._needsMatch && !line.name) continue;
+    if (!line.product_id && !line._needsMatch) continue;
+    const a = computeReceiveLineAmounts(line, gstFallback);
+    if (!line.product_id) unmatched += 1;
+    count += 1;
+    strips += a.received;
+    subtotal += a.gross;
+    lineDiscount += a.discount;
+    tax += a.tax;
+    lineAmountTotal += a.totalInc;
+    saleTotal += a.sale * a.qty;
+  }
+
+  const afterLine = Math.max(0, subtotal - lineDiscount);
+  const pctDisc = (afterLine * (Number(docDiscPercent) || 0)) / 100;
+  const flatDisc = Number(docDiscount) || 0;
+  const misc = Number(otherCharges) || 0;
+  const purExp = Number(purchaseExpense) || 0;
+  const advTax = Number(advIncomeTax) || 0;
+  const taxableBase = Math.max(0, afterLine - pctDisc - flatDisc);
+  const docIncGst = scanLocked ? (taxableBase * (Number(invGstPercent) || 0)) / 100 : 0;
+  const payable = moneyRound(
+    Math.max(0, lineAmountTotal - pctDisc - flatDisc + docIncGst + misc + purExp + advTax),
+  );
+  const avgPrice = count > 0 ? payable / Math.max(1, strips) : 0;
+
+  return {
+    count,
+    strips,
+    unmatched,
+    subtotal,
+    lineAmountTotal: moneyRound(lineAmountTotal),
+    lineDiscount,
+    pctDisc,
+    headerDiscount: flatDisc,
+    tax: moneyRound(tax),
+    misc,
+    purchaseExpense: purExp,
+    advTax,
+    docIncGst,
+    saleTotal,
+    avgPrice,
+    payable,
   };
 }
 
@@ -405,22 +619,25 @@ export function extractionRowsToReceiveLines(rows, pharmacySettings = {}) {
       );
       const discAmount = hasValue(normalized.discount_amount) ? n(normalized.discount_amount) : null;
       const discPercent = hasValue(normalized.discount_percent) ? n(normalized.discount_percent) : null;
-      // Prefer fixed amount when present (invoice-visible money).
-      const discount =
-        discAmount != null
-          ? String(discAmount)
-          : discPercent != null
-            ? String(discPercent)
-            : '0';
-      const discount_type = discAmount != null ? 'fixed' : discPercent != null ? 'percent' : 'fixed';
 
       const paidQty = resolveExtractionQuantity(normalized);
       const qtyNum = Math.max(n(paidQty) || n(normalized.qty), 1);
       const unitPrice = resolveOcrUnitPrice(normalized, qtyNum);
       const exclusiveGross = n(unitPrice) * qtyNum;
+      // DISC % from the bill; DISC AMT is always TP × Qty × % on the grid.
+      let discount = '0';
+      let discount_type = 'percent';
+      if (discPercent != null) {
+        discount = String(discPercent);
+      } else if (discAmount != null && exclusiveGross > 0) {
+        discount = String(moneyRound((discAmount / exclusiveGross) * 100));
+      }
       const lineDisc = lineDiscountAmount(normalized, exclusiveGross || n(normalized.trade_price) * qtyNum);
       const exclusiveNet = Math.max(0, exclusiveGross - lineDisc);
-      const resolvedTax = resolveOcrLineTaxAmount(normalized, exclusiveNet);
+      const resolvedTax = resolveOcrLineTaxAmount(normalized, exclusiveNet, {
+        exclusiveGross,
+        discount: lineDisc,
+      });
       const product = normalized.matched_product_id
         ? byId.get(String(normalized.matched_product_id))
         : null;
@@ -438,10 +655,10 @@ export function extractionRowsToReceiveLines(rows, pharmacySettings = {}) {
         quantity: paidQty !== '' ? paidQty : n(normalized.bonus) > 0 ? '0' : '1',
         bonus: hasValue(normalized.bonus) ? String(normalized.bonus) : '0',
         unit_price: unitPrice,
-        last_cost: unitPrice || (product?.purchase_price != null ? String(product.purchase_price) : ''),
+        last_cost: catalogPurchasePrice(product),
         discount,
         discount_type,
-        discount_percent: discPercent != null ? String(discPercent) : '',
+        discount_percent: discount_type === 'percent' && discount !== '0' ? String(discount) : (discPercent != null ? String(discPercent) : ''),
         discount_amount: discAmount != null ? String(discAmount) : '',
         gst_percent: hasValue(normalized.tax_percent) ? String(normalized.tax_percent) : '',
         tax_amount: resolvedTax,
@@ -450,15 +667,29 @@ export function extractionRowsToReceiveLines(rows, pharmacySettings = {}) {
         sale_price: saleFromCatalog,
         batch_number: withDefaults.batch_no || withDefaults.batch_number || '',
         expiry_date: withDefaults.expiry_date || '',
-        manufactured_date: '',
+        // Printed on some supplier invoices as an MFG column; blank when the
+        // invoice does not carry one.
+        manufactured_date: normalized.mfg_date || '',
         item_code: normalized.item_code || '',
         supplier_invoice_label: String(normalized.product_description || '').trim(),
         invoice_line_total: hasValue(normalized.line_total) ? String(normalized.line_total) : '',
         match_status: normalized.match_status || (normalized.matched_product_id ? 'matched' : 'unmatched'),
         match_confidence: normalized.match_confidence ?? 0,
+        match_source: normalized.match_source || '',
         match_user_confirmed: normalized.match_user_confirmed === true,
+        match_suggestions: Array.isArray(normalized.match_suggestions)
+          ? normalized.match_suggestions
+          : [],
+        match_diagnostics: normalized.match_diagnostics ?? null,
+        global_corrected_name: String(normalized.global_corrected_name || '').trim(),
         _needsMatch: !normalized.matched_product_id,
         _fromOcr: true,
+        _ocrHighlight: Boolean(normalized._ocrHighlight),
+        _ocrHighlightFields: Array.isArray(normalized._ocrHighlightFields)
+          ? normalized._ocrHighlightFields
+          : [],
+        _ocrExtractionId: normalized._ocrExtractionId ?? null,
+        _ocrLineIndex: normalized._ocrLineIndex ?? null,
       };
     });
 
@@ -470,11 +701,36 @@ function catalogRowsForEnrich() {
   return getCachedMedicineCatalog() || [];
 }
 
+function catalogPurchasePrice(product) {
+  if (!product) return '';
+  const raw = product.purchase_price ?? product.cost_price ?? product.last_cost ?? null;
+  if (raw == null || raw === '') return '';
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? String(raw) : '';
+}
+
 function catalogRetailPrice(product) {
   if (!product) return '';
   const raw = product.unit_price ?? product.mrp ?? null;
   if (raw == null || raw === '') return '';
   return Number.isFinite(Number(raw)) ? String(raw) : '';
+}
+
+/** Previous pack cost from catalog (for receive TP change warning). */
+export function resolveCatalogPurchasePrice(product) {
+  return catalogPurchasePrice(product);
+}
+
+/**
+ * True when this bill's TP differs from the product's last recorded cost.
+ * No previous cost (new item) is not a warning.
+ */
+export function receiveCostChangedFromLast(line) {
+  const prev = Number(line?.last_cost);
+  const now = Number(line?.unit_price);
+  if (!Number.isFinite(prev) || prev <= 0) return false;
+  if (!Number.isFinite(now) || now <= 0) return false;
+  return Math.abs(now - prev) > Math.max(0.05, Math.max(Math.abs(now), Math.abs(prev)) * 0.002);
 }
 
 /** Retail / POS sale price from catalog product (for receive grid). */
@@ -494,6 +750,10 @@ export function enrichReceiveLinesFromCatalog(lineList) {
     if (!product) return line;
     const fromScan = Boolean(line._fromOcr || String(line.supplier_invoice_label || '').trim());
     const patch = {};
+    const prevCost = catalogPurchasePrice(product);
+    if (prevCost && String(line.last_cost || '').trim() !== prevCost) {
+      patch.last_cost = prevCost;
+    }
     if (!String(line.sale_price || '').trim()) {
       const sale = catalogRetailPrice(product);
       if (sale) patch.sale_price = sale;

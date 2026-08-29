@@ -3,14 +3,18 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { PharmacyKbd } from './PharmacyKbd';
 
-function MoneyRow({ label, value, strong = false }) {
+function MoneyRow({ label, value, strong = false, accent = false }) {
   return (
     <div className="flex items-center justify-between gap-3 py-0.5">
       <span className="text-[13px] font-medium text-slate-600">{label}</span>
       <span
         className={cn(
-          'tabular-nums text-neutral-950',
-          strong ? 'text-[15px] font-bold' : 'text-[14px] font-semibold',
+          'tabular-nums',
+          accent
+            ? 'text-[15px] font-bold text-emerald-800'
+            : strong
+              ? 'text-[15px] font-bold text-slate-900'
+              : 'text-[14px] font-semibold text-slate-800',
         )}
       >
         {value}
@@ -29,17 +33,22 @@ export function DispenseSaleRail({
   disabled = false,
 }) {
   return (
-    <aside className="flex h-full w-full flex-col overflow-hidden bg-slate-50/40">
+    <aside className="flex h-full w-full flex-col overflow-hidden bg-white">
+      <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5">
+        <p className="border-s-[3px] border-emerald-600 ps-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">
+          Checkout
+        </p>
+      </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-hidden px-4 py-4">
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">Lines</p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Lines</p>
             <p className="mt-1 text-2xl font-bold tabular-nums leading-none text-slate-900">
               {totals.itemCount}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">Qty</p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Qty</p>
             <p className="mt-1 text-2xl font-bold tabular-nums leading-none text-slate-900">
               {totals.totalBaseQty}
               <span className="ms-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
@@ -49,8 +58,8 @@ export function DispenseSaleRail({
           </div>
         </div>
 
-        <div className="space-y-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-3.5 shadow-sm">
-          <MoneyRow label="Subtotal" value={formatMoney(totals.subtotal)} strong />
+        <div className="space-y-2.5 rounded-lg border border-slate-200 bg-white px-3.5 py-3.5">
+          <MoneyRow label="Subtotal" value={formatMoney(totals.subtotal)} strong accent />
           {totals.lineDiscountTotal > 0 ? (
             <MoneyRow
               label="Line discount"
@@ -73,8 +82,8 @@ export function DispenseSaleRail({
       </div>
 
       <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-4">
-        <div className="mb-3 rounded-xl bg-zinc-950 px-4 py-3.5 shadow-md">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-400">
+        <div className="mb-3 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 px-4 py-3.5 shadow-md ring-1 ring-emerald-700/30">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-300/80">
             Grand total
           </p>
           <p className="mt-1 text-[28px] font-bold leading-none tracking-tight tabular-nums text-white">
@@ -83,7 +92,7 @@ export function DispenseSaleRail({
         </div>
         <Button
           type="button"
-          className="h-12 w-full rounded-xl bg-emerald-700 text-[15px] font-bold text-white shadow-sm hover:bg-emerald-800"
+          className="h-12 w-full rounded-xl bg-emerald-700 text-[15px] font-bold text-white shadow-md shadow-emerald-900/20 hover:bg-emerald-800"
           onClick={onPostAndPrint}
           disabled={disabled || checkingOut || !shiftOpen}
         >

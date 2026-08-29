@@ -9,6 +9,7 @@ const TAIL_LABELS = {
 /** Human-readable titles for accounting report URL slugs. */
 const ACCOUNTING_REPORT_LABELS = {
   'financial-summary': 'Financial Summary',
+  'category-trading': 'Category Sales & Purchases',
   'income-statement': 'Income Statement',
   'profit-loss': 'Profit & Loss',
   'profit-loss-by-job': 'Profit & Loss by Job',
@@ -91,6 +92,29 @@ function getAccountingReportsBreadcrumb(pathname, companyId) {
   return null;
 }
 
+const PHARMACY_REPORT_LABELS = {
+  'item-sales': 'Item-wise POS Sales',
+  'manufacturer-expiry': 'Manufacturer-wise Expiry',
+  'stock-valuation': 'Stock Valuation',
+};
+
+function getPharmacyReportsBreadcrumb(pathname, companyId) {
+  const hub = `/workspace/${companyId}/pharmacy/reports`;
+  const alias = `/workspace/${companyId}/pharmacy/medicine-reports`;
+
+  if (pathname === hub || pathname === alias) {
+    return [{ label: 'Pharmacy reports' }];
+  }
+
+  if (pathname.startsWith(`${hub}/`)) {
+    const slug = pathname.slice(hub.length + 1).split('/').filter(Boolean)[0];
+    const label = PHARMACY_REPORT_LABELS[slug] || humanizeSlug(slug || 'report');
+    return [{ label: 'Pharmacy reports', href: hub }, { label }];
+  }
+
+  return null;
+}
+
 /**
  * Build breadcrumb items for the current workspace route from sidebar menu + URL tail.
  */
@@ -99,6 +123,9 @@ export function getWorkspaceBreadcrumb(pathname, companyId) {
 
   const reportCrumb = getAccountingReportsBreadcrumb(pathname, companyId);
   if (reportCrumb) return reportCrumb;
+
+  const pharmacyReportCrumb = getPharmacyReportsBreadcrumb(pathname, companyId);
+  if (pharmacyReportCrumb) return pharmacyReportCrumb;
 
   let bestChain = [];
   let bestLen = 0;

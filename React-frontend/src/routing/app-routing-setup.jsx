@@ -123,6 +123,7 @@ import { AccountingReportsHubPage } from '@/pages/accounting/reports';
 import { ProfitLossReportPage } from '@/pages/accounting/reports/profit-loss';
 import { IncomeStatementReportPage } from '@/pages/accounting/reports/income-statement';
 import { FinancialSummaryReportPage } from '@/pages/accounting/reports/financial-summary';
+import { CategoryTradingReportPage } from '@/pages/accounting/reports/category-trading';
 import { ProfitLossByJobReportPage } from '@/pages/accounting/reports/profit-loss-by-job';
 import { BalanceSheetReportPage } from '@/pages/accounting/reports/balance-sheet';
 import { CashFlowReportPage } from '@/pages/accounting/reports/cash-flow';
@@ -304,6 +305,7 @@ export function AppRoutingSetup() {
           <Route path="/workspace/:id/accounting/inventory/reports" element={<InventoryReportsHubPage />} />
           <Route path="/workspace/:id/accounting/inventory" element={<InventoryDashboardPage />} />
           <Route path="/workspace/:id/accounting/reports/financial-summary" element={<FinancialSummaryReportPage />} />
+          <Route path="/workspace/:id/accounting/reports/category-trading" element={<CategoryTradingReportPage />} />
           <Route path="/workspace/:id/accounting/reports/income-statement" element={<IncomeStatementReportPage />} />
           <Route path="/workspace/:id/accounting/reports/profit-loss" element={<ProfitLossReportPage />} />
           <Route

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import {
   appendCustomFieldSelectOption,
@@ -36,7 +36,11 @@ export function usePurchaseOrderForm({ mode = 'create', purchaseOrder, fromSourc
   const sourceId = fromSource?.sourceId || '';
   const isEdit = mode === 'edit';
   const { id: companyId } = useParams();
-  const [form, setForm] = useState(EMPTY_PO_FORM);
+  const [searchParams] = useSearchParams();
+  const presetVendorId = !isEdit ? String(searchParams.get('vendor_id') || '').trim() : '';
+  const [form, setForm] = useState(() =>
+    presetVendorId ? { ...EMPTY_PO_FORM, vendor_id: presetVendorId } : EMPTY_PO_FORM,
+  );
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [loadingLookups, setLoadingLookups] = useState(true);
@@ -90,12 +94,14 @@ export function usePurchaseOrderForm({ mode = 'create', purchaseOrder, fromSourc
             prev?.custom_field_definitions,
           ),
         }));
-        if (companyId) await cacheOnlineFormLookups(companyId, data);
         if (!isEdit && !purchaseOrder) {
           setForm((f) => ({
             ...f,
             currency: data.base_currency || f.currency || 'USD',
           }));
+        }
+        if (companyId) {
+          cacheOnlineFormLookups(companyId, data).catch(() => {});
         }
       })
       .catch(async (err) => {
@@ -269,8 +275,12 @@ export function usePurchaseOrderForm({ mode = 'create', purchaseOrder, fromSourc
   }, []);
 
   const selectProduct = useCallback(
-    (index, productId) => {
-      const product = productsById[String(productId)];
+    (index, productId, catalogProduct) => {
+      const fromLookup = productsById[String(productId)];
+      const product =
+        catalogProduct && (catalogProduct.id != null || catalogProduct.name)
+          ? { ...fromLookup, ...catalogProduct }
+          : fromLookup;
       const duplicateIdx = form.lines.findIndex(
         (l, i) => i !== index && l.product_id && String(l.product_id) === String(productId)
       );
@@ -281,11 +291,13 @@ export function usePurchaseOrderForm({ mode = 'create', purchaseOrder, fromSourc
       setForm((f) => {
         let lines = f.lines.map((line, i) => {
           if (i !== index) return line;
+          const purchasePrice =
+            product?.purchase_price ?? product?.cost_price ?? product?.unit_price ?? line.unit_price;
           const next = {
             ...line,
             product_id: productId,
             description: product?.name || line.description,
-            unit_price: product?.unit_price ?? line.unit_price,
+            unit_price: purchasePrice,
             tax_rate_id: product?.tax_rate_id ? String(product.tax_rate_id) : line.tax_rate_id,
             entered_unit: defaultEnteredUnitForProduct(product) || '',
           };
@@ -298,6 +310,57 @@ export function usePurchaseOrderForm({ mode = 'create', purchaseOrder, fromSourc
       });
     },
     [form.lines, productsById]
+  );
+
+  const addSuggestedProduct = useCallback(
+    (suggestion) => {
+      const productId = String(suggestion?.product_id ?? '');
+      if (!productId) return false;
+
+      const product = productsById[productId];
+      let added = true;
+      setForm((f) => {
+        const duplicate = f.lines.some(
+          (l) => l.product_id && String(l.product_id) === productId,
+        );
+        if (duplicate) {
+          added = false;
+          return f;
+        }
+
+        const qty = Number(suggestion.quantity);
+        const rawPrice = suggestion.unit_price ?? product?.purchase_price ?? '';
+        const priceNum = Number(rawPrice);
+        const newLine = refreshLineComputedFields({
+          ...EMPTY_PO_LINE,
+          product_id: productId,
+          description: suggestion.product_name || product?.name || '',
+          quantity: Number.isFinite(qty) && qty > 0 ? String(qty) : '1',
+          unit_price: Number.isFinite(priceNum) && priceNum > 0 ? String(priceNum) : '',
+          tax_rate_id: product?.tax_rate_id ? String(product.tax_rate_id) : '',
+          entered_unit: defaultEnteredUnitForProduct(product) || '',
+        });
+
+        const emptyIdx = f.lines.findIndex(
+          (l) => !l.product_id && !String(l.description || '').trim(),
+        );
+        let lines =
+          emptyIdx >= 0
+            ? f.lines.map((line, i) => (i === emptyIdx ? newLine : line))
+            : [...f.lines, newLine];
+        if (lines[lines.length - 1].product_id) {
+          lines = [...lines, { ...EMPTY_PO_LINE }];
+        }
+        return { ...f, lines };
+      });
+
+      if (!added) {
+        toast.error('This product is already on another line.');
+        return false;
+      }
+      return true;
+    },
+    [productsById],
   );
 
   const addLine = useCallback(() => {
@@ -419,6 +482,7 @@ export function usePurchaseOrderForm({ mode = 'create', purchaseOrder, fromSourc
     onUpdateLineDiscountPercent: updateLineDiscountPercent,
     onUpdateLineNetTotal: updateLineNetTotal,
     onSelectProduct: selectProduct,
+    onAddSuggestedProduct: addSuggestedProduct,
     onAddLine: addLine,
     onRemoveLine: removeLine,
     handleSubmit,

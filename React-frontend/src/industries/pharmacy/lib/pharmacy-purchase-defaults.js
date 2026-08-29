@@ -45,10 +45,16 @@ export function lineHasEffectiveExpiry(line, settings = {}) {
   return Boolean(mask && isValidExpiryInput(mask));
 }
 
-/** Apply company pharmacy defaults when invoice/OCR omitted batch or expiry. */
+/** Apply company pharmacy defaults when a manual line omitted batch or expiry.
+ *  Invoice-scan rows keep OCR blanks — a default 12/28 on every line looks like a bad read. */
 export function applyPurchaseLineDefaults(row, settings = {}) {
   if (!row || typeof row !== 'object') return row;
   const next = { ...row };
+  const fromScan =
+    Boolean(next._fromOcr) ||
+    hasText(next.product_description) ||
+    hasText(next.supplier_invoice_label);
+  if (fromScan) return next;
 
   const batch = resolvePurchaseLineBatch(next, settings);
   if (batch && !hasText(next.batch_no) && !hasText(next.batch_number)) {

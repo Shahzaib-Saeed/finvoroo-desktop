@@ -236,9 +236,15 @@ export function ThermalReceiptBody({
   const summaryPosFee = wholeRupees ? roundReceiptWhole(posFee) : posFee;
   const summaryPaid = wholeRupees ? roundReceiptWhole(amountPaid) : amountPaid;
   const summaryTotal = wholeRupees ? roundReceiptWhole(total) : total;
+  const explicitChange = Number(changeDue) || 0;
   const summaryChange = wholeRupees
-    ? Math.max(0, summaryPaid - summaryTotal)
-    : Math.max(0, Number(changeDue) || 0);
+    ? Math.max(
+        0,
+        explicitChange > 0.0001
+          ? roundReceiptWhole(explicitChange)
+          : summaryPaid - summaryTotal,
+      )
+    : Math.max(0, explicitChange || Number(summaryPaid) - Number(summaryTotal));
   const summaryBalance = wholeRupees ? roundReceiptWhole(balanceDue) : balanceDue;
 
   const showPaid = wholeRupees ? summaryPaid > 0 : Number(amountPaid) > 0.0001;
@@ -366,16 +372,20 @@ export function ThermalReceiptBody({
           <span className="thermal-grand-total-amount">{money(summaryTotal)}</span>
         </div>
 
-        {showPaid ? (
-          <div className="thermal-change-row">
-            <span>{paidLabel} Paid</span>
-            <span>{money(summaryPaid)}</span>
-          </div>
-        ) : null}
-        {showChange ? (
-          <div className="thermal-change-row thermal-change-row--strong">
-            <span>Change</span>
-            <span>{money(summaryChange)}</span>
+        {showPaid || showChange ? (
+          <div className="thermal-settlement">
+            {showPaid ? (
+              <div className="thermal-change-row">
+                <span>{paidLabel}</span>
+                <span>{money(summaryPaid)}</span>
+              </div>
+            ) : null}
+            {showChange ? (
+              <div className="thermal-change-row thermal-change-row--strong">
+                <span>Change</span>
+                <span>{money(summaryChange)}</span>
+              </div>
+            ) : null}
           </div>
         ) : null}
         {showBalance ? (
@@ -486,11 +496,18 @@ export function thermalReceiptFromPos(
   const lines = posFee > 0.0001 ? productLines : rawLines;
 
   const total = r.total ?? inv.total;
-  const amountPaid = r.amount_paid ?? inv.amount_paid;
-  const changeDue =
-    r.change_due ??
-    receipt?.change_due ??
-    Math.max(0, Number(amountPaid || 0) - Number(total || 0));
+  const invoicePaid = Number(r.amount_paid ?? inv.amount_paid ?? 0);
+  const apiChange = Number(r.change_due ?? receipt?.change_due ?? 0);
+  const cashTendered = Number(
+    r.cash_tendered ?? receipt?.cash_tendered ?? receipt?.tendered ?? 0,
+  );
+  const amountPaid =
+    cashTendered > 0.0001
+      ? cashTendered
+      : apiChange > 0.0001
+        ? Number(total || 0) + apiChange
+        : invoicePaid;
+  const changeDue = Math.max(0, Number(amountPaid || 0) - Number(total || 0));
 
   const co = {
     ...(company || {}),

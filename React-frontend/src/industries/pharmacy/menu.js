@@ -38,6 +38,14 @@ const NEW_PURCHASE = {
   industryZone: 'pharmacy',
 };
 
+const CREATE_PO = {
+  title: 'Create purchase order',
+  path: '/workspace/:id/accounting/purchase-orders/create',
+  permission: 'purchase_orders.create',
+  feature: 'pharmacy_shell',
+  industryZone: 'pharmacy',
+};
+
 const SCAN_SUPPLIER_BILL = {
   title: 'Scan supplier bill',
   path: '/workspace/:id/pharmacy/purchase-entry',
@@ -87,6 +95,24 @@ const PHARMACY_SECTION = {
     {
       title: 'Pharmacy reports',
       path: '/workspace/:id/pharmacy/reports',
+      permission: 'reports.view',
+      feature: 'pharmacy_shell',
+    },
+    {
+      title: 'Item-wise POS sales',
+      path: '/workspace/:id/pharmacy/reports/item-sales',
+      permission: 'reports.view',
+      feature: 'pharmacy_shell',
+    },
+    {
+      title: 'Manufacturer-wise expiry',
+      path: '/workspace/:id/pharmacy/reports/manufacturer-expiry',
+      permission: 'reports.view',
+      feature: 'batch_expiry',
+    },
+    {
+      title: 'Stock valuation',
+      path: '/workspace/:id/pharmacy/reports/stock-valuation',
       permission: 'reports.view',
       feature: 'pharmacy_shell',
     },
@@ -143,6 +169,7 @@ function filterPharmacySidebarItem(item) {
       ...next,
       children: [
         NEW_PURCHASE,
+        CREATE_PO,
         SCAN_SUPPLIER_BILL,
         OPEN_PURCHASE,
         IMPORT_PURCHASE,
@@ -251,12 +278,14 @@ export function getPharmacyMegaMenuColumns(companyId) {
         );
         links = [
           toMegaLink(NEW_PURCHASE, companyId),
+          toMegaLink(CREATE_PO, companyId),
           toMegaLink(SCAN_SUPPLIER_BILL, companyId),
           toMegaLink(OPEN_PURCHASE, companyId),
           toMegaLink(IMPORT_PURCHASE, companyId),
           ...unique.filter(
             (l) =>
               l.path !== p(NEW_PURCHASE.path) &&
+              l.path !== p(CREATE_PO.path) &&
               l.path !== p(SCAN_SUPPLIER_BILL.path) &&
               l.path !== p(OPEN_PURCHASE.path) &&
               l.path !== p(IMPORT_PURCHASE.path),
@@ -350,6 +379,12 @@ export function getPharmacySectionNav() {
             feature: NEW_PURCHASE.feature,
           },
           {
+            title: CREATE_PO.title,
+            path: '/accounting/purchase-orders/create',
+            permission: CREATE_PO.permission,
+            feature: CREATE_PO.feature,
+          },
+          {
             title: SCAN_SUPPLIER_BILL.title,
             path: '/pharmacy/purchase-entry',
             permission: SCAN_SUPPLIER_BILL.permission,
@@ -368,6 +403,44 @@ export function getPharmacySectionNav() {
             feature: IMPORT_PURCHASE.feature,
           },
           ...links,
+        ],
+      };
+    }
+
+    if (section.key === 'reports') {
+      return {
+        ...section,
+        matches: [
+          ...(section.matches || []),
+          '/pharmacy/reports',
+          '/pharmacy/medicine-reports',
+        ],
+        links: [
+          {
+            title: 'Pharmacy reports',
+            path: '/pharmacy/reports',
+            permission: 'reports.view',
+            feature: 'pharmacy_shell',
+          },
+          {
+            title: 'Item-wise POS sales',
+            path: '/pharmacy/reports/item-sales',
+            permission: 'reports.view',
+            feature: 'pharmacy_shell',
+          },
+          {
+            title: 'Manufacturer-wise expiry',
+            path: '/pharmacy/reports/manufacturer-expiry',
+            permission: 'reports.view',
+            feature: 'batch_expiry',
+          },
+          {
+            title: 'Stock valuation',
+            path: '/pharmacy/reports/stock-valuation',
+            permission: 'reports.view',
+            feature: 'pharmacy_shell',
+          },
+          ...(section.links || []),
         ],
       };
     }

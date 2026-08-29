@@ -26,6 +26,13 @@
   flex-shrink: 0;
 }
 
+/* Table statements (category trading, POS, valuation, etc.) — fill the cell. */
+table .balance-sheet-amount {
+  width: auto;
+  max-width: none;
+  display: block;
+}
+
 .balance-sheet-account-row {
   display: grid;
   align-items: start;
@@ -60,6 +67,10 @@
 @media (min-width: 640px) {
   .balance-sheet-amount {
     width: 7.75rem;
+  }
+
+  table .balance-sheet-amount {
+    width: auto;
   }
 
   .balance-sheet-account-row--with-code {
@@ -647,6 +658,151 @@
     flex: 1 1 0% !important;
     overflow-wrap: anywhere !important;
     word-break: break-word !important;
+  }
+
+  /* Category sales & purchases — portrait trading statement. */
+  @page category-trading-portrait {
+    size: portrait;
+    margin: 10mm 12mm;
+  }
+
+  .report-print-root.category-trading-report-root {
+    page: category-trading-portrait;
+  }
+
+  .report-print-sheet.category-trading-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .category-trading-print .category-trading-statement {
+    width: 100% !important;
+  }
+
+  .category-trading-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .category-trading-print table {
+    width: 100% !important;
+  }
+
+  .category-trading-print .balance-sheet-amount {
+    font-size: 10px !important;
+  }
+
+  /* Item-wise POS sales — landscape counter register. */
+  @page pos-item-sales-landscape {
+    size: landscape;
+    margin: 8mm 10mm;
+  }
+
+  .report-print-root.pos-item-sales-report-root {
+    page: pos-item-sales-landscape;
+  }
+
+  .report-print-sheet.pos-item-sales-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .pos-item-sales-print .pos-item-sales-statement {
+    width: 100% !important;
+  }
+
+  .pos-item-sales-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .pos-item-sales-print table {
+    width: 100% !important;
+    font-size: 9px !important;
+  }
+
+  .pos-item-sales-print .balance-sheet-amount {
+    font-size: 9px !important;
+  }
+
+  /* Manufacturer-wise expiry — portrait grouped statement. */
+  @page manufacturer-expiry-portrait {
+    size: portrait;
+    margin: 10mm 12mm;
+  }
+
+  .report-print-root.manufacturer-expiry-report-root {
+    page: manufacturer-expiry-portrait;
+  }
+
+  .report-print-sheet.manufacturer-expiry-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .manufacturer-expiry-print .manufacturer-expiry-statement {
+    width: 100% !important;
+  }
+
+  .manufacturer-expiry-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .manufacturer-expiry-print section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .manufacturer-expiry-print table {
+    width: 100% !important;
+    font-size: 10px !important;
+  }
+
+  .manufacturer-expiry-print .balance-sheet-amount {
+    font-size: 10px !important;
+  }
+
+  /* Stock valuation — portrait category statement. */
+  @page stock-valuation-portrait {
+    size: portrait;
+    margin: 10mm 12mm;
+  }
+
+  .report-print-root.stock-valuation-report-root {
+    page: stock-valuation-portrait;
+  }
+
+  .report-print-sheet.stock-valuation-print {
+    padding-bottom: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .stock-valuation-print .stock-valuation-statement {
+    width: 100% !important;
+  }
+
+  .stock-valuation-print .balance-sheet-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .stock-valuation-print section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .stock-valuation-print table {
+    width: 100% !important;
+    font-size: 10px !important;
+  }
+
+  .stock-valuation-print .balance-sheet-amount {
+    font-size: 10px !important;
   }
 
   /* Profit & loss — portrait statement table. */

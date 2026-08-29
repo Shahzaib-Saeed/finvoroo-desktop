@@ -21,7 +21,8 @@ export async function urlToReceiptDataUrl(src) {
   if (dataUrlCache.has(url)) return dataUrlCache.get(url);
 
   try {
-    const res = await fetch(url, { credentials: 'include', mode: 'cors' });
+    // Public logos/images — no cookies needed; omit credentials so CORS can allow cross-origin read.
+    const res = await fetch(url, { credentials: 'omit', mode: 'cors' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const blob = await res.blob();
     const dataUrl = await new Promise((resolve, reject) => {

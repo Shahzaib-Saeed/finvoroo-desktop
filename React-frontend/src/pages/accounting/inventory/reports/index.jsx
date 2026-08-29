@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router';
 import {
   BarChart3,
   ChevronRight,
+  LayoutGrid,
   LineChart,
   PackageSearch,
   TrendingDown,
@@ -13,6 +14,15 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const reports = [
+  {
+    title: 'Category sales & purchases',
+    description: 'Purchase, sale, net profit, and margin by product category for the period.',
+    href: 'category-trading',
+    to: (workspaceId) => `/workspace/${workspaceId}/accounting/reports/category-trading`,
+    icon: LayoutGrid,
+    iconClass: 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400',
+    tag: 'Trading',
+  },
   {
     title: 'Stock summary',
     description: 'On-hand quantities, average cost, and extended value by product and warehouse.',
@@ -114,7 +124,11 @@ export function InventoryReportsHubPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {reports.map((report) => (
-          <ReportLinkCard key={report.href} {...report} href={`${base}/${report.href}`} />
+          <ReportLinkCard
+            key={report.href}
+            {...report}
+            href={report.to ? report.to(workspaceId) : `${base}/${report.href}`}
+          />
         ))}
       </div>
     </div>

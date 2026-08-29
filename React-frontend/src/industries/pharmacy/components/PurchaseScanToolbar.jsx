@@ -1,4 +1,5 @@
 import {
+  Braces,
   Keyboard,
   Loader2,
   MoreHorizontal,
@@ -43,7 +44,7 @@ export function PurchaseScanMainActions({ onContinue, saving, disabled, lineCoun
   );
 }
 
-export function PurchaseScanMoreMenu({ onAddRow, onPrint, disabled = false }) {
+export function PurchaseScanMoreMenu({ onAddRow, onPrint, onViewOcrJson, disabled = false, ocrJsonDisabled = false }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -68,6 +69,10 @@ export function PurchaseScanMoreMenu({ onAddRow, onPrint, disabled = false }) {
         <DropdownMenuItem onSelect={onPrint} disabled={disabled}>
           <Printer className="size-4" />
           Print preview
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onViewOcrJson} disabled={ocrJsonDisabled}>
+          <Braces className="size-4 text-emerald-700" />
+          View OCR JSON
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">

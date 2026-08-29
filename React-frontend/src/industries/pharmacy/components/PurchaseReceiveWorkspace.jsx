@@ -6,6 +6,7 @@ import {
   Loader2,
   ShoppingCart,
   Trash2,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { differenceInCalendarDays, format, parseISO, isValid } from 'date-fns';
@@ -28,9 +29,13 @@ import { onPharmacyCatalogChange, reloadPharmacyCatalog } from '../lib/pharmacy-
 import {
   computeReceiveLineAmounts,
   enrichReceiveLinesFromCatalog,
+  receiveCostChangedFromLast,
   repairOcrReceiveLines,
+  resolveCatalogPurchasePrice,
   resolveCatalogSalePrice,
+  summarizeReceiveLineTotals,
 } from '../lib/purchase-extraction-adapter';
+import { absorbBillPayable, roundBillPayable } from '../lib/pharmacy-bill-payable';
 import { resolveProductImage } from '../lib/upload-medicine-image';
 import { billsApi } from '@/pages/accounting/bills/api/bills.api';
 import { billPaymentsApi } from '@/pages/accounting/bill-payments/api/bill-payments.api';
@@ -42,6 +47,7 @@ import { useProductDialog } from '@/components/workspace/product/product-dialog-
 import { useVendorDialog } from '@/components/workspace/vendor/vendor-dialog-provider';
 import { NO_NUMBER_SPINNER } from '@/pages/accounting/invoices/constants';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { pharmacyApi } from '../api/pharmacy.api';
 import {
   applyPurchaseLineDefaults,
@@ -65,10 +71,13 @@ import {
 import { PurchasePayDialog } from '../components/PurchasePayDialog';
 import { scrollPurchaseRowIntoView } from '../components/purchase-grid-ui';
 import { receiveLineNeedsVerify, countVerifyReceiveLines } from '../lib/invoice-match-quality';
+import { describeMatchDiagnostics } from '../lib/pharmacy-match-engine';
+import { rememberOcrProductMapping } from '../lib/remember-ocr-product-mapping';
+import { submitOcrTrainingCorrections } from '../lib/ocr-training-dataset';
+import { ocrFieldIsHighlighted } from '../lib/invoice-scan-ux';
 
 const NEW_SUPPLIER = '__receive_supplier_new__';
 
-const GRID = '#e2e8f0';
 const ROW_H = 'h-11 min-h-11';
 const PURCHASE_CELL_INPUT = cn(
   ROW_H,
@@ -77,18 +86,46 @@ const PURCHASE_CELL_INPUT = cn(
 const PURCHASE_CELL_NUMBER = cn(PURCHASE_CELL_INPUT, NO_NUMBER_SPINNER);
 const READONLY_CELL = cn(
   ROW_H,
-  'flex items-center bg-slate-100 px-2.5 text-[13px] tabular-nums leading-snug text-slate-700',
+  'flex items-center bg-[var(--grn-readonly-bg,#f1f5f9)] px-2.5 text-[13px] tabular-nums leading-snug text-slate-700',
 );
 
-function GrnTh({ children, align = 'left', className, ...rest }) {
+function CellTip({ text, children }) {
+  if (!text) return children;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent variant="light" side="top" className="max-w-xs text-left leading-relaxed">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+const BONUS_COL_TIP =
+  'Bonus / free quantity from the supplier. These units are added to stock but you do not pay for them.';
+const BONUS_QTY_TIP =
+  'This line includes free/bonus units. They go into stock; Amount is based on paid Qty only.';
+const MARGIN_COL_TIP =
+  'Profit % versus cost including tax. A red Margin cell means sale price is below cost — raise Sale price or check Purchase price.';
+const NEGATIVE_MARGIN_TIP =
+  'Negative margin: sale price is below cost (including tax). Raise Sale price or check Purchase price so you do not sell at a loss.';
+const HEADER_WRAP =
+  '[&>div]:whitespace-normal [&>div]:leading-tight [&>div]:px-1.5 [&>div]:py-1.5';
+
+function GrnTh({ children, align = 'left', className, accent, style, ...rest }) {
   return (
     <th
       {...rest}
       className={cn(
-        'border-b border-r p-0 last:border-r-0',
+        'sticky top-0 z-20 border-b border-r p-0 last:border-r-0',
         className,
       )}
-      style={{ borderColor: 'rgba(255,255,255,0.15)', background: '#047857' }}
+      style={{
+        borderColor: accent === 'bonus' ? '#7dd3fc' : 'rgba(255,255,255,0.15)',
+        background: '#047857',
+        boxShadow: accent === 'bonus' ? 'inset 0 0 0 2px #7dd3fc' : undefined,
+        ...style,
+      }}
     >
       <div
         className={cn(
@@ -104,11 +141,27 @@ function GrnTh({ children, align = 'left', className, ...rest }) {
   );
 }
 
-function GrnTd({ children, className, align = 'left', onClick }) {
+function GrnTd({ children, className, align = 'left', onClick, accent, title, style }) {
+  const isBonus = accent === 'bonus';
+  const isLoss = accent === 'loss';
   return (
     <td
       onClick={onClick}
-      style={{ borderColor: GRID }}
+      title={title}
+      style={{
+        borderColor: isBonus ? '#0284c7' : isLoss ? '#ef4444' : 'var(--grn-cell-border, #e2e8f0)',
+        backgroundColor: isBonus
+          ? '#e0f2fe'
+          : isLoss
+            ? '#fecaca'
+            : 'var(--grn-cell-bg, transparent)',
+        boxShadow: isBonus
+          ? 'inset 0 0 0 2px #0284c7'
+          : isLoss
+            ? 'inset 0 0 0 2px #ef4444'
+            : undefined,
+        ...style,
+      }}
       className={cn(
         'border-b border-r p-0 align-middle last:border-r-0',
         align === 'right' && 'text-right',
@@ -138,10 +191,11 @@ function CellText({ children, className, align = 'left', readonly = false }) {
 }
 
 /** Calculated / read-only grid value — grey background so users know it is not editable. */
-function ReadonlyCell({ children, align = 'right', className, tone }) {
+function ReadonlyCell({ children, align = 'right', className, tone, title, accent }) {
   return (
-    <GrnTd align={align}>
+    <GrnTd align={align} accent={accent} title={title}>
       <div
+        title={title}
         className={cn(
           READONLY_CELL,
           align === 'right' && 'justify-end',
@@ -217,7 +271,7 @@ function billLineToGrnLine(line) {
 function FieldBlock({ label, required, className, children }) {
   return (
     <div className={cn('min-w-0', className)}>
-      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+      <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
       </span>
@@ -227,63 +281,14 @@ function FieldBlock({ label, required, className, children }) {
 }
 
 const headerInputClass =
-  'h-9 w-full border-slate-200 bg-white text-sm shadow-none focus-visible:border-emerald-600 focus-visible:ring-emerald-600/30';
+  'h-8 w-full border-slate-200 bg-white text-[13px] shadow-none focus-visible:border-emerald-600 focus-visible:ring-emerald-600/30';
 const headerInputReadonlyClass =
-  'h-9 w-full border-slate-200 bg-slate-50 text-sm text-slate-600 shadow-none cursor-default';
-const footerInputClass = cn(
-  'h-9 min-w-0 flex-1 border-slate-300 bg-white text-right text-xs tabular-nums shadow-none',
-  NO_NUMBER_SPINNER,
-);
-
-/** Inline label + input for the summary rail. */
-function InlineField({ label, className, children }) {
-  return (
-    <div className={cn('flex min-w-0 items-center gap-2', className)}>
-      <span className="shrink-0 text-xs font-medium text-slate-600">{label}</span>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
-  );
-}
-
-function SummaryMoneyRow({ label, value, muted, strong, accent }) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-0.5">
-      <span
-        className={cn(
-          'text-[12px]',
-          muted ? 'text-slate-500' : strong ? 'font-medium text-slate-800' : 'text-slate-600',
-        )}
-      >
-        {label}
-      </span>
-      <span
-        className={cn(
-          'text-[13px] tabular-nums',
-          accent && 'text-emerald-700',
-          strong ? 'font-semibold text-slate-900' : 'font-medium text-slate-800',
-          muted && !strong && 'text-slate-600',
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function SummaryStat({ label, value, sub }) {
-  return (
-    <div className="rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 shadow-xs">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 text-lg font-bold tabular-nums leading-none text-slate-900">{value}</p>
-      {sub ? <p className="mt-1 text-[10px] text-slate-500">{sub}</p> : null}
-    </div>
-  );
-}
+  'h-8 w-full border-slate-200 bg-slate-50 text-[13px] text-slate-600 shadow-none cursor-default';
 
 function SummaryAdjustField({ label, className, children }) {
   return (
-    <label className={cn('block min-w-0 space-y-1', className)}>
-      <span className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+    <label className={cn('block min-w-[5.5rem]', className)}>
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500">
         {label}
       </span>
       {children}
@@ -291,8 +296,24 @@ function SummaryAdjustField({ label, className, children }) {
   );
 }
 
+function SummaryStat({ label, value, tone, title }) {
+  return (
+    <div className="min-w-[5.5rem]" title={title}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500">{label}</p>
+      <p
+        className={cn(
+          'mt-0.5 text-[15px] font-semibold tabular-nums leading-tight',
+          tone === 'danger' ? 'text-red-700' : tone === 'accent' ? 'text-emerald-800' : 'text-slate-900',
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
 const summaryAdjustInputClass = cn(
-  'h-8 w-full border-slate-200 bg-slate-50/80 text-right text-xs tabular-nums shadow-none focus-visible:border-emerald-600 focus-visible:bg-white focus-visible:ring-emerald-600/25',
+  'h-9 w-full min-w-[5.5rem] border-slate-200 bg-white text-right text-[13px] tabular-nums shadow-none focus-visible:border-emerald-600 focus-visible:ring-emerald-600/25',
   NO_NUMBER_SPINNER,
 );
 
@@ -302,6 +323,24 @@ function isFilledGrnLine(line) {
       line?._needsMatch ||
       (String(line?.name || '').trim() && (line?._fromOcr || line?.product_id)),
   );
+}
+
+function ocrCellClass(line, field) {
+  return ocrFieldIsHighlighted(line, field) ? 'ring-1 ring-inset ring-amber-400 bg-amber-50' : '';
+}
+
+function tpCellClass(line) {
+  if (receiveCostChangedFromLast(line)) {
+    return 'bg-yellow-200 ring-1 ring-inset ring-yellow-500';
+  }
+  return ocrCellClass(line, 'unit_price');
+}
+
+function tpCellTitle(line) {
+  if (!receiveCostChangedFromLast(line)) return undefined;
+  const prev = Number(line.last_cost);
+  const now = Number(line.unit_price);
+  return `Cost changed — last purchase was ${moneyPlain(prev)}, this bill is ${moneyPlain(now)}`;
 }
 
 function focusGrnField(index, field) {
@@ -360,7 +399,7 @@ function receiveLineToProductPrefill(line) {
   ].filter(Boolean);
 
   return {
-    name: String(line?.name || '').trim(),
+    name: String(line?.global_corrected_name || line?.name || '').trim(),
     type: 'inventory',
     sku: line?.item_code ? String(line.item_code).trim() : '',
     barcode: line?.barcode ? String(line.barcode).trim() : '',
@@ -471,6 +510,9 @@ function readReceiveBootstrap(locationState) {
     remarks: fromScan && locationState?.extractionNotes ? String(locationState.extractionNotes) : '',
     lineCount: Array.isArray(incoming) ? incoming.length : 0,
     extractionId: locationState?.extractionId ?? null,
+    printedTotal: null,
+    scanUx: locationState?.scanUx || 'clean',
+    scanReviewMessage: locationState?.scanReviewMessage || '',
   };
 }
 
@@ -478,6 +520,7 @@ export function buildScanBootstrapFromExtractionLines(
   extractionLines,
   pharmacySettings = {},
   remarks = '',
+  invoiceDocument = null,
 ) {
   const fromScan = Array.isArray(extractionLines) && extractionLines.length > 0;
   const lines = fromScan ? mapExtractionToGrnLines(extractionLines, pharmacySettings) : null;
@@ -488,7 +531,21 @@ export function buildScanBootstrapFromExtractionLines(
     lineCount: Array.isArray(extractionLines) ? extractionLines.length : 0,
     extractionId: null,
     extractionLines: extractionLines || [],
+    // Read off the invoice header by the OCR pass. The reference prefills the
+    // bill; the supplier name is shown as a hint only — auto-selecting the
+    // wrong vendor on a GRN is worse than leaving the field for the user.
+    // Printed total is a check against the counted Amounts, never the payable.
+    reference: String(invoiceDocument?.invoice?.invoice_number || '').trim(),
+    supplierName: String(invoiceDocument?.supplier?.name || '').trim(),
+    printedTotal: printedInvoiceTotal(invoiceDocument),
+    scanUx: 'clean',
+    scanReviewMessage: '',
   };
+}
+
+function printedInvoiceTotal(invoiceDocument) {
+  const n = Number(invoiceDocument?.totals?.grand_total ?? invoiceDocument?.invoice_total);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /**
@@ -522,7 +579,8 @@ export function PurchaseReceiveWorkspace({
   const [vendorId, setVendorId] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
   const [billDate, setBillDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
-  const [reference, setReference] = useState('');
+  // Prefilled from the scanned invoice's own number when the OCR pass read one.
+  const [reference, setReference] = useState(() => scanBootstrap.reference || '');
   const [remarks, setRemarks] = useState(() => scanBootstrap.remarks || '');
   const [docDiscPercent, setDocDiscPercent] = useState('0');
   const [docDiscount, setDocDiscount] = useState('0');
@@ -541,9 +599,13 @@ export function PurchaseReceiveWorkspace({
   );
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [fromInvoiceScan, setFromInvoiceScan] = useState(scanBootstrap.fromScan);
+  const [scanReviewDismissed, setScanReviewDismissed] = useState(false);
   const [pharmacySettings, setPharmacySettings] = useState({});
+  const [cashInHandAccountId, setCashInHandAccountId] = useState(null);
   const pasteRef = useRef(null);
   const focusAfter = useRef(null);
+  const linesRef = useRef(lines);
+  linesRef.current = lines;
   const hydratedExtraction = useRef(scanBootstrap.fromScan);
   const scanToastShown = useRef(scanBootstrap.fromScan);
   const extractionSeedRef = useRef(
@@ -574,7 +636,11 @@ export function PurchaseReceiveWorkspace({
       try {
         const res = await pharmacyApi.settings();
         const data = res?.data?.data ?? res?.data ?? {};
-        if (!cancelled) setPharmacySettings(data?.settings || data || {});
+        if (!cancelled) {
+          setPharmacySettings(data?.settings || data || {});
+          const cashId = Number(data?.cash_in_hand_account_id);
+          setCashInHandAccountId(Number.isFinite(cashId) && cashId > 0 ? cashId : null);
+        }
       } catch {
         /* optional */
       }
@@ -799,66 +865,39 @@ export function PurchaseReceiveWorkspace({
     setDraftSavedAt(Date.now());
   }, [buildReceiveDraftPayload, companyId, fromInvoiceScan, isEdit, lines]);
 
-  const totals = useMemo(() => {
-    let subtotal = 0;
-    let lineDiscount = 0;
-    let tax = 0;
-    let saleTotal = 0;
-    let count = 0;
-    let strips = 0;
-    let unmatched = 0;
-    const invGst = Number(invGstPercent) || 0;
-    for (const line of lines) {
-      if (!line.product_id && !line._needsMatch && !line.name) continue;
-      if (!line.product_id && !line._needsMatch) continue;
-      const a = lineAmounts(line, invGst);
-      if (!line.product_id) unmatched += 1;
-      count += 1;
-      strips += a.received;
-      subtotal += a.gross;
-      lineDiscount += a.discount;
-      tax += a.tax;
-      saleTotal += a.sale * a.qty;
-    }
-    const afterLine = Math.max(0, subtotal - lineDiscount);
-    const pctDisc = ((afterLine * (Number(docDiscPercent) || 0)) / 100);
-    const flatDisc = Number(docDiscount) || 0;
-    const misc = Number(otherCharges) || 0;
-    const purExp = Number(purchaseExpense) || 0;
-    const advTax = Number(advIncomeTax) || 0;
-    const taxableBase = Math.max(0, afterLine - pctDisc - flatDisc);
-    const docIncGst = (taxableBase * (Number(invGstPercent) || 0)) / 100;
-    const payable = Math.max(
-      0,
-      afterLine - pctDisc - flatDisc + tax + docIncGst + misc + purExp + advTax,
-    );
-    const avgPrice = count > 0 ? payable / Math.max(1, strips) : 0;
-    return {
-      count,
-      strips,
-      unmatched,
-      subtotal,
-      lineDiscount,
-      pctDisc,
-      headerDiscount: flatDisc,
-      tax,
-      misc,
-      purchaseExpense: purExp,
-      advTax,
-      docIncGst,
-      saleTotal,
-      avgPrice,
-      payable,
-    };
-  }, [
-    lines,
-    docDiscount,
-    docDiscPercent,
-    otherCharges,
-    purchaseExpense,
-    invGstPercent,
-    advIncomeTax,
-  ]);
+  const totals = useMemo(
+    () =>
+      summarizeReceiveLineTotals(lines, {
+        invGstPercent,
+        docDiscPercent,
+        docDiscount,
+        otherCharges,
+        purchaseExpense,
+        advIncomeTax,
+        scanLocked: fromInvoiceScan,
+      }),
+    [
+      lines,
+      docDiscount,
+      docDiscPercent,
+      otherCharges,
+      purchaseExpense,
+      invGstPercent,
+      advIncomeTax,
+      fromInvoiceScan,
+    ],
+  );
+  const payableWhole = useMemo(() => roundBillPayable(totals.payable), [totals.payable]);
+
+  useEffect(() => {
+    setScanReviewDismissed(false);
+  }, [scanBootstrap.scanReviewMessage, scanBootstrap.scanUx]);
+
+  const printedTotal = Number(scanBootstrap.printedTotal) || 0;
+  const amountVsPrinted =
+    fromInvoiceScan && printedTotal > 0
+      ? Math.round((printedTotal - totals.lineAmountTotal) * 100) / 100
+      : 0;
 
   const verifyCount = useMemo(() => countVerifyReceiveLines(lines), [lines]);
 
@@ -920,6 +959,7 @@ export function PurchaseReceiveWorkspace({
       match_status: 'matched',
       match_confidence: 1,
       match_user_confirmed: true,
+      match_suggestions: [],
     };
 
     // Invoice scan — link catalog only: update name + retail sale price; keep bill batch/qty/prices.
@@ -929,6 +969,7 @@ export function PurchaseReceiveWorkspace({
         _fromOcr: true,
         supplier_invoice_label: existing.supplier_invoice_label || '',
         invoice_line_total: existing.invoice_line_total || '',
+        last_cost: resolveCatalogPurchasePrice(product) || '',
         sale_price: resolveCatalogSalePrice(product) || existing.sale_price || '',
       };
     }
@@ -960,10 +1001,7 @@ export function PurchaseReceiveWorkspace({
         keepMeta && hasExisting('unit_price')
           ? String(existing.unit_price)
           : product.purchase_price ?? product.cost_price ?? '',
-      last_cost:
-        keepMeta && hasExisting('last_cost')
-          ? String(existing.last_cost)
-          : product.purchase_price ?? product.cost_price ?? '',
+      last_cost: resolveCatalogPurchasePrice(product) || '',
       discount: keepMeta && existing?.discount != null ? existing.discount : '0',
       discount_type: existing?.discount_type === 'fixed' ? 'fixed' : 'percent',
       gst_percent:
@@ -1001,25 +1039,62 @@ export function PurchaseReceiveWorkspace({
 
   const applyProductToLine = useCallback(
     (index, product, { focusBatch = true } = {}) => {
+      const existing = linesRef.current[index] || emptyLine();
+      const fromScan = Boolean(
+        existing._fromOcr || String(existing.supplier_invoice_label || '').trim(),
+      );
       setLines((prev) => {
-        const existing = prev[index] || emptyLine();
-        const fromScan = Boolean(
-          existing._fromOcr || String(existing.supplier_invoice_label || '').trim(),
-        );
-        const row = productToLineFields(product, existing);
-        let next = prev.map((l, i) => (i === index ? { ...existing, ...row } : l));
+        const current = prev[index] || emptyLine();
+        const row = productToLineFields(product, current);
+        let next = prev.map((l, i) => (i === index ? { ...current, ...row } : l));
         next = ensureTrailingEmpty(next);
-        setSelectedIdx(index);
-        if (focusBatch && !fromScan) {
-          focusAfter.current = { type: 'field', field: 'batch', index };
-        } else {
-          focusAfter.current = { type: 'item', index };
-        }
         return next;
       });
+      setSelectedIdx(index);
+      if (focusBatch && !fromScan) {
+        focusAfter.current = { type: 'field', field: 'batch', index };
+      } else {
+        focusAfter.current = { type: 'item', index };
+      }
+      if (fromScan && String(existing.supplier_invoice_label || '').trim() && product?.id) {
+        rememberOcrProductMapping({
+          vendorId,
+          invoiceLabel: existing.supplier_invoice_label,
+          productId: product.id,
+          itemCode: existing.item_code,
+        });
+      }
       toast.success(`${product.name}`, { duration: 1200 });
     },
-    [ensureTrailingEmpty, productToLineFields],
+    [ensureTrailingEmpty, productToLineFields, vendorId],
+  );
+
+  const confirmInvoiceMatch = useCallback(
+    (index) => {
+      const line = linesRef.current[index];
+      if (line && String(line.supplier_invoice_label || '').trim() && line.product_id) {
+        rememberOcrProductMapping({
+          vendorId,
+          invoiceLabel: line.supplier_invoice_label,
+          productId: line.product_id,
+          itemCode: line.item_code,
+        });
+      }
+      setLines((prev) =>
+        prev.map((l, i) =>
+          i === index
+            ? {
+                ...l,
+                match_status: 'matched',
+                match_confidence: 1,
+                match_user_confirmed: true,
+                _needsMatch: false,
+              }
+            : l,
+        ),
+      );
+    },
+    [vendorId],
   );
 
   const resolveProductTerm = useCallback(
@@ -1254,19 +1329,26 @@ export function PurchaseReceiveWorkspace({
 
     setSaving(true);
     try {
+      const headerDiscount =
+        (Number(docDiscount) || 0) + (Number(totals.pctDisc) || 0);
+      const headerOther =
+        (Number(otherCharges) || 0) +
+        (Number(purchaseExpense) || 0) +
+        (Number(advIncomeTax) || 0) +
+        (Number(totals.docIncGst) || 0);
+      const absorbed = absorbBillPayable({
+        discount: headerDiscount,
+        other: headerOther,
+        payable: totals.payable,
+      });
       const payload = {
         vendor_id: Number(vendorId),
         bill_date: billDate,
         due_date: billDate,
         reference: reference.trim() || null,
         warehouse_id: warehouseId ? Number(warehouseId) : null,
-        discount_amount:
-          (Number(docDiscount) || 0) + (Number(totals.pctDisc) || 0),
-        other_charges:
-          (Number(otherCharges) || 0) +
-          (Number(purchaseExpense) || 0) +
-          (Number(advIncomeTax) || 0) +
-          (Number(totals.docIncGst) || 0),
+        discount_amount: absorbed.discount_amount,
+        other_charges: absorbed.other_charges,
         notes: remarks.trim() || null,
         lines: payloadLines,
         skip_auto_post: true,
@@ -1289,48 +1371,70 @@ export function PurchaseReceiveWorkspace({
         await billsApi.post(billId);
       }
 
-      if (post && vendorId) {
-        const aliasLines = lines
-          .filter(
-            (l) =>
-              l.product_id &&
-              String(l.supplier_invoice_label || '').trim(),
-          )
-          .map((l) => ({
-            invoice_label: String(l.supplier_invoice_label).trim(),
-            product_id: Number(l.product_id),
-            item_code: String(l.item_code || '').trim() || undefined,
-          }));
-        if (aliasLines.length) {
-          void pharmacyApi
-            .rememberSupplierProductAliases({
-              vendor_id: Number(vendorId),
-              lines: aliasLines,
-            })
-            .catch(() => {
-              /* non-blocking */
-            });
-        }
+      const aliasLines = lines
+        .filter(
+          (l) =>
+            l.product_id &&
+            String(l.supplier_invoice_label || '').trim(),
+        )
+        .map((l) => ({
+          invoice_label: String(l.supplier_invoice_label).trim(),
+          product_id: Number(l.product_id),
+          item_code: String(l.item_code || '').trim() || undefined,
+        }));
+      if (aliasLines.length) {
+        void pharmacyApi
+          .rememberSupplierProductAliases({
+            vendor_id: vendorId ? Number(vendorId) : 0,
+            verified: true,
+            source: 'user_verify',
+            lines: aliasLines,
+          })
+          .catch(() => {
+            /* non-blocking */
+          });
       }
 
-      const due = Number(saved?.total ?? totals.payable) || 0;
+      if (post && activeExtractionId) {
+        submitOcrTrainingCorrections({
+          extractionId: activeExtractionId,
+          vendorId,
+          billId,
+          humanVerified: true,
+          lines,
+        });
+      }
+
+      const savedTotal = Number(saved?.total ?? absorbed.total ?? totals.payable) || 0;
+      const due = roundBillPayable(savedTotal);
       const cash = paid ? Math.min(Math.max(Number(paidAmount) || 0, 0), due) : 0;
+      const remainder = Math.round((savedTotal - cash) * 100) / 100;
       if (post && paid && cash > 0.009 && billId) {
-        try {
-          await billPaymentsApi.create({
-            vendor_id: Number(vendorId),
-            payment_date: billDate,
-            amount: cash,
-            payment_method: 'cash',
-            reference: reference.trim() || undefined,
-            bill_ids: [Number(billId)],
-            cash_amounts: [cash],
-          });
-        } catch (payErr) {
+        if (!cashInHandAccountId) {
           toast.warning(
-            payErr?.response?.data?.message ||
-              'Purchase posted. Payment to supplier could not be recorded.',
+            'Purchase posted. Cash in Hand is not set up, so the supplier payment was not recorded.',
           );
+        } else {
+          try {
+            await billPaymentsApi.create({
+              vendor_id: Number(vendorId),
+              payment_date: billDate,
+              amount: cash,
+              payment_method: 'cash',
+              payment_account_id: Number(cashInHandAccountId),
+              reference: reference.trim() || undefined,
+              bill_ids: [Number(billId)],
+              cash_amounts: [cash],
+              ...(remainder > 0.009 && remainder < 0.5
+                ? { discount_amounts: [remainder] }
+                : {}),
+            });
+          } catch (payErr) {
+            toast.warning(
+              payErr?.response?.data?.message ||
+                'Purchase posted. Payment to supplier could not be recorded.',
+            );
+          }
         }
       }
 
@@ -1590,7 +1694,7 @@ export function PurchaseReceiveWorkspace({
   }
 
   const unmatchedCount = totals.unmatched || 0;
-  const invGst = Number(invGstPercent) || 0;
+  const invGst = fromInvoiceScan ? 0 : Number(invGstPercent) || 0;
   const billDateLabel = format(parseISO(billDate), 'dd/MM/yyyy');
   const filledLineCount = totals.count;
   const supplierName = vendors.find((v) => String(v.id) === String(vendorId))?.name || '';
@@ -1667,6 +1771,8 @@ export function PurchaseReceiveWorkspace({
             <PurchaseReceiveMainActions
               saving={saving}
               disabled={!canEditBill}
+              companyId={companyId}
+              vendorId={vendorId}
               onDraft={() => persistReceive({ post: false })}
             />
             <PurchaseReceiveMoreMenu
@@ -1702,17 +1808,35 @@ export function PurchaseReceiveWorkspace({
         </div>
       ) : null}
 
+      {fromInvoiceScan &&
+      scanBootstrap.scanReviewMessage &&
+      scanBootstrap.scanUx &&
+      scanBootstrap.scanUx !== 'clean' &&
+      !scanReviewDismissed ? (
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-950">
+          <p className="min-w-0 flex-1 leading-snug">{scanBootstrap.scanReviewMessage}</p>
+          <button
+            type="button"
+            onClick={() => setScanReviewDismissed(true)}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-amber-700 hover:bg-amber-100"
+            aria-label="Dismiss message"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {invoiceSidebar ? (
           <aside className="hidden w-[min(280px,32%)] shrink-0 lg:flex lg:flex-col">
             {invoiceSidebar}
           </aside>
         ) : null}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="shrink-0 border-b border-slate-200 bg-slate-50/90 px-4 py-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-12">
-              <FieldBlock label="Supplier" required className="xl:col-span-4">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-1.5">
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-12 lg:items-end">
+              <FieldBlock label="Supplier" required className="col-span-2 lg:col-span-4">
                 <SearchableCombobox
                   value={vendorId || undefined}
                   onValueChange={(v) => {
@@ -1772,7 +1896,7 @@ export function PurchaseReceiveWorkspace({
                 />
               </FieldBlock>
 
-              <FieldBlock label="Invoice no" className="xl:col-span-2">
+              <FieldBlock label="Invoice no" className="lg:col-span-2">
                 <Input
                   className={headerInputClass}
                   value={reference}
@@ -1781,7 +1905,7 @@ export function PurchaseReceiveWorkspace({
                 />
               </FieldBlock>
 
-              <FieldBlock label="Remarks" className="xl:col-span-4">
+              <FieldBlock label="Remarks" className="lg:col-span-4">
                 <Input
                   className={headerInputClass}
                   value={remarks}
@@ -1790,54 +1914,73 @@ export function PurchaseReceiveWorkspace({
                 />
               </FieldBlock>
 
-              <FieldBlock label="Date" className="xl:col-span-2">
+              <FieldBlock label="Date" className="lg:col-span-2">
                 <Input readOnly tabIndex={-1} className={headerInputReadonlyClass} value={billDateLabel} />
               </FieldBlock>
             </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto" data-grn-lines>
-            <div
-              className={cn(
-                'w-full min-w-0 overflow-x-auto border-b border-slate-200 bg-white',
-              )}
-            >
-              <table className="w-full table-fixed border-collapse text-[13px]">
+              <table className="w-full table-fixed border-separate border-spacing-0 text-[13px]">
                 <colgroup>
-                  <col style={{ width: '2rem' }} />
-                  <col style={{ width: 'min(22%, 14rem)' }} />
-                  <col style={{ width: '4.25rem' }} />
-                  <col style={{ width: '4.25rem' }} />
-                  <col style={{ width: '3.25rem' }} />
-                  <col style={{ width: '3.25rem' }} />
-                  <col style={{ width: '4.5rem' }} />
-                  <col style={{ width: '3.25rem' }} />
-                  <col style={{ width: '4.5rem' }} />
-                  <col style={{ width: '5rem' }} />
+                  <col style={{ width: '2.25rem' }} />
+                  <col />
                   <col style={{ width: '5rem' }} />
                   <col style={{ width: '4.5rem' }} />
+                  <col style={{ width: '3.5rem' }} />
                   <col style={{ width: '4rem' }} />
-                  <col style={{ width: '4.5rem' }} />
-                  <col style={{ width: '4.5rem' }} />
-                  <col style={{ width: '2rem' }} />
+                  <col style={{ width: '6.25rem' }} />
+                  <col style={{ width: '3.75rem' }} />
+                  <col style={{ width: '5rem' }} />
+                  <col style={{ width: '5rem' }} />
+                  <col style={{ width: '6.25rem' }} />
+                  <col style={{ width: '6rem' }} />
+                  <col style={{ width: '4.75rem' }} />
+                  <col style={{ width: '2.25rem' }} />
                 </colgroup>
-                <thead className="sticky top-0 z-20 shadow-sm">
+                <thead>
                   <tr>
                     <GrnTh align="center">#</GrnTh>
                     <GrnTh>Item</GrnTh>
                     <GrnTh align="center">Batch</GrnTh>
                     <GrnTh align="center">Exp</GrnTh>
                     <GrnTh align="center" data-lookup-stop="qty">Qty</GrnTh>
-                    <GrnTh align="center">Free</GrnTh>
-                    <GrnTh align="right">TP</GrnTh>
-                    <GrnTh align="center">Disc</GrnTh>
-                    <GrnTh align="right">Disc amt</GrnTh>
-                    <GrnTh align="right">Excl</GrnTh>
-                    <GrnTh align="right">Incl</GrnTh>
-                    <GrnTh align="right">Sale</GrnTh>
-                    <GrnTh align="right">Net %</GrnTh>
-                    <GrnTh align="right">Net TP</GrnTh>
-                    <GrnTh align="right">Tax</GrnTh>
+                    <GrnTh align="center">
+                      <CellTip text={BONUS_COL_TIP}>
+                        <span className="cursor-help underline decoration-dotted decoration-white/70 underline-offset-2">
+                          Bonus
+                        </span>
+                      </CellTip>
+                    </GrnTh>
+                    <GrnTh
+                      align="right"
+                      className={HEADER_WRAP}
+                      title="Purchase price per unit from the supplier bill"
+                    >
+                      Purchase price
+                    </GrnTh>
+                    <GrnTh align="center" title="Discount percent">
+                      Disc %
+                    </GrnTh>
+                    <GrnTh align="right" className={HEADER_WRAP}>
+                      Disc amt
+                    </GrnTh>
+                    <GrnTh align="right" title="Tax on this line from the supplier bill">Tax</GrnTh>
+                    <GrnTh align="right" title="Line total including tax — amount payable for this item">Amount</GrnTh>
+                    <GrnTh
+                      align="right"
+                      className={HEADER_WRAP}
+                      title="Retail selling price"
+                    >
+                      Sale price
+                    </GrnTh>
+                    <GrnTh align="right">
+                      <CellTip text={MARGIN_COL_TIP}>
+                        <span className="cursor-help underline decoration-dotted decoration-white/70 underline-offset-2">
+                          Margin
+                        </span>
+                      </CellTip>
+                    </GrnTh>
                     <GrnTh align="center" className="w-9 px-0">
                       <span className="sr-only">Remove</span>
                     </GrnTh>
@@ -1856,6 +1999,8 @@ export function PurchaseReceiveWorkspace({
                   const invoiceMatch = Boolean(billLabel || line._fromOcr);
                   const needsVerify = invoiceMatch && receiveLineNeedsVerify(line);
                   const displayName = billLabel || catalogName || line.name || '';
+                  const hasBonus = !isBlank && Number(line.bonus) > 0;
+                  const negativeMargin = !isBlank && Number(a.netMargin) < 0;
                   const onCellEnter = (e, nextField) => {
                     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                       e.preventDefault();
@@ -1885,7 +2030,13 @@ export function PurchaseReceiveWorkspace({
                       }}
                       className={cn(
                         'group scroll-mt-11 transition-colors',
-                        selected ? 'bg-emerald-50/70' : index % 2 === 1 ? 'bg-slate-50/60' : 'bg-white',
+                        line._ocrHighlight
+                          ? 'bg-amber-50/90'
+                          : selected
+                            ? 'bg-emerald-50/70'
+                            : index % 2 === 1
+                              ? 'bg-slate-50/60'
+                              : 'bg-white',
                         'hover:bg-emerald-50/40',
                       )}
                     >
@@ -1915,6 +2066,11 @@ export function PurchaseReceiveWorkspace({
                           onFocusRow={setSelectedIdx}
                           onNavigateRow={(delta) => navigateGrnItemRow(index, delta)}
                           onSelect={(product, rowIndex) => applyProductToLine(rowIndex, product)}
+                          onConfirmLink={() => confirmInvoiceMatch(index)}
+                          matchSuggestions={line.match_suggestions || []}
+                          matchConfidence={line.match_confidence}
+                          learnedName={line.global_corrected_name || ''}
+                          matchExplanation={describeMatchDiagnostics(line.match_diagnostics)}
                           onSubmitRaw={resolveProductTerm}
                           onCreateNew={(rowIndex, ctx) => {
                             const current = lines[rowIndex];
@@ -1924,7 +2080,7 @@ export function PurchaseReceiveWorkspace({
                               type: 'inventory',
                               prefill: receiveLineToProductPrefill({
                                 ...current,
-                                name: typedName || billLabel || current?.name || '',
+                                name: typedName || current?.global_corrected_name || billLabel || current?.name || '',
                               }),
                               onSuccess: (saved) => applyProductToLine(rowIndex, saved),
                             });
@@ -1938,7 +2094,11 @@ export function PurchaseReceiveWorkspace({
                         <Input
                           data-grn-field={`batch-${index}`}
                           data-pharmacy-typing
-                          className={cn(PURCHASE_CELL_INPUT, 'placeholder:text-slate-400')}
+                          className={cn(
+                            PURCHASE_CELL_INPUT,
+                            'placeholder:text-slate-400',
+                            ocrCellClass(line, 'batch_number'),
+                          )}
                           value={line.batch_number}
                           onChange={(e) => updateLine(index, { batch_number: e.target.value })}
                           onKeyDown={(e) => onCellEnter(e, 'expiry')}
@@ -1953,7 +2113,11 @@ export function PurchaseReceiveWorkspace({
                       <GrnTd>
                         <ExpiryMaskInput
                           data-grn-field={`expiry-${index}`}
-                          className={cn(PURCHASE_CELL_INPUT, 'placeholder:text-slate-400')}
+                          className={cn(
+                            PURCHASE_CELL_INPUT,
+                            'placeholder:text-slate-400',
+                            ocrCellClass(line, 'expiry_date'),
+                          )}
                           value={line.expiry_date}
                           onChange={(masked) => updateLine(index, { expiry_date: masked })}
                           onKeyDown={(e) => onCellEnter(e, 'qty')}
@@ -1969,22 +2133,28 @@ export function PurchaseReceiveWorkspace({
                       <GrnTd>
                         <Input
                           data-grn-field={`qty-${index}`}
-                          className={PURCHASE_CELL_NUMBER}
+                          className={cn(PURCHASE_CELL_NUMBER, ocrCellClass(line, 'quantity'))}
                           value={isBlank ? '' : line.quantity}
                           onChange={(e) => updateLine(index, { quantity: e.target.value })}
                           onKeyDown={(e) => onCellEnter(e, 'bonus')}
                           disabled={!editable}
                         />
                       </GrnTd>
-                      <GrnTd>
-                        <Input
-                          data-grn-field={`bonus-${index}`}
-                          className={PURCHASE_CELL_NUMBER}
-                          value={isBlank ? '' : line.bonus}
-                          onChange={(e) => updateLine(index, { bonus: e.target.value })}
-                          onKeyDown={(e) => onCellEnter(e, 'rate')}
-                          disabled={!editable}
-                        />
+                      <GrnTd accent={hasBonus ? 'bonus' : undefined}>
+                        <CellTip text={hasBonus ? BONUS_QTY_TIP : undefined}>
+                          <Input
+                            data-grn-field={`bonus-${index}`}
+                            className={cn(
+                              PURCHASE_CELL_NUMBER,
+                              hasBonus && 'bg-sky-50 font-semibold text-sky-950 focus:bg-sky-50',
+                            )}
+                            value={isBlank ? '' : line.bonus}
+                            onChange={(e) => updateLine(index, { bonus: e.target.value })}
+                            onKeyDown={(e) => onCellEnter(e, 'rate')}
+                            disabled={!editable}
+                            title={hasBonus ? BONUS_QTY_TIP : undefined}
+                          />
+                        </CellTip>
                       </GrnTd>
                       <GrnTd>
                         <Input
@@ -1992,11 +2162,12 @@ export function PurchaseReceiveWorkspace({
                           type="number"
                           min={0}
                           step="0.01"
-                          className={PURCHASE_CELL_NUMBER}
+                          className={cn(PURCHASE_CELL_NUMBER, tpCellClass(line))}
                           value={isBlank ? '' : line.unit_price}
                           onChange={(e) => updateLine(index, { unit_price: e.target.value })}
                           onKeyDown={(e) => onCellEnter(e, 'disc')}
                           disabled={!editable}
+                          title={tpCellTitle(line)}
                         />
                       </GrnTd>
                       <GrnTd>
@@ -2005,22 +2176,39 @@ export function PurchaseReceiveWorkspace({
                           type="number"
                           min={0}
                           step="0.01"
-                          className={PURCHASE_CELL_NUMBER}
+                          className={cn(PURCHASE_CELL_NUMBER, ocrCellClass(line, 'discount'))}
                           value={isBlank ? '' : line.discount}
                           onChange={(e) =>
                             updateLine(index, { discount: e.target.value, discount_type: 'percent' })
                           }
-                          onKeyDown={(e) => onCellEnter(e, 'sale')}
+                          onKeyDown={(e) => onCellEnter(e, 'tax')}
                           disabled={!editable}
                         />
                       </GrnTd>
                       <ReadonlyCell>
                         {!isBlank ? moneyPlain(a.discount) : ''}
                       </ReadonlyCell>
-                      <ReadonlyCell>
-                        {!isBlank ? moneyPlain(a.totalExc) : ''}
-                      </ReadonlyCell>
-                      <ReadonlyCell tone="strong">
+                      <GrnTd>
+                        {line._fromOcr && !isBlank ? (
+                          <Input
+                            data-grn-field={`tax-${index}`}
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            className={cn(PURCHASE_CELL_NUMBER, 'text-[13px]', ocrCellClass(line, 'tax_amount'))}
+                            value={line.tax_amount}
+                            onChange={(e) => updateLine(index, { tax_amount: e.target.value })}
+                            onKeyDown={(e) => onCellEnter(e, 'sale')}
+                            disabled={!editable}
+                            title="Tax from supplier bill"
+                          />
+                        ) : (
+                          <div className={cn(READONLY_CELL, 'justify-end')}>
+                            {!isBlank ? moneyPlain(a.tax) : ''}
+                          </div>
+                        )}
+                      </GrnTd>
+                      <ReadonlyCell tone="strong" title="Line total including tax">
                         {!isBlank ? moneyPlain(a.totalInc) : ''}
                       </ReadonlyCell>
                       <GrnTd>
@@ -2042,6 +2230,7 @@ export function PurchaseReceiveWorkspace({
                         />
                       </GrnTd>
                       <ReadonlyCell
+                        accent={negativeMargin ? 'loss' : undefined}
                         tone={
                           !isBlank
                             ? a.netMargin >= 0
@@ -2049,32 +2238,15 @@ export function PurchaseReceiveWorkspace({
                               : 'bad'
                             : undefined
                         }
+                        className={negativeMargin ? 'bg-red-100' : undefined}
+                        title={negativeMargin ? NEGATIVE_MARGIN_TIP : MARGIN_COL_TIP}
                       >
-                        {!isBlank ? a.netMargin.toFixed(1) : ''}
+                        <CellTip text={negativeMargin ? NEGATIVE_MARGIN_TIP : MARGIN_COL_TIP}>
+                          <span className={cn('block w-full text-right', negativeMargin && 'cursor-help')}>
+                            {!isBlank ? `${a.netMargin.toFixed(1)}%` : ''}
+                          </span>
+                        </CellTip>
                       </ReadonlyCell>
-                      <ReadonlyCell>
-                        {!isBlank ? moneyPlain(a.netRate, 2) : ''}
-                      </ReadonlyCell>
-                      <GrnTd>
-                        {line._fromOcr && !isBlank ? (
-                          <Input
-                            data-grn-field={`tax-${index}`}
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            className={cn(PURCHASE_CELL_NUMBER, 'text-[13px]')}
-                            value={line.tax_amount}
-                            onChange={(e) => updateLine(index, { tax_amount: e.target.value })}
-                            onKeyDown={(e) => onCellEnter(e, 'next-row')}
-                            disabled={!editable}
-                            title="Tax from supplier bill"
-                          />
-                        ) : (
-                          <div className={cn(READONLY_CELL, 'justify-end')}>
-                            {!isBlank ? moneyPlain(a.tax) : ''}
-                          </div>
-                        )}
-                      </GrnTd>
                       <GrnTd align="center">
                         {!isBlank ? (
                           <Button
@@ -2096,71 +2268,52 @@ export function PurchaseReceiveWorkspace({
                 })}
               </tbody>
             </table>
-            </div>
           </div>
         </div>
 
-        <aside
-          className={cn(
-            'flex w-full shrink-0 flex-col border-t border-slate-200 bg-white lg:border-t-0 lg:border-l',
-            embedded ? 'lg:w-[300px]' : 'lg:w-[340px]',
-          )}
-        >
-          <div className="shrink-0 border-b border-slate-100 px-4 py-3.5">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-[12px] font-medium text-slate-500">Purchase summary</p>
-                <p className="mt-0.5 text-[13px] font-semibold text-slate-900">Payable to supplier</p>
-              </div>
-              <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-emerald-100 px-2.5 text-xs font-bold tabular-nums text-emerald-900">
-                {filledLineCount}
-              </span>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-3 overflow-auto px-3 py-3">
-            <div className="grid grid-cols-2 gap-2">
+        <aside className="shrink-0 border-t border-slate-200 bg-slate-50/80">
+          {Math.abs(amountVsPrinted) > 1 ? (
+            <p className="border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-[11px] text-amber-900">
+              Rows add up to {money(totals.lineAmountTotal)}. The printed bill was read as{' '}
+              {money(printedTotal)} — check for a missing or extra line. Payable stays the counted
+              Amounts.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-stretch gap-4 px-4 py-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-6 gap-y-3">
               <SummaryStat label="Lines" value={filledLineCount} />
+              <SummaryStat label="Units" value={totals.strips || 0} />
               <SummaryStat
-                label="Units"
-                value={totals.strips || 0}
-                sub={totals.unmatched ? `${totals.unmatched} unmatched` : undefined}
+                label="Amounts"
+                value={moneyPlain(totals.lineAmountTotal)}
+                title="Sum of the Amount column — counted from the rows, not from the AI total"
               />
-            </div>
+              {totals.lineDiscount > 0 ? (
+                <SummaryStat
+                  label="Line disc"
+                  value={`− ${moneyPlain(totals.lineDiscount)}`}
+                  tone="accent"
+                />
+              ) : null}
+              {totals.tax > 0 ? (
+                <SummaryStat
+                  label="Tax (in amounts)"
+                  value={moneyPlain(totals.tax)}
+                  title="Already included in Amounts — not added again"
+                />
+              ) : null}
+              {totals.unmatched ? (
+                <SummaryStat
+                  label="Unmatched"
+                  value={totals.unmatched}
+                  tone="danger"
+                />
+              ) : null}
 
-            <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-xs">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                Line totals
-              </p>
-              <div className="space-y-0.5">
-                <SummaryMoneyRow label="Subtotal" value={moneyPlain(totals.subtotal)} />
-                {totals.lineDiscount > 0 ? (
-                  <SummaryMoneyRow
-                    label="Line discount"
-                    value={`− ${moneyPlain(totals.lineDiscount)}`}
-                    accent
-                  />
-                ) : null}
-                <SummaryMoneyRow label="Sales tax (lines)" value={moneyPlain(totals.tax)} />
-                {totals.saleTotal > 0 ? (
-                  <SummaryMoneyRow
-                    label="Retail value"
-                    value={moneyPlain(totals.saleTotal)}
-                    muted
-                  />
-                ) : null}
-              </div>
-            </div>
+              <div className="hidden h-10 w-px bg-slate-200 lg:block" />
 
-            <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-xs">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                Document adjustments
-              </p>
-              <p className="mb-2.5 text-[10px] text-slate-500">
-                Optional — advance tax &amp; header discounts (not from invoice scan)
-              </p>
-              <div className="grid grid-cols-2 gap-2.5">
-                <SummaryAdjustField label="Inc GST %">
+              <div className="flex flex-wrap items-end gap-3">
+                <SummaryAdjustField label="GST %">
                   <Input
                     type="number"
                     min={0}
@@ -2171,7 +2324,7 @@ export function PurchaseReceiveWorkspace({
                     disabled={!canEditBill}
                   />
                 </SummaryAdjustField>
-                <SummaryAdjustField label="Advance tax">
+                <SummaryAdjustField label="Adv tax">
                   <Input
                     type="number"
                     min={0}
@@ -2204,7 +2357,7 @@ export function PurchaseReceiveWorkspace({
                     disabled={!canEditBill}
                   />
                 </SummaryAdjustField>
-                <SummaryAdjustField label="Misc (+)" className="col-span-2">
+                <SummaryAdjustField label="Misc">
                   <Input
                     type="number"
                     min={0}
@@ -2216,72 +2369,36 @@ export function PurchaseReceiveWorkspace({
                   />
                 </SummaryAdjustField>
               </div>
-              {(totals.pctDisc > 0 ||
-                totals.headerDiscount > 0 ||
-                totals.docIncGst > 0 ||
-                totals.advTax > 0 ||
-                totals.misc > 0) && (
-                <div className="mt-3 space-y-0.5 border-t border-slate-100 pt-2">
-                  {totals.pctDisc > 0 ? (
-                    <SummaryMoneyRow
-                      label="Header disc %"
-                      value={`− ${moneyPlain(totals.pctDisc)}`}
-                      accent
-                    />
-                  ) : null}
-                  {totals.headerDiscount > 0 ? (
-                    <SummaryMoneyRow
-                      label="Flat discount"
-                      value={`− ${moneyPlain(totals.headerDiscount)}`}
-                      accent
-                    />
-                  ) : null}
-                  {totals.docIncGst > 0 ? (
-                    <SummaryMoneyRow
-                      label={`Inc GST (${invGstPercent}%)`}
-                      value={moneyPlain(totals.docIncGst)}
-                    />
-                  ) : null}
-                  {totals.advTax > 0 ? (
-                    <SummaryMoneyRow label="Advance tax" value={moneyPlain(totals.advTax)} />
-                  ) : null}
-                  {totals.misc > 0 ? (
-                    <SummaryMoneyRow label="Misc charges" value={moneyPlain(totals.misc)} />
-                  ) : null}
-                </div>
-              )}
             </div>
-          </div>
 
-          <div className="shrink-0 space-y-3 border-t border-slate-100 bg-white p-4">
-            <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-4 py-3.5">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800/70">
-                    Grand total
-                  </p>
-                  {totals.avgPrice > 0 ? (
-                    <p className="mt-1 text-[11px] text-emerald-800/60">
-                      Avg {moneyPlain(totals.avgPrice)} / unit
-                    </p>
-                  ) : null}
-                </div>
-                <p className="text-2xl font-bold tabular-nums leading-none tracking-tight text-emerald-950">
-                  {money(totals.payable)}
+            <div className="ms-auto flex items-center gap-3">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800/80">
+                  Payable to supplier
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums leading-none tracking-tight text-emerald-950">
+                  {money(payableWhole, 0)}
+                </p>
+                <p className="mt-1 text-[10px] leading-tight text-emerald-800/70">
+                  Sum of Amount
+                  {Math.abs(amountVsPrinted) > 1
+                    ? ` · bill print ${money(printedTotal)}`
+                    : ''}
                 </p>
               </div>
+              <Button
+                type="button"
+                className="h-12 bg-emerald-700 px-5 text-[14px] font-semibold hover:bg-emerald-800"
+                disabled={saving || !canEditBill}
+                onClick={() => openPostConfirm(true)}
+              >
+                {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Post &amp; next
+                <PharmacyKbd className="ms-2 border-emerald-500/30 bg-emerald-600/20 text-white">
+                  F5
+                </PharmacyKbd>
+              </Button>
             </div>
-
-            <Button
-              type="button"
-              className="h-11 w-full bg-emerald-700 font-semibold hover:bg-emerald-800"
-              disabled={saving || !canEditBill}
-              onClick={() => openPostConfirm(true)}
-            >
-              {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Post &amp; next
-              <PharmacyKbd className="ms-2 border-emerald-500/30 bg-emerald-600/20 text-white">F5</PharmacyKbd>
-            </Button>
           </div>
         </aside>
         </div>
@@ -2298,16 +2415,16 @@ export function PurchaseReceiveWorkspace({
             </span>
           ) : null}
         </span>
-        <span className="tabular-nums font-medium text-slate-700">{money(totals.payable)}</span>
+        <span className="tabular-nums font-medium text-slate-700">{money(payableWhole, 0)}</span>
       </footer>
       ) : null}
 
       <PurchasePayDialog
         open={payOpen}
         onOpenChange={setPayOpen}
-        due={totals.payable}
+        due={payableWhole}
         supplierName={supplierName}
-        formatMoney={money}
+        formatMoney={(v) => money(v, 0)}
         saving={saving}
         andNext={payAndNext}
         onConfirm={({ paid, amount, andNext }) => {

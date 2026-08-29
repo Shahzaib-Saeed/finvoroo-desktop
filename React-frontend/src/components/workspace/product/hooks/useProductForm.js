@@ -11,6 +11,8 @@ import {
 } from '../constants';
 import { VARIANT_HARD_LIMIT } from '../lib/variant-matrix';
 import { useProductLookups } from './useProductLookups';
+import { useAuthStore } from '@/store/authStore';
+import { resolveIndustryFeatures } from '@/industries/resolve';
 
 function accountListKeyForField(fieldKey) {
   if (fieldKey === 'income_account_id') return 'revenue_accounts';
@@ -77,6 +79,8 @@ export function useProductForm({
   const [saving, setSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
   const [selectRevision, setSelectRevision] = useState(0);
+  const activeCompany = useAuthStore((s) => s.activeCompany);
+  const requirePackSize = !!resolveIndustryFeatures(activeCompany).pharmacy_shell;
   /** Pack-size rows keyed by base UOM — restored when user switches back to that base. */
   const conversionsByBaseRef = useRef({});
 
@@ -199,9 +203,15 @@ export function useProductForm({
       return { ...f, [key]: nextValue };
     });
     setErrors((e) => {
-      if (!e[key]) return e;
+      const keysToClear = [key];
+      if (key === 'pharmacy') {
+        keysToClear.push('pharmacy.units_per_pack', 'pharmacy.pack_size');
+      }
+      if (!keysToClear.some((k) => e[k])) return e;
       const next = { ...e };
-      delete next[key];
+      keysToClear.forEach((k) => {
+        delete next[k];
+      });
       return next;
     });
   }, [isEdit]);
@@ -383,6 +393,16 @@ export function useProductForm({
     if (form.unit_price === '' || Number(form.unit_price) < 0) {
       toast.error('Selling price is required');
       return;
+    }
+    if (requirePackSize) {
+      const pack = Number(form.pharmacy?.units_per_pack ?? form.pharmacy?.pack_size);
+      if (!Number.isFinite(pack) || pack < 1) {
+        setErrors({
+          'pharmacy.units_per_pack': 'Tablets per strip is required',
+        });
+        toast.error('Tablets per strip is required so you can sell loose tablets');
+        return;
+      }
     }
     const conversionRows = form.product_unit_conversions || [];
     const incompleteUnit = conversionRows.find(

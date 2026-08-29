@@ -347,6 +347,11 @@ export function getBaseMegaMenuColumns(companyId) {
               permission: 'reports.view',
             },
             {
+              title: 'Category Sales & Purchases',
+              path: p('/workspace/:id/accounting/reports/category-trading'),
+              permission: 'reports.view',
+            },
+            {
               title: 'P&L by Job',
               path: p('/workspace/:id/accounting/reports/profit-loss-by-job'),
               permission: 'reports.view',

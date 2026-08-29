@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { PharmacyKbd } from './PharmacyKbd';
 
 function ShortcutRow({ keys, label }) {
   return (
@@ -29,14 +30,6 @@ function ShortcutRow({ keys, label }) {
       <span className="text-slate-600">{label}</span>
       <span className="shrink-0 font-medium tabular-nums tracking-wide text-slate-500">{keys}</span>
     </div>
-  );
-}
-
-function ActionKbd({ children }) {
-  return (
-    <span className="ms-1 rounded border border-slate-200 bg-slate-50 px-1 py-px text-[10px] font-medium tabular-nums text-slate-500">
-      {children}
-    </span>
   );
 }
 
@@ -57,8 +50,34 @@ export function formatDispenseRole(role) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-const ACTION_BTN =
-  'h-9 gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 shadow-none hover:border-emerald-300 hover:bg-emerald-50/60 hover:text-emerald-900';
+const TOOLBAR_ACTIONS = [
+  {
+    key: 'hold',
+    label: 'Hold Sale',
+    shortcut: 'F1',
+    icon: Save,
+    iconClass: 'text-emerald-600',
+    onProp: 'onSave',
+    disabledWhen: (p) => p.disabled || p.checkingOut,
+  },
+  {
+    key: 'recall',
+    label: 'Recall',
+    shortcut: 'F2',
+    icon: RotateCcw,
+    iconClass: 'text-slate-500',
+    onProp: 'onRecall',
+    badge: (p) => p.holdsCount,
+  },
+  {
+    key: 'medicines',
+    label: 'Medicines',
+    shortcut: 'F4',
+    icon: Pill,
+    iconClass: 'text-emerald-600',
+    onProp: 'onSearch',
+  },
+];
 
 export function DispenseMainActions({
   onSave,
@@ -68,47 +87,48 @@ export function DispenseMainActions({
   holdsCount,
   disabled,
 }) {
+  const props = { onSave, onRecall, onSearch, checkingOut, holdsCount, disabled };
+
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1.5">
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={disabled || checkingOut}
-        onClick={onSave}
-        className={ACTION_BTN}
-      >
-        <Save className="size-3.5 text-emerald-600" />
-        Hold Sale
-        <ActionKbd>F1</ActionKbd>
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        onClick={onRecall}
-        className={cn(ACTION_BTN, 'relative')}
-      >
-        <RotateCcw className="size-3.5 text-slate-500" />
-        Recall
-        <ActionKbd>F2</ActionKbd>
-        {holdsCount > 0 ? (
-          <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white ring-2 ring-white">
-            {holdsCount}
-          </span>
-        ) : null}
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        onClick={onSearch}
-        className={ACTION_BTN}
-      >
-        <Pill className="size-3.5 text-emerald-600" />
-        Medicines
-        <ActionKbd>F4</ActionKbd>
-      </Button>
+    <div
+      className="inline-flex items-stretch overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+      role="toolbar"
+      aria-label="Sale actions"
+    >
+      {TOOLBAR_ACTIONS.map((action, index) => {
+        const Icon = action.icon;
+        const handler = props[action.onProp];
+        const isDisabled = action.disabledWhen?.(props);
+        const badge = action.badge?.(props);
+
+        return (
+          <div key={action.key} className="flex items-stretch">
+            {index > 0 ? <span className="w-px self-stretch bg-slate-200" aria-hidden /> : null}
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isDisabled}
+              onClick={handler}
+              className={cn(
+                'relative h-9 min-w-[7.5rem] gap-1.5 rounded-none bg-transparent px-3 text-[12px] font-semibold text-slate-700 shadow-none',
+                'hover:bg-emerald-50 hover:text-emerald-900',
+                'disabled:opacity-45',
+              )}
+            >
+              <Icon className={cn('size-3.5 shrink-0', action.iconClass)} />
+              <span className="truncate">{action.label}</span>
+              <PharmacyKbd className="ms-0.5 h-4 min-w-4 border-slate-200 px-1 text-[9px] font-bold text-slate-500">
+                {action.shortcut}
+              </PharmacyKbd>
+              {badge > 0 ? (
+                <span className="absolute right-1.5 top-1 flex size-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white ring-2 ring-white">
+                  {badge}
+                </span>
+              ) : null}
+            </Button>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -129,7 +149,7 @@ export function DispenseMoreMenu({
           type="button"
           variant="outline"
           size="sm"
-          className="h-9 w-9 shrink-0 border-slate-200 bg-white p-0 text-slate-600 shadow-none hover:border-slate-300 hover:bg-slate-50"
+          className="size-10 shrink-0 rounded-xl border-slate-200 bg-white p-0 text-slate-600 shadow-sm hover:border-slate-300 hover:bg-slate-50"
         >
           <MoreHorizontal className="size-4" />
         </Button>
@@ -196,9 +216,9 @@ export function DispenseUserChip({ cashierName, userRole, onShift, shiftOpen }) 
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-10 max-w-[200px] items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-left transition-colors hover:border-slate-300 hover:bg-slate-50"
+          className="flex h-9 max-w-[11rem] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-emerald-800">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-100">
             {initials}
           </span>
           <span className="min-w-0 flex-1">

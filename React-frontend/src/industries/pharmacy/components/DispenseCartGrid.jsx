@@ -6,15 +6,20 @@ import { getLineWarnings, isPriceOverridden, lineTotal, formatLineUnitDisplay, f
 const GRID_FONT =
   "Segoe UI, system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif";
 
+/** Emerald-spine grid — branded header, readable body lines. */
+const GRID_LINE = 'border-r border-b border-slate-200 last:border-r-0';
+const GRID_HEAD = 'border-r border-emerald-700/35 border-b-2 border-emerald-900 last:border-r-0';
+
 const CELL_INPUT =
-  'h-12 w-full min-h-12 border-0 rounded-none shadow-none bg-transparent px-3 text-[14px] font-bold leading-snug text-black outline-none placeholder:text-black/70 focus:bg-transparent focus:ring-0 focus-visible:!outline-none disabled:opacity-50';
+  'h-11 w-full min-h-11 border-0 rounded-none shadow-none bg-transparent px-3 text-[13px] font-medium leading-snug text-slate-900 outline-none placeholder:text-slate-400 focus:bg-emerald-50/40 focus:ring-0 focus-visible:!outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/25 disabled:opacity-50';
 
 function Th({ children, align = 'left', className, ...rest }) {
   return (
     <th
       {...rest}
       className={cn(
-        'border border-slate-400 bg-emerald-800 px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-white whitespace-nowrap',
+        GRID_HEAD,
+        'sticky top-0 z-10 bg-emerald-800 px-2.5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-white/95 whitespace-nowrap',
         align === 'right' && 'text-right',
         align === 'center' && 'text-center',
         align === 'left' && 'text-left',
@@ -26,17 +31,15 @@ function Th({ children, align = 'left', className, ...rest }) {
   );
 }
 
-function Td({ children, className, align = 'left', onClick, style, selected = false, lead = false }) {
+function Td({ children, className, align = 'left', onClick, selected = false, lead = false, colSpan }) {
   return (
     <td
+      colSpan={colSpan}
       onClick={onClick}
-      style={{
-        ...style,
-        ...(selected && lead ? { boxShadow: 'inset 4px 0 0 0 #065f46' } : null),
-      }}
       className={cn(
-        'border border-slate-400 p-0 align-middle text-black',
-        selected ? 'bg-emerald-100' : 'bg-white',
+        GRID_LINE,
+        'p-0 align-middle text-slate-900',
+        selected && lead && 'shadow-[inset_3px_0_0_0_#059669]',
         align === 'right' && 'text-right',
         align === 'center' && 'text-center',
         className,
@@ -47,9 +50,15 @@ function Td({ children, className, align = 'left', onClick, style, selected = fa
   );
 }
 
-function CellText({ children, className }) {
+function CellText({ children, className, strong = false }) {
   return (
-    <div className={cn('flex h-12 items-center px-3 text-[14px] font-semibold leading-snug text-black', className)}>
+    <div
+      className={cn(
+        'flex h-11 items-center px-3 text-[13px] leading-snug text-slate-900',
+        strong ? 'font-semibold tabular-nums' : 'font-medium',
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -144,9 +153,48 @@ function gridFieldFocusProps(index, onSelectRow, { selectAll = false } = {}) {
     },
   };
 }
-function rowHighlightClass(selected) {
-  if (!selected) return 'hover:[&>td]:bg-emerald-50';
-  return '[&>td]:!bg-emerald-100';
+/** Minimum grid rows so the sale list always reads like a full sheet, not a floating strip. */
+const MIN_VISIBLE_ROWS = 14;
+
+function FillerRow() {
+  return (
+    <tr className="pointer-events-none select-none bg-white even:bg-slate-50/40" aria-hidden>
+      <Td align="center" className="w-10">
+        <div className="h-11" />
+      </Td>
+      <Td className="!border-r-slate-200">
+        <div className="h-11" />
+      </Td>
+      <Td align="center">
+        <div className="h-11" />
+      </Td>
+      <Td align="center">
+        <div className="h-11" />
+      </Td>
+      <Td align="right">
+        <div className="h-11" />
+      </Td>
+      <Td align="right">
+        <div className="h-11" />
+      </Td>
+      <Td align="right">
+        <div className="h-11" />
+      </Td>
+      <Td align="center">
+        <div className="h-11" />
+      </Td>
+    </tr>
+  );
+}
+function rowSurfaceClass(selected, { entry = false } = {}) {
+  return cn(
+    'group transition-colors',
+    entry && !selected && 'bg-slate-50/50',
+    selected
+      ? 'bg-emerald-50/90 shadow-[inset_0_0_0_1px_rgb(5_150_105_/_0.45)]'
+      : !entry && 'bg-white even:bg-slate-50/40',
+    !selected && 'hover:bg-slate-50',
+  );
 }
 
 export function DispenseCartGrid({
@@ -170,27 +218,26 @@ export function DispenseCartGrid({
   getAvailableStock,
   warehouseId = null,
 }) {
-  const slotCount = lines.length + (entryRowVisible ? 1 : 0);
   const navMaxIndex = maxCartRowIndex ?? (entryRowVisible ? lines.length : Math.max(0, lines.length - 1));
+  const contentRowCount = lines.length + (entryRowVisible ? 1 : 0);
+  const fillerCount = Math.max(0, MIN_VISIBLE_ROWS - contentRowCount);
 
   return (
     <div className="flex h-full min-w-0 flex-col antialiased" style={{ fontFamily: GRID_FONT }}>
-      <div className="flex shrink-0 items-center justify-between gap-4 px-5 py-3.5">
-        <div>
-          <h2 className="text-[16px] font-bold tracking-tight text-black">Sale list</h2>
-          <p className="mt-0.5 text-[13px] font-medium text-black">
+      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-2.5">
+        <div className="min-w-0 border-s-[3px] border-emerald-600 ps-3">
+          <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">Sale list</h2>
+          <p className="mt-0.5 text-[12px] font-medium text-slate-500">
             Scan barcode or search by medicine name
           </p>
         </div>
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-800 px-3 py-1 text-[12px] font-bold text-white">
-          <span>Lines</span>
-          <span className="tabular-nums">{lines.length}</span>
-        </div>
+        <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-emerald-600 px-2.5 text-[11px] font-semibold tabular-nums text-white shadow-sm">
+          {lines.length} {lines.length === 1 ? 'line' : 'lines'}
+        </span>
       </div>
 
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="overflow-hidden border border-slate-400 bg-white">
-          <table className="w-full table-fixed border-collapse text-[14px] text-black">
+        <table className="h-full w-full table-fixed border-collapse text-[13px] text-slate-900">
             <colgroup>
               <col style={{ width: '2.5rem' }} />
               <col style={{ width: '36%' }} />
@@ -206,7 +253,7 @@ export function DispenseCartGrid({
                 <Th align="center" className="w-10 px-0">
                   <span className="sr-only">Row</span>
                 </Th>
-                <Th className="min-w-0">Product</Th>
+                <Th className="min-w-0 !border-r-emerald-700/40">Product</Th>
                 <Th align="center" className="w-[88px]" data-lookup-stop="qty">
                   Qty
                 </Th>
@@ -226,67 +273,8 @@ export function DispenseCartGrid({
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: slotCount }, (_, index) => {
-                const line = lines[index] || null;
+              {lines.map((line, index) => {
                 const selected = cartFocus === index;
-                const isEmpty = !line;
-
-                if (isEmpty) {
-                  return (
-                    <tr
-                      key={`empty-${index}`}
-                      data-dispense-row={index}
-                      className={cn('transition-colors', rowHighlightClass(selected))}
-                      onClick={() => onSelectRow(index)}
-                    >
-                      <Td align="center" selected={selected} lead className="w-10">
-                        <CellText className="justify-center text-black">
-                          <GripVertical className="size-4" />
-                        </CellText>
-                      </Td>
-                      <Td selected={selected} className="p-0">
-                        <ItemNameSearchCell
-                          rowIndex={index}
-                          variant="cell"
-                          lookupMode="sale"
-                          isEntrySlot
-                          autoFocus={lines.length === 0}
-                          inputRef={itemSearchRef}
-                          getAvailableStock={getAvailableStock}
-                          warehouseId={warehouseId}
-                          onFocusRow={onSelectRow}
-                          onNavigateRow={(delta) =>
-                            navigateCartRow(index, delta, navMaxIndex, onSelectRow)
-                          }
-                          onSelect={(product) =>
-                            (onSetLineProduct || onPickProduct)?.(index, product)
-                          }
-                          onSubmitRaw={(term) => onSubmitRaw?.(term)}
-                          placeholder=""
-                        />
-                      </Td>
-                      <Td align="center" selected={selected}>
-                        <CellText className="justify-center tabular-nums">—</CellText>
-                      </Td>
-                      <Td align="center" selected={selected}>
-                        <CellText className="justify-center">—</CellText>
-                      </Td>
-                      <Td align="right" selected={selected}>
-                        <CellText className="justify-end tabular-nums">—</CellText>
-                      </Td>
-                      <Td align="right" selected={selected}>
-                        <CellText className="justify-end tabular-nums">—</CellText>
-                      </Td>
-                      <Td align="right" selected={selected}>
-                        <CellText className="justify-end font-bold tabular-nums text-black">
-                          {formatMoney(0)}
-                        </CellText>
-                      </Td>
-                      <Td selected={selected} />
-                    </tr>
-                  );
-                }
-
                 const warnings = getLineWarnings(line);
                 const priceOverride = isPriceOverridden(line);
                 const lineTot = lineTotal(line, taxRatesById);
@@ -295,16 +283,16 @@ export function DispenseCartGrid({
                   <tr
                     key={line.key}
                     data-dispense-row={index}
-                    className={cn('transition-colors', rowHighlightClass(selected))}
+                    className={cn('transition-colors', rowSurfaceClass(selected))}
                     onClick={() => onSelectRow(index)}
                   >
                     <Td align="center" selected={selected} lead className="w-10">
-                      <CellText className="justify-center text-black">
+                      <CellText className="justify-center text-slate-400">
                         <GripVertical className="size-4" />
                       </CellText>
                     </Td>
 
-                    <Td selected={selected} onClick={(e) => e.stopPropagation()} className="p-0">
+                    <Td selected={selected} onClick={(e) => e.stopPropagation()} className="!border-r-slate-200 p-0">
                       <ItemNameSearchCell
                         rowIndex={index}
                         variant="cell"
@@ -341,7 +329,7 @@ export function DispenseCartGrid({
                         inputMode="numeric"
                         autoComplete="off"
                         pattern="[0-9]*"
-                        className={cn(CELL_INPUT, 'text-center text-[14px] font-bold tabular-nums')}
+                        className={cn(CELL_INPUT, 'text-center tabular-nums')}
                         value={line.quantity}
                         onChange={(e) =>
                           onUpdateLine(index, { quantity: sanitizeIntegerInput(e.target.value) })
@@ -394,8 +382,8 @@ export function DispenseCartGrid({
                         disabled={!permissions.can_edit_price}
                         className={cn(
                           CELL_INPUT,
-                          'text-right font-semibold tabular-nums',
-                          priceOverride && 'bg-amber-50 text-amber-800',
+                          'text-right tabular-nums',
+                          priceOverride && 'bg-amber-50/90 text-amber-900',
                         )}
                         value={formatRateForDisplay(line.unit_price)}
                         onChange={(e) =>
@@ -444,7 +432,7 @@ export function DispenseCartGrid({
                         data-pharmacy-typing
                         disabled={!permissions.can_discount}
                         placeholder="0"
-                        className={cn(CELL_INPUT, 'text-right font-bold tabular-nums')}
+                        className={cn(CELL_INPUT, 'text-right tabular-nums')}
                         value={line.discount_type === 'percent' ? line.discount || '0' : '0'}
                         onChange={(e) => onUpdateDiscPercent(index, e.target.value)}
                         {...gridFieldFocusProps(index, onSelectRow)}
@@ -480,8 +468,8 @@ export function DispenseCartGrid({
                       />
                     </Td>
 
-                    <Td align="right" selected={selected}>
-                      <CellText className="justify-end text-[14px] font-bold tabular-nums text-black">
+                    <Td align="right" selected={selected} className="!border-r-slate-200">
+                      <CellText strong className="justify-end text-emerald-700">
                         {formatMoney(lineTot)}
                       </CellText>
                     </Td>
@@ -491,7 +479,7 @@ export function DispenseCartGrid({
                         <button
                           type="button"
                           title="Remove line (Ctrl+D)"
-                          className="inline-flex size-8 items-center justify-center rounded-md text-black hover:bg-rose-100 hover:text-rose-700"
+                          className="inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                           onClick={(e) => {
                             e.stopPropagation();
                             onRemoveLine(index);
@@ -504,9 +492,68 @@ export function DispenseCartGrid({
                   </tr>
                 );
               })}
+
+              {entryRowVisible ? (() => {
+                const index = lines.length;
+                const selected = cartFocus === index;
+                return (
+                  <tr
+                    key="entry-row"
+                    data-dispense-row={index}
+                    data-entry-row="1"
+                    className={cn('transition-colors', rowSurfaceClass(selected, { entry: true }))}
+                    onClick={() => onSelectRow(index)}
+                  >
+                    <Td align="center" selected={selected} lead className="w-10">
+                      <CellText className="justify-center text-slate-300">
+                        <GripVertical className="size-4" />
+                      </CellText>
+                    </Td>
+                    <Td selected={selected} className="!border-r-slate-200 p-0">
+                      <ItemNameSearchCell
+                        rowIndex={index}
+                        variant="cell"
+                        lookupMode="sale"
+                        isEntrySlot
+                        autoFocus={lines.length === 0}
+                        inputRef={itemSearchRef}
+                        getAvailableStock={getAvailableStock}
+                        warehouseId={warehouseId}
+                        onFocusRow={onSelectRow}
+                        onNavigateRow={(delta) =>
+                          navigateCartRow(index, delta, navMaxIndex, onSelectRow)
+                        }
+                        onSelect={(product) =>
+                          (onSetLineProduct || onPickProduct)?.(index, product)
+                        }
+                        onSubmitRaw={(term) => onSubmitRaw?.(term)}
+                        placeholder="Type or scan next medicine…"
+                      />
+                    </Td>
+                    <Td colSpan={6} selected={selected} className="text-slate-400">
+                      <CellText className="text-[12px] italic text-slate-400">
+                        Enter on qty moves to the next line
+                      </CellText>
+                    </Td>
+                  </tr>
+                );
+              })() : null}
+
+              {Array.from({ length: fillerCount }, (_, i) => (
+                <FillerRow key={`filler-${i}`} />
+              ))}
             </tbody>
           </table>
-        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-2">
+        <p className="text-[11px] font-medium text-slate-500">
+          <span className="font-semibold text-slate-700">Tab</span> moves across fields ·{' '}
+          <span className="font-semibold text-slate-700">Enter</span> on qty adds next item
+        </p>
+        <p className="text-[11px] font-medium text-slate-500">
+          {lines.length ? `${lines.length} item${lines.length === 1 ? '' : 's'} in cart` : 'Cart empty'}
+        </p>
       </div>
     </div>
   );

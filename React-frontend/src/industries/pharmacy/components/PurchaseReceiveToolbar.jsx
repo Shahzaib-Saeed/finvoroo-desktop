@@ -1,5 +1,6 @@
 import {
   ClipboardPaste,
+  ClipboardList,
   Keyboard,
   Loader2,
   MoreHorizontal,
@@ -71,6 +72,12 @@ export function PurchaseReceiveMoreMenu({
             Scan supplier bill
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to={`/workspace/${companyId}/accounting/purchase-orders/create`}>
+            <ClipboardList className="size-4" />
+            Create purchase order
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={onPrint} disabled={saving}>
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
           Print preview
@@ -110,18 +117,44 @@ export function PurchaseReceiveMoreMenu({
   );
 }
 
-export function PurchaseReceiveMainActions({ onDraft, saving, disabled }) {
+export function PurchaseReceiveMainActions({
+  onDraft,
+  saving,
+  disabled,
+  companyId,
+  vendorId,
+}) {
+  const poHref = companyId
+    ? `/workspace/${companyId}/accounting/purchase-orders/create${
+        vendorId ? `?vendor_id=${encodeURIComponent(vendorId)}` : ''
+      }`
+    : null;
+
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      disabled={disabled || saving}
-      onClick={onDraft}
-      className={ACTION_BTN}
-    >
-      {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
-      Save draft
-    </Button>
+    <>
+      {poHref ? (
+        <Button
+          asChild
+          size="sm"
+          className="h-9 gap-1.5 rounded-lg bg-emerald-800 px-3 text-[12px] font-medium text-white shadow-none hover:bg-emerald-700"
+        >
+          <Link to={poHref}>
+            <ClipboardList className="size-3.5" />
+            Create purchase order
+          </Link>
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={disabled || saving}
+        onClick={onDraft}
+        className={ACTION_BTN}
+      >
+        {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
+        Save draft
+      </Button>
+    </>
   );
 }

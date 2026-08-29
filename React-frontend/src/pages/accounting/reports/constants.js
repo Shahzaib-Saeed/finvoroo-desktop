@@ -7,6 +7,7 @@ import {
   ClipboardList,
   CreditCard,
   GitBranch,
+  LayoutGrid,
   Landmark,
   LineChart,
   PackageSearch,
@@ -49,6 +50,14 @@ export function getReportHubSections(workspaceId) {
             "Balance sheet and P&L together with net profit at a glance",
           path: `${r}/financial-summary`,
           icon: BarChart3,
+          iconClass: ICON,
+        },
+        {
+          title: "Category Sales & Purchases",
+          description:
+            "Category-wise purchase, sale, net profit, and margin",
+          path: `${r}/category-trading`,
+          icon: LayoutGrid,
           iconClass: ICON,
         },
         {
@@ -216,6 +225,13 @@ export function getReportHubSections(workspaceId) {
             "Purchases and sales linked to invoices, bills, and parties",
           path: `${inv}/movements`,
           icon: LineChart,
+          iconClass: ICON,
+        },
+        {
+          title: "Category Sales & Purchases",
+          description: "Purchase, sale, and net profit by product category",
+          path: `${r}/category-trading`,
+          icon: LayoutGrid,
           iconClass: ICON,
         },
         {

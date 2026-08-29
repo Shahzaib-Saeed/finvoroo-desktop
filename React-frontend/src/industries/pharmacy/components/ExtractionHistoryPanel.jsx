@@ -1,5 +1,6 @@
 import { Clock3, FileImage, Loader2, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatOcrEngineName } from '../lib/ocr-engine-label';
 
 function formatWhen(iso) {
   if (!iso) return '—';
@@ -13,6 +14,17 @@ function formatWhen(iso) {
   } catch {
     return iso;
   }
+}
+
+/**
+ * Which engine produced these rows. A page corrected by the fallback shows both,
+ * because "read by X, corrected by Y" is the answer to a disputed line.
+ */
+function engineLabel(row) {
+  const primary = formatOcrEngineName(row?.provider);
+  if (!primary) return '';
+  const fallback = formatOcrEngineName(row?.fallback_provider);
+  return fallback && fallback !== primary ? `${primary} → ${fallback}` : primary;
 }
 
 const statusTone = {
@@ -81,10 +93,14 @@ export function ExtractionHistoryPanel({
                   <FileImage className="size-3 shrink-0 text-slate-400" />
                   <div className="min-w-0 max-w-[140px]">
                     <p className="truncate text-[11px] font-medium text-slate-800">
-                      {row.original_filename || `Scan #${row.id}`}
+                      {row.page_count > 1
+                        ? `${row.original_filename || 'Invoice'} (${row.page_count} pages)`
+                        : row.original_filename || `Scan #${row.id}`}
                     </p>
                     <p className="truncate text-[10px] text-slate-500">
                       {formatWhen(row.created_at)} · {row.item_count} lines
+                      {row.page_count > 1 ? ` · ${row.page_count} pages` : ''}
+                      {row.provider ? ` · ${engineLabel(row)}` : ''}
                     </p>
                   </div>
                   <span
@@ -145,7 +161,7 @@ export function ExtractionHistoryPanel({
         ) : null}
         {!loading && rows.length === 0 ? (
           <div className="px-2 py-8 text-center text-xs text-slate-500">
-            Previous Gemini scans will appear here so you can reopen and review them.
+            Previous scans will appear here so you can reopen and review them.
           </div>
         ) : null}
         <div className="space-y-1.5">
@@ -172,10 +188,16 @@ export function ExtractionHistoryPanel({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 truncate text-[12px] font-medium text-slate-800">
                         <FileImage className="size-3.5 shrink-0 text-slate-400" />
-                        <span className="truncate">{row.original_filename || `Scan #${row.id}`}</span>
+                        <span className="truncate">
+                          {row.page_count > 1
+                            ? `${row.original_filename || 'Invoice'} (${row.page_count} pages)`
+                            : row.original_filename || `Scan #${row.id}`}
+                        </span>
                       </div>
                       <div className="mt-1 text-[11px] text-slate-500">
                         {formatWhen(row.created_at)} · {row.item_count} lines
+                        {row.page_count > 1 ? ` · ${row.page_count} pages` : ''}
+                        {row.provider ? ` · ${engineLabel(row)}` : ''}
                       </div>
                     </div>
                     <span

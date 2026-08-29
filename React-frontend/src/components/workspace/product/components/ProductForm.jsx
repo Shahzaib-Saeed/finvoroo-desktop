@@ -1032,7 +1032,7 @@ export function ProductForm({
                   title="Pharmacy"
                   description="Clinical attributes, multi-barcode, and stock policy for medicines."
                 >
-                  <PharmacyProductSection form={form} setField={setField} disabled={saving} />
+                  <PharmacyProductSection form={form} setField={setField} errors={errors} disabled={saving} />
                 </FormSection>
               ) : null}
 

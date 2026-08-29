@@ -13,6 +13,8 @@
     "test:print-agent": "node --test src/lib/print-agent-core.test.js",
     "test:pharmacy-search": "node --test src/industries/pharmacy/lib/pharmacy-catalog-index.test.js",
     "bench:pharmacy-search": "node --expose-gc src/industries/pharmacy/lib/pharmacy-catalog-index.bench.js",
+    "test:pharmacy-ocr": "node --test src/industries/pharmacy/lib/invoice-scan-ux.test.js",
+    "test:pharmacy-match": "node --test src/industries/pharmacy/lib/pharmacy-match-engine.test.js src/industries/pharmacy/lib/client-product-match.test.js src/industries/pharmacy/lib/invoice-match-quality.test.js",
     "test:pharmacy-fefo": "node --test src/industries/pharmacy/lib/fefo.test.js"
   },
   "dependencies": {

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { pharmacyApi } from '../api/pharmacy.api';
 import { PrintAgentSetupPanel } from '../components/PrintAgentSetupPanel';
+import { DesktopAppDownloadPanel } from '@/pages/accounting/settings/components/DesktopAppDownloadPanel';
 import { getPosBridgeUrl, setPosBridgeUrl } from '@/lib/print-pos-receipt';
 import { cn } from '@/lib/utils';
 
@@ -252,6 +253,15 @@ export function PharmacySettingsPage() {
           >
             <div className="py-3">
               <PrintAgentSetupPanel disabled={saving} embedded />
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Finvoroo Desktop — Windows App"
+            description="Native Windows app for this PC — works offline for POS and syncs when back online."
+          >
+            <div className="py-3">
+              <DesktopAppDownloadPanel embedded />
             </div>
           </SettingsSection>
 

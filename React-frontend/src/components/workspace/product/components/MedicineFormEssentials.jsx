@@ -298,11 +298,19 @@ export function MedicineFormEssentials({
           </Select>
         </Field>
 
-        <Field label="Tablets per strip" className="sm:col-span-3">
+        <Field
+          label="Tablets per strip"
+          required
+          error={errors['pharmacy.units_per_pack'] || errors['pharmacy.pack_size']}
+          className="sm:col-span-3"
+          hint="Needed to sell loose tablets from a strip or box."
+        >
           <Input
             type="number"
             min={1}
             step={1}
+            required
+            aria-required="true"
             value={packFactor === null || packFactor === undefined ? '' : packFactor}
             onChange={(e) => {
               const n = e.target.value;
@@ -311,7 +319,7 @@ export function MedicineFormEssentials({
                 pack_size: n,
               });
             }}
-            placeholder="10"
+            placeholder="e.g. 10, 20"
             disabled={saving}
             className="h-9"
           />

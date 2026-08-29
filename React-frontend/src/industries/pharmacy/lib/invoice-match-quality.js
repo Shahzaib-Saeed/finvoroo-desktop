@@ -1,105 +1,24 @@
 /**
- * Shared invoice line ↔ catalog match quality for OCR review UI.
- * Mirrors backend InvoiceProductMatcher penalties (strength, pack, brand).
+ * Match quality for the OCR review UI.
+ *
+ * Both the score and the "does a human need to look at this?" decision come
+ * from the shared pharmacy engine, so the amber verify flag in the grid means
+ * the same thing as the backend's `suggested` status.
  */
 
-function normalize(name) {
-  return String(name || '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
-}
+import { CONFIDENCE, parseLabel, scoreLabels } from './pharmacy-match-engine.js';
 
-function canonical(name) {
-  let s = normalize(name);
-  s = s.replace(/\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|g|ml|iu|%)\b/g, ' ');
-  s = s.replace(/\b\d+\s*\/\s*\d+\s*(?:mg|mcg|g|ml)?\b/g, ' ');
-  s = s.replace(/\b\d+\s*[xX×]\s*\d+\b/g, ' ');
-  s = s.replace(/\b\d+\s*'?s\b/g, ' ');
-  s = s.replace(/\s+[lLeE]\d+\b/g, ' ');
-  return s.replace(/\s+/g, ' ').trim();
-}
-
-const STOP = new Set([
-  'tab', 'tabs', 'tablet', 'tablets', 'cap', 'caps', 'capsule', 'capsules',
-  'syrup', 'inj', 'injection', 'susp', 'cream', 'gel', 'drop', 'drops',
-  'oint', 'sachet', 'strip', 'pack', 'box', 'bottle', 'amp', 'vial',
-  'mr', 'sr', 'cr', 'xr', 'er', 'plus', 'forte', 'co', 'n',
-]);
-
-function tokens(name) {
-  return canonical(name)
-    .split(/[\s/|,.\-–—()+]+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length >= 2 && !STOP.has(t) && !/^\d+$/.test(t));
-}
-
-export function extractStrengths(name) {
-  const s = normalize(name);
-  const values = [];
-  const re = /\b(\d+(?:[.,]\d+)?)(?:\s*\/\s*(\d+(?:[.,]\d+)?))?\s*(?:mg|mcg|g|ml|iu|%)\b/g;
-  let m;
-  while ((m = re.exec(s)) !== null) {
-    values.push(parseFloat(String(m[1]).replace(',', '.')));
-    if (m[2]) values.push(parseFloat(String(m[2]).replace(',', '.')));
-  }
-  return [...new Set(values.filter((n) => Number.isFinite(n)))];
-}
-
-export function extractPackCount(name) {
-  const m = normalize(name).match(/\b(\d+)\s*'?s\b/);
-  return m ? Number(m[1]) : null;
-}
-
-function strengthsCompatible(invoiceName, catalogName) {
-  const inv = extractStrengths(invoiceName);
-  const cat = extractStrengths(catalogName);
-  if (!inv.length || !cat.length) return true;
-  return inv.some((v) => cat.some((c) => Math.abs(v - c) < 0.011));
-}
-
-function packCompatible(invoiceName, catalogName) {
-  const inv = extractPackCount(invoiceName);
-  const cat = extractPackCount(catalogName);
-  if (inv == null || cat == null) return true;
-  return inv === cat;
-}
-
-function catalogExtendsInvoice(invoiceName, catalogName) {
-  const inv = canonical(invoiceName);
-  const cat = normalize(catalogName);
-  if (!inv || !cat) return false;
-  if (cat === inv) return true;
-  return (
-    cat.startsWith(`${inv} `) ||
-    new RegExp(`^${inv.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+[lLeE]\\d+$`).test(cat)
-  );
-}
-
+/**
+ * Weighted pharmacy score for an invoice line against a catalog name, in 0..1.
+ * Zero means the two cannot be the same product.
+ */
 export function scoreInvoiceCatalogMatch(invoiceName, catalogName) {
-  const a = normalize(invoiceName);
-  const b = normalize(catalogName);
-  if (!a || !b) return 0;
-  if (a === b) return 1;
-  if (canonical(a) === canonical(b)) return 0.94;
-  if (catalogExtendsInvoice(a, b)) return 0.96;
+  return scoreLabels(parseLabel(invoiceName), parseLabel(catalogName)).score;
+}
 
-  const ta = tokens(invoiceName);
-  const tb = tokens(catalogName);
-  if (!ta.length || !tb.length) return 0;
-
-  let s = 0;
-  const lead = ta[0];
-  if (lead && lead.length >= 3 && lead === tb[0]) s = Math.max(s, 0.84);
-  const overlap = ta.filter((t) => tb.includes(t)).length;
-  if (overlap >= 2) s = Math.max(s, 0.9);
-  if (overlap >= 3) s = Math.max(s, 0.94);
-  if (b.includes(lead) || a.includes(tb[0] || '')) s = Math.max(s, 0.78);
-
-  if (!strengthsCompatible(invoiceName, catalogName)) s = Math.min(s, 0.62);
-  if (!packCompatible(invoiceName, catalogName)) s = Math.min(s, 0.72);
-
-  return s;
+/** Full breakdown — component scores, blockers and rejection reason. */
+export function explainInvoiceCatalogMatch(invoiceName, catalogName, catalogExtra = {}) {
+  return scoreLabels(parseLabel(invoiceName), parseLabel(catalogName, catalogExtra));
 }
 
 /** Whether OCR review should flag this link for manual verification. */
@@ -108,6 +27,11 @@ export function rowNeedsVerify(row) {
 
   // Cashier confirmed the link in the match sheet — treat as verified (green).
   if (row.match_user_confirmed === true) return false;
+  if (String(row.match_source || '') === 'learned_verified') return false;
+  if (String(row.match_source || '') === 'global_knowledge' && row.match_status === 'matched') {
+    return false;
+  }
+  // An exact barcode or SKU hit is a deterministic identifier, not a guess.
   if (Number(row.match_confidence) >= 0.999 && row.match_status === 'matched') return false;
 
   const bill = String(row.product_description || '').trim();
@@ -116,15 +40,18 @@ export function rowNeedsVerify(row) {
     return row.match_status === 'suggested';
   }
 
-  const quality = scoreInvoiceCatalogMatch(bill, catalog);
-  const conf = Number(row.match_confidence) || quality;
-
   if (row.match_status === 'suggested') return true;
+  const conf = Number(row.match_confidence);
   if (conf > 0 && conf < 0.92) return true;
-  if (quality < 0.88) return true;
-  if (!strengthsCompatible(bill, catalog)) return true;
 
-  return false;
+  // Re-check the link against the pharmacy rules rather than trusting the
+  // confidence number alone: a conflicting form or strength must surface here
+  // even if something upstream reported the match as settled.
+  return scoreInvoiceCatalogVerdict(bill, catalog) !== CONFIDENCE.HIGH;
+}
+
+function scoreInvoiceCatalogVerdict(invoiceName, catalogName) {
+  return scoreLabels(parseLabel(invoiceName), parseLabel(catalogName)).confidence;
 }
 
 export function countVerifyRows(rows) {
@@ -141,6 +68,7 @@ export function receiveLineNeedsVerify(line) {
     match_status: line.match_status,
     match_confidence: line.match_confidence,
     match_user_confirmed: line.match_user_confirmed,
+    match_source: line.match_source,
   });
 }
 

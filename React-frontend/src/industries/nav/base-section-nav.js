@@ -95,6 +95,7 @@ export const BASE_SECTION_NAV = [
         title: 'Financial',
         links: [
           { title: 'Financial Summary', path: '/accounting/reports/financial-summary' },
+          { title: 'Category Sales & Purchases', path: '/accounting/reports/category-trading' },
           { title: 'Income Statement', path: '/accounting/reports/income-statement' },
           { title: 'Profit & Loss', path: '/accounting/reports/profit-loss' },
           { title: 'P&L by Job', path: '/accounting/reports/profit-loss-by-job' },
@@ -133,6 +134,7 @@ export const BASE_SECTION_NAV = [
         title: 'Inventory',
         links: [
           { title: 'Inventory Activity', path: '/accounting/inventory/reports/movements' },
+          { title: 'Category Sales & Purchases', path: '/accounting/reports/category-trading' },
           { title: 'Stock Summary', path: '/accounting/inventory/reports/stock-summary' },
           { title: 'All Inventory Reports', path: '/accounting/inventory/reports' },
         ],

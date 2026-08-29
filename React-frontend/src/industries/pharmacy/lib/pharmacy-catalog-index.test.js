@@ -185,6 +185,18 @@ describe('name search', () => {
   it('returns the head of the catalog for an empty query', () => {
     assert.equal(searchCatalog(index, '', { limit: 3 }).length, 3);
   });
+
+  it('ranks Azotek above Neudopa when the cashier types azotek', () => {
+    const local = buildCatalogIndex([
+      { id: 20, name: 'Neudopa Tab 100s F12', maker: 'Platinum Pharmaceuticals' },
+      { id: 21, name: 'Azotek 500mg Tab 6s A23', maker: 'Saffron Pharmaceuticals' },
+      { id: 22, name: 'Azotek 250mg Tab 6s A23', maker: 'Saffron Pharmaceuticals' },
+    ]);
+    assert.deepEqual(names(searchCatalog(local, 'azotek')), [
+      'Azotek 250mg Tab 6s A23',
+      'Azotek 500mg Tab 6s A23',
+    ]);
+  });
 });
 
 describe('index resilience', () => {
