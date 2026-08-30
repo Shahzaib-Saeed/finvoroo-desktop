@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronsUpDown } from 'lucide-react';
 import { authService } from '@/auth/services/auth-service';
+import { getWorkspaceHomePath } from '@/industries';
 import { useAuthStore } from '@/store/authStore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -71,7 +72,7 @@ export function WorkspaceCompanySwitcher({ companyName, className }) {
   const switchTo = (id) => {
     if (!id || String(id) === String(companyId)) return;
     authService.setCompanyId(id);
-    navigate(`/workspace/${id}`);
+    navigate(getWorkspaceHomePath(id, companies));
   };
 
   return (

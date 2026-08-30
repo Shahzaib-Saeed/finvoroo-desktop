@@ -343,6 +343,7 @@ export function InventoryStockSummaryReportPage() {
       workspaceId={workspaceId}
       title="Stock Summary"
       subtitle="On-hand quantities in each product’s storage unit, with cost and resale valuation."
+      showBreadcrumb
       breadcrumbs={[
         { label: "Inventory reports", to: base },
         { label: "Stock Summary" },

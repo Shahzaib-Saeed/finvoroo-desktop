@@ -86,7 +86,6 @@ export function StockValuationReportPage() {
   const warehouses = data?.warehouses || [];
   const truncated = Boolean(data?.truncated);
   const showReport = Boolean(data);
-  const reportsHub = `/workspace/${workspaceId}/pharmacy/reports`;
   const warehouseName =
     warehouses.find((w) => String(w.id) === String(filters.warehouseId))?.name ||
     null;
@@ -195,10 +194,6 @@ export function StockValuationReportPage() {
       title="Stock Valuation"
       subtitle="On-hand stock by category, valued at purchase price, average cost, and sale price."
       showFavorite={false}
-      breadcrumbs={[
-        { label: "Pharmacy reports", to: reportsHub },
-        { label: "Stock valuation" },
-      ]}
       actions={
         <ReportActionBar
           onExport={handleExport}

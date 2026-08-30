@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { setPageTitle } from '@/lib/page-title';
 import { authCookies } from '@/auth/auth-cookies';
 import { useAuthStore } from '@/store/authStore';
+import { getWorkspaceHomePath } from '@/industries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -80,7 +81,7 @@ export function SuperAdminOwnerCompaniesPage() {
       }
       authCookies.setCompanyId(company.id);
       setSuperAdminBrowsing(ownerId);
-      navigate(`/workspace/${company.id}`);
+      navigate(getWorkspaceHomePath(company));
     },
     [navigate, ownerId, setSuperAdminBrowsing],
   );

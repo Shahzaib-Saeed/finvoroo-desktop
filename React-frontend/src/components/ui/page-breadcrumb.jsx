@@ -33,7 +33,7 @@ export function PageBreadcrumb({ items = [], className }) {
             <span
               className={cn(
                 'truncate',
-                last ? 'text-foreground' : 'text-muted-foreground',
+                last ? 'text-primary font-medium' : 'text-muted-foreground',
               )}
             >
               {item.label}

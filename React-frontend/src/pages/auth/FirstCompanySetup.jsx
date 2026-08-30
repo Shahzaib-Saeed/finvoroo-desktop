@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { getWorkspaceHomePath } from '@/industries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -152,7 +153,7 @@ export function FirstCompanySetup({ displayName }) {
   }
 
   if (createdCompany) {
-    const base = `/workspace/${createdCompany.id}`;
+    const base = getWorkspaceHomePath(createdCompany);
     const nextSteps = [
       {
         title: 'Add a customer',

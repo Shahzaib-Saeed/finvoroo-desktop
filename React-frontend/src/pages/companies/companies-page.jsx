@@ -20,6 +20,7 @@ import {
 import { Container } from "@/components/common/container";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useAuthStore } from "@/store/authStore";
+import { getWorkspaceHomePath } from "@/industries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardToolbar } from "@/components/ui/card";
@@ -189,7 +190,7 @@ export function CompaniesPage() {
         return;
       }
       setActiveCompany(company);
-      navigate(`/workspace/${company.id}`);
+      navigate(getWorkspaceHomePath(company));
     },
     [navigate, setActiveCompany],
   );

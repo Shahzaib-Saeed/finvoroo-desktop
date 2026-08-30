@@ -158,6 +158,7 @@ export function InventoryValuationReportPage() {
       workspaceId={workspaceId}
       title="Inventory Valuation"
       subtitle="Stock on hand valued at cost. Only products with quantity greater than zero appear here."
+      showBreadcrumb
       breadcrumbs={[
         { label: 'Inventory reports', to: base },
         { label: 'Inventory Valuation' },

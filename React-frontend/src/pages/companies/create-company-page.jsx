@@ -27,6 +27,7 @@ import {
   CreateCompanyStepDetails,
 } from './components/create-company-form-steps';
 import { useAuthStore } from '@/store/authStore';
+import { getWorkspaceHomePath } from '@/industries';
 import { CURRENCIES, DEFAULT_COMPANY_TYPE, DEFAULT_INDUSTRY_KEY, INDUSTRY_OPTIONS } from './constants';
 
 const industryKeys = INDUSTRY_OPTIONS.map((o) => o.key);
@@ -175,7 +176,7 @@ export function CreateCompanyPage() {
   function handleOpenWorkspace() {
     if (!createdCompany?.id) return;
     setActiveCompany(createdCompany);
-    navigate(`/workspace/${createdCompany.id}`);
+    navigate(getWorkspaceHomePath(createdCompany));
   }
 
   if (createdCompany) {

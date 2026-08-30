@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Check, Eye, EyeOff, LoaderCircleIcon } from 'lucide-react';
+import {
+  AlertCircle,
+  BarChart3,
+  Check,
+  Eye,
+  EyeOff,
+  LoaderCircleIcon,
+  ScanLine,
+  ShieldCheck,
+} from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import {
   Link,
@@ -19,6 +28,23 @@ import { useAuthStore } from '@/store/authStore';
 
 const fieldClass =
   'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 transition-all focus:border-[#165DFC] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#165DFC]/10';
+
+/**
+ * Capability chip for the marketing panel.
+ *
+ * Deliberately names no AI vendor. The engine behind invoice parsing is a
+ * deployment detail that has already changed once; a sign-in page that names it
+ * goes stale the next time it changes, and the vendor means nothing to the
+ * pharmacist reading it either way.
+ */
+function FeatureChip({ icon: Icon, children }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/70 bg-white/80 px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur transition-colors hover:border-slate-300 hover:bg-white">
+      <Icon className="size-3.5 shrink-0 text-[#165DFC]" strokeWidth={2.5} />
+      {children}
+    </span>
+  );
+}
 
 function DashboardShowcase() {
   return (
@@ -361,27 +387,25 @@ export function SignInPage() {
               <span className="size-1.5 rounded-full bg-[#165DFC]" />
               Finvoroo Universal ERP Platform
             </div>
-            <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-slate-900 lg:text-4xl">
-              Real-time clarity for complex business management.
+            <h2 className="text-3xl font-extrabold leading-[1.15] tracking-tight text-slate-900 lg:text-[2.6rem]">
+              Scan a supplier bill.
+              <br />
+              <span className="bg-gradient-to-r from-[#165DFC] to-[#7239EA] bg-clip-text text-transparent">
+                Receive stock in seconds.
+              </span>
             </h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600 lg:text-base">
-              Monitor real-time cashflow, seamlessly issue automated purchase invoices, and execute
-              complete pharmacy and enterprise workflows from a unified interface.
+            <p className="mt-4 max-w-lg text-sm leading-relaxed text-slate-600 lg:text-base">
+              Finvoroo reads your purchase invoices, matches every line to your catalogue, and keeps
+              cashflow, inventory and accounting in step — from one interface.
             </p>
           </div>
 
           <DashboardShowcase />
 
-          <div className="z-10 mt-8 flex flex-wrap items-center gap-3">
-            <span className="rounded-lg border border-slate-200/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-slate-700 backdrop-blur">
-              ⚡ Gemini 2.5 OCR Parsing
-            </span>
-            <span className="rounded-lg border border-slate-200/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-slate-700 backdrop-blur">
-              📊 Automated Reporting
-            </span>
-            <span className="rounded-lg border border-slate-200/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-slate-700 backdrop-blur">
-              🔒 SOC2 Compliant Security
-            </span>
+          <div className="z-10 mt-8 flex flex-wrap items-center gap-2.5">
+            <FeatureChip icon={ScanLine}>AI-Powered Invoice OCR</FeatureChip>
+            <FeatureChip icon={BarChart3}>Automated Reporting</FeatureChip>
+            <FeatureChip icon={ShieldCheck}>SOC 2 Compliant Security</FeatureChip>
           </div>
         </div>
       </div>

@@ -152,6 +152,7 @@ export function InventoryLowStockReportPage() {
       workspaceId={workspaceId}
       title="Low Stock"
       subtitle="Products at or below reorder level."
+      showBreadcrumb
       breadcrumbs={[
         { label: 'Inventory reports', to: base },
         { label: 'Low Stock' },

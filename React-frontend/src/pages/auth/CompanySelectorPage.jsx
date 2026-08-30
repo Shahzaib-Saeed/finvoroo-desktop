@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { FirstCompanySetup } from "@/pages/auth/FirstCompanySetup";
+import { getWorkspaceHomePath } from "@/industries";
 
 function getDisplayName(user) {
   return (
@@ -114,7 +115,7 @@ export function CompanySelectorPage() {
 
   function handleSelectCompany(company) {
     setActiveCompany(company);
-    navigate(`/workspace/${company.id}`, { replace: true });
+    navigate(getWorkspaceHomePath(company), { replace: true });
   }
 
   function handleAccountDashboard() {

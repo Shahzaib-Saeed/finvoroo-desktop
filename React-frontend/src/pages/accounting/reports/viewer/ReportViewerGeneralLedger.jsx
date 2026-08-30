@@ -570,6 +570,7 @@ export function ReportViewerGeneralLedger({
         title={reportName}
         hideTitle
         compact
+        showBreadcrumb
         breadcrumbs={[
           { label: "Reports", to: `${base}/accounting/reports` },
           { label: reportName },

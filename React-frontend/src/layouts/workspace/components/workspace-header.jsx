@@ -1,6 +1,5 @@
 import { Link, useParams } from "react-router-dom";
 import { Bell, CircleHelp, LayoutDashboard } from "lucide-react";
-import { toAbsoluteUrl } from "@/lib/helpers";
 import { cn } from "@/lib/utils";
 import { useScrollPosition } from "@/hooks/use-scroll-position";
 import { useAuthStore } from "@/store/authStore";
@@ -57,24 +56,9 @@ export function WorkspaceHeader({ sidebarWidth, isMobile, companyName }) {
         {/* Left — navigation context */}
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
           {isMobile ? (
-            <>
-              <WorkspaceMobileSidebar companyName={companyName} />
-              <HeaderIconTooltip label="Workspace home">
-                <Link
-                  to={`/workspace/${companyId}`}
-                  className="flex shrink-0 items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <img
-                    src={toAbsoluteUrl("/media/app/finvoroo.svg")}
-                    className="size-7"
-                    alt="Home"
-                  />
-                </Link>
-              </HeaderIconTooltip>
-            </>
-          ) : (
-            <WorkspaceBreadcrumb className="min-w-0" />
-          )}
+            <WorkspaceMobileSidebar companyName={companyName} />
+          ) : null}
+          <WorkspaceBreadcrumb className="min-w-0 flex-1" />
         </div>
 
         {/* Center — search (desktop) */}

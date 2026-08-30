@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/navigation-menu';
 import { useAuthStore } from '@/store/authStore';
 import { getWorkspaceNav, resolveIndustryFeatures } from '@/industries';
+import { shouldHidePharmacySectionNav } from '@/industries/pharmacy/report-context';
 
 function pickSection(pathname, base, sections) {
   const rel = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
@@ -151,8 +152,8 @@ export function WorkspaceSectionNav() {
 
   if (!companyId) return null;
 
-  // Pharmacy uses sidebar navigation only — no sticky section bar.
-  if (/^\/workspace\/[^/]+\/pharmacy(\/|$)/.test(pathname)) return null;
+  // Pharmacy workspaces use sidebar navigation — no sticky section bar on report surfaces.
+  if (shouldHidePharmacySectionNav(pathname, companyId, features)) return null;
 
   const base = `/workspace/${companyId}`;
   const section = pickSection(pathname, base, sections);

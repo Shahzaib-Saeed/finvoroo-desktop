@@ -186,7 +186,6 @@ export function PosItemSalesReportPage() {
   };
 
   const profit = Number(totals.profit ?? 0);
-  const reportsHub = `/workspace/${workspaceId}/pharmacy/reports`;
 
   return (
     <ReportPageShell
@@ -194,10 +193,6 @@ export function PosItemSalesReportPage() {
       title="Item-wise POS Sales"
       subtitle="Who sold each item, when, qty, rate, discount, and profit from posted counter sales."
       showFavorite={false}
-      breadcrumbs={[
-        { label: "Pharmacy reports", to: reportsHub },
-        { label: "Item-wise POS sales" },
-      ]}
       actions={
         <ReportActionBar
           onExport={handleExport}

@@ -1,10 +1,10 @@
 import { useEffect, useMemo } from 'react';
-import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { Link, Navigate, useOutletContext, useParams } from 'react-router-dom';
 import { Briefcase, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
-import { resolveIndustryPack } from '@/industries';
+import { resolveIndustryFeatures, resolveIndustryPack } from '@/industries';
 import { UnifiedDashboard } from './dashboard/unified-dashboard';
 import { useDashboardData } from './dashboard/useDashboardData';
 import { useDashboardRefresh } from './dashboard/DashboardRefreshContext';
@@ -31,6 +31,20 @@ function formatLastUpdated(date) {
 
 export function WorkspaceDashboardPage() {
   const { id: companyId } = useParams();
+  const activeCompany = useAuthStore((s) => s.activeCompany);
+  const isPharmacyWorkspace = useMemo(
+    () => !!resolveIndustryFeatures(activeCompany).pharmacy_shell,
+    [activeCompany],
+  );
+
+  if (isPharmacyWorkspace) {
+    return <Navigate to={`/workspace/${companyId}/pharmacy`} replace />;
+  }
+
+  return <UniversalWorkspaceDashboard companyId={companyId} />;
+}
+
+function UniversalWorkspaceDashboard({ companyId }) {
   const context = useOutletContext();
   const companyName = context?.companyName || `Company #${companyId}`;
   const activeCompany = useAuthStore((s) => s.activeCompany);

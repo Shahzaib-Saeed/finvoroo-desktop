@@ -8,7 +8,7 @@ const GRID_FONT =
 
 /** Emerald-spine grid — branded header, readable body lines. */
 const GRID_LINE = 'border-r border-b border-slate-200 last:border-r-0';
-const GRID_HEAD = 'border-r border-emerald-700/35 border-b-2 border-emerald-900 last:border-r-0';
+const GRID_HEAD = 'border-r border-slate-300/70 border-b-2 border-slate-300 last:border-r-0';
 
 const CELL_INPUT =
   'h-11 w-full min-h-11 border-0 rounded-none shadow-none bg-transparent px-3 text-[13px] font-medium leading-snug text-slate-900 outline-none placeholder:text-slate-400 focus:bg-emerald-50/40 focus:ring-0 focus-visible:!outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/25 disabled:opacity-50';
@@ -19,7 +19,7 @@ function Th({ children, align = 'left', className, ...rest }) {
       {...rest}
       className={cn(
         GRID_HEAD,
-        'sticky top-0 z-10 bg-emerald-800 px-2.5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-white/95 whitespace-nowrap',
+        'sticky top-0 z-10 bg-slate-100 px-2.5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-slate-600 whitespace-nowrap',
         align === 'right' && 'text-right',
         align === 'center' && 'text-center',
         align === 'left' && 'text-left',
@@ -154,7 +154,33 @@ function gridFieldFocusProps(index, onSelectRow, { selectAll = false } = {}) {
   };
 }
 /** Minimum grid rows so the sale list always reads like a full sheet, not a floating strip. */
-const MIN_VISIBLE_ROWS = 14;
+// Two, not fourteen. Enough to read as a table before anything is scanned;
+// past that the empty rows were padding the eye had to skip on every sale.
+const MIN_VISIBLE_ROWS = 2;
+
+/**
+ * FEFO already picked the batch when the line was added, so the batch number and
+ * expiry are shown as plain text under the product name — no column, no input,
+ * no tab stop. The cashier gets the traceability without a single extra
+ * keystroke, which is the only way it can be shown on a counter that lives or
+ * dies on scan speed.
+ */
+function batchLabel(line) {
+  const batch = String(line?.fefo_batch_number || '').trim();
+  const expiry = formatExpiryShort(line?.fefo_expiry);
+  if (!batch && !expiry) return '';
+  if (!expiry) return batch;
+  return batch ? `${batch} · Exp ${expiry}` : `Exp ${expiry}`;
+}
+
+/** ISO date to the MM/YY a pharmacist reads off the strip. */
+function formatExpiryShort(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const iso = raw.match(/^(\d{4})-(\d{2})/);
+  if (iso) return `${iso[2]}/${iso[1].slice(2)}`;
+  return raw;
+}
 
 function FillerRow() {
   return (
@@ -224,20 +250,19 @@ export function DispenseCartGrid({
 
   return (
     <div className="flex h-full min-w-0 flex-col antialiased" style={{ fontFamily: GRID_FONT }}>
-      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-2.5">
-        <div className="min-w-0 border-s-[3px] border-emerald-600 ps-3">
-          <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">Sale list</h2>
-          <p className="mt-0.5 text-[12px] font-medium text-slate-500">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4 sm:py-2.5">
+        <div className="min-w-0 border-s-[3px] border-emerald-600 ps-2.5 sm:ps-3">
+          <h2 className="text-[14px] font-semibold tracking-tight text-slate-900 sm:text-[15px]">
+            Sale list
+          </h2>
+          <p className="mt-0.5 text-[11px] font-medium text-slate-500 sm:text-[12px]">
             Scan barcode or search by medicine name
           </p>
         </div>
-        <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-emerald-600 px-2.5 text-[11px] font-semibold tabular-nums text-white shadow-sm">
-          {lines.length} {lines.length === 1 ? 'line' : 'lines'}
-        </span>
       </div>
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <table className="h-full w-full table-fixed border-collapse text-[13px] text-slate-900">
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto">
+        <table className="w-full min-w-[640px] table-fixed border-collapse text-[13px] text-slate-900">
             <colgroup>
               <col style={{ width: '2.5rem' }} />
               <col style={{ width: '36%' }} />
@@ -253,8 +278,8 @@ export function DispenseCartGrid({
                 <Th align="center" className="w-10 px-0">
                   <span className="sr-only">Row</span>
                 </Th>
-                <Th className="min-w-0 !border-r-emerald-700/40">Product</Th>
-                <Th align="center" className="w-[88px]" data-lookup-stop="qty">
+                <Th className="min-w-0 !border-r-slate-300/70">Product</Th>
+                <Th align="right" className="w-[88px]" data-lookup-stop="qty">
                   Qty
                 </Th>
                 <Th align="center" className="w-[100px]">
@@ -305,7 +330,7 @@ export function DispenseCartGrid({
                         selectedSub={
                           warnings.length > 0
                             ? warnings.map((w) => w.label).join(' · ')
-                            : [line.generic_name, line.strength_text]
+                            : [line.generic_name, line.strength_text, batchLabel(line)]
                                 .filter(Boolean)
                                 .join(' · ')
                         }
@@ -329,7 +354,7 @@ export function DispenseCartGrid({
                         inputMode="numeric"
                         autoComplete="off"
                         pattern="[0-9]*"
-                        className={cn(CELL_INPUT, 'text-center tabular-nums')}
+                        className={cn(CELL_INPUT, 'text-right tabular-nums')}
                         value={line.quantity}
                         onChange={(e) =>
                           onUpdateLine(index, { quantity: sanitizeIntegerInput(e.target.value) })
@@ -546,12 +571,12 @@ export function DispenseCartGrid({
           </table>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-2">
-        <p className="text-[11px] font-medium text-slate-500">
+      <div className="flex shrink-0 flex-col gap-1 border-t border-slate-200 bg-slate-50/80 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
+        <p className="hidden text-[11px] font-medium text-slate-500 md:block">
           <span className="font-semibold text-slate-700">Tab</span> moves across fields ·{' '}
           <span className="font-semibold text-slate-700">Enter</span> on qty adds next item
         </p>
-        <p className="text-[11px] font-medium text-slate-500">
+        <p className="text-[11px] font-medium text-slate-500 sm:ms-auto">
           {lines.length ? `${lines.length} item${lines.length === 1 ? '' : 's'} in cart` : 'Cart empty'}
         </p>
       </div>

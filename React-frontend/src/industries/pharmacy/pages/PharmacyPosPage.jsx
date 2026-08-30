@@ -96,16 +96,10 @@ export function PharmacyPosPage() {
             disabled: !pos.lines.length,
           },
         }}
-        customer={pos.customer}
-        formatMoney={pos.formatMoney}
-        onOpenCustomer={() => pos.setCustomerOpen(true)}
-        needsRxNote={pos.needsRxNote}
-        rxNote={pos.rxNote}
-        onRxNoteChange={pos.setRxNote}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden bg-slate-50/70 p-3">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-slate-50/70 p-2 sm:gap-3 sm:p-3 lg:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 lg:min-h-0">
           <DispenseCartGrid
               lines={pos.lines}
               cartFocus={pos.cartFocus}
@@ -129,11 +123,16 @@ export function PharmacyPosPage() {
           />
         </div>
 
-        <div className="flex min-h-0 w-full shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 lg:w-[300px] xl:w-[340px]">
+        <div className="flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 max-lg:max-h-[min(52dvh,540px)] lg:w-[300px] lg:max-h-none xl:w-[340px]">
         <DispenseSaleRail
           totals={pos.totals}
           formatMoney={pos.formatMoney}
           unitLabel={pos.unitLabel}
+          customer={pos.customer}
+          onOpenCustomer={() => pos.setCustomerOpen(true)}
+          needsRxNote={pos.needsRxNote}
+          rxNote={pos.rxNote}
+          onRxNoteChange={pos.setRxNote}
           onPostAndPrint={pos.completeAndPrint}
           checkingOut={pos.checkingOut}
           shiftOpen={!!pos.shift?.id || pos.canCheckoutOffline}

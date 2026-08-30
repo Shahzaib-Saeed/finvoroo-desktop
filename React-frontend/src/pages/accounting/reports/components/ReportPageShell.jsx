@@ -1,7 +1,6 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ReportEntityDetailsProvider } from './ReportEntityDetailsProvider';
@@ -47,6 +46,8 @@ export function ReportPageShell({
   backLabel = 'Back',
   compact = false,
   hideTitle = false,
+  /** Breadcrumbs live in the workspace top bar; set true only for legacy/custom trails. */
+  showBreadcrumb = false,
   standardReportKey,
   showFavorite = true,
 }) {
@@ -57,7 +58,7 @@ export function ReportPageShell({
     standardReportKey ||
     pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', '_');
   const resolvedBreadcrumbs =
-    breadcrumbs?.length
+    breadcrumbs != null
       ? breadcrumbs
       : reportsHub
         ? [{ label: 'Reports', to: reportsHub }, { label: title }]
@@ -71,16 +72,41 @@ export function ReportPageShell({
           className="size-8 rounded-sm border border-border bg-background hover:bg-muted/50"
         />
       ) : null}
+      {actions}
+    </>
+  );
+
+  const titleBlock = (
+    <div className="flex min-w-0 items-start gap-3">
       {backTo ? (
-        <Button variant="outline" size="sm" asChild>
+        <Button variant="outline" size="sm" asChild className="mt-0.5 shrink-0">
           <Link to={backTo}>
             <ArrowLeft className="mr-1 size-4" />
             {backLabel}
           </Link>
         </Button>
       ) : null}
-      {actions}
-    </>
+      <div className="min-w-0">
+        <h1
+          className={cn(
+            'font-semibold tracking-tight text-foreground',
+            compact ? 'text-lg' : 'text-xl',
+          )}
+        >
+          {title}
+        </h1>
+        {subtitle ? (
+          <p
+            className={cn(
+              'mt-1 max-w-3xl text-slate-500',
+              compact ? 'text-xs' : 'text-sm',
+            )}
+          >
+            {subtitle}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 
   const shell = (
@@ -95,27 +121,24 @@ export function ReportPageShell({
         )
       ) : (
         <>
-          {resolvedBreadcrumbs.length ? (
+          {showBreadcrumb && resolvedBreadcrumbs.length ? (
             <ReportBreadcrumbNav items={resolvedBreadcrumbs} compact={compact} />
           ) : null}
 
-          <PageHeader
-            title={title}
-            subtitle={subtitle}
-            actions={
-              backTo ||
-              actions ||
-              (showFavorite && workspaceId && !isCustomViewer && inferredReportKey)
-                ? headerActions
-                : null
-            }
+          <div
             className={cn(
-              'no-print mb-3 border-b border-slate-200 pb-3',
-              '[&_h1]:text-xl [&_h1]:font-semibold [&_h1]:tracking-tight',
-              '[&_p]:mt-1 [&_p]:max-w-3xl [&_p]:text-xs [&_p]:text-slate-500',
-              compact && 'mb-2 pb-2 [&_h1]:text-lg',
+              'no-print mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-3',
+              compact && 'mb-2 pb-2',
             )}
-          />
+          >
+            {titleBlock}
+            {actions ||
+            (showFavorite && workspaceId && !isCustomViewer && inferredReportKey) ? (
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                {headerActions}
+              </div>
+            ) : null}
+          </div>
         </>
       )}
 

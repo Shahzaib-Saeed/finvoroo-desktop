@@ -489,6 +489,7 @@ export function InventoryMovementsReportPage() {
           ? "Purchases, sales, and adjustments — quantities show inventory units with document units where applicable."
           : "Posted movement records — inventory quantities in storage units with document quantities where available."
       }
+      showBreadcrumb
       breadcrumbs={[
         { label: "Inventory reports", to: base },
         { label: "Inventory Activity" },

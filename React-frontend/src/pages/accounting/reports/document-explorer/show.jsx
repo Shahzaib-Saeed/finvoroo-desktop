@@ -133,6 +133,7 @@ export function DocumentExplorerShowPage() {
         subtitle="Document Explorer · document trace"
         backTo={explorerHub}
         backLabel="Document Explorer"
+        showBreadcrumb
         breadcrumbs={[
           { label: "Reports", to: reportsHub },
           { label: "Document Explorer", to: explorerHub },
@@ -160,6 +161,7 @@ export function DocumentExplorerShowPage() {
         subtitle="Document Explorer · document trace"
         backTo={explorerHub}
         backLabel="Document Explorer"
+        showBreadcrumb
         breadcrumbs={[
           { label: "Reports", to: reportsHub },
           { label: "Document Explorer", to: explorerHub },
@@ -198,6 +200,7 @@ export function DocumentExplorerShowPage() {
       subtitle={`${document.doc_type_label} · document trace`}
       backTo={explorerHub}
       backLabel="Document Explorer"
+      showBreadcrumb
       breadcrumbs={[
         { label: "Reports", to: reportsHub },
         { label: "Document Explorer", to: explorerHub },

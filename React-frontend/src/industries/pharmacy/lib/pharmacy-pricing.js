@@ -58,6 +58,68 @@ export function formatPackStock(stockUnits, packCount) {
   return packs.toFixed(1);
 }
 
+/** Round base-unit qty for display (avoids 6.00000000 from DB floats). */
+export function normalizeBaseQty(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  if (Math.abs(n - Math.round(n)) < 0.001) return Math.round(n);
+  return Math.round(n * 100) / 100;
+}
+
+function looseUnitLabel(raw) {
+  const s = String(raw || '').toLowerCase();
+  if (s.includes('tab')) return 'tabs';
+  if (s.includes('cap')) return 'caps';
+  if (s.includes('syr') || s.includes('ml')) return 'ml';
+  if (s.includes('inj') || s.includes('amp')) return 'units';
+  if (s.includes('pcs') || s.includes('pc')) return 'pcs';
+  return 'units';
+}
+
+/**
+ * Human-readable pack + loose breakdown, e.g. "1 pack · 50 tabs" or "2 packs".
+ * @returns {{ display: string, packs: number, loose: number, totalUnits: number, unitLabel: string }}
+ */
+export function formatPackAndLooseQty(stockUnits, packCount, unitHint = '') {
+  const totalUnits = normalizeBaseQty(stockUnits);
+  const pack = Math.max(1, Math.round(Number(packCount) || 1));
+  const unitLabel = looseUnitLabel(unitHint);
+
+  if (pack <= 1) {
+    return {
+      display: `${totalUnits.toLocaleString('en-US')} ${unitLabel}`,
+      packs: 0,
+      loose: totalUnits,
+      totalUnits,
+      unitLabel,
+    };
+  }
+
+  const fullPacks = Math.floor(totalUnits / pack);
+  const loose = totalUnits % pack;
+  const parts = [];
+
+  if (fullPacks > 0) {
+    parts.push(`${fullPacks.toLocaleString('en-US')} ${fullPacks === 1 ? 'pack' : 'packs'}`);
+  }
+  if (loose > 0) {
+    parts.push(`${loose.toLocaleString('en-US')} ${unitLabel}`);
+  } else if (fullPacks > 0) {
+    parts.push(`${totalUnits.toLocaleString('en-US')} ${unitLabel}`);
+  }
+  if (parts.length === 0) {
+    parts.push('0');
+  }
+
+  return {
+    display: parts.join(' · '),
+    packs: fullPacks,
+    loose,
+    totalUnits,
+    unitLabel,
+  };
+}
+
 function perUnitPrice(packPrice, packSize) {
   const pack = Number(packPrice);
   if (!Number.isFinite(pack)) return null;

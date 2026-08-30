@@ -15,7 +15,7 @@ export function ReportSummaryStrip({
   if (variant === 'cards') {
     return (
       <div className={cn('no-print', className)}>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {visibleItems.map((item) => (
             <div
               key={item.key || item.label}

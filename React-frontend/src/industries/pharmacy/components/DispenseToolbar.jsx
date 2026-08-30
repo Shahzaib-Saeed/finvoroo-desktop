@@ -86,12 +86,16 @@ export function DispenseMainActions({
   checkingOut,
   holdsCount,
   disabled,
+  compact = false,
 }) {
   const props = { onSave, onRecall, onSearch, checkingOut, holdsCount, disabled };
 
   return (
     <div
-      className="inline-flex items-stretch overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+      className={cn(
+        'inline-flex max-w-full items-stretch overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100',
+        compact && 'w-max min-w-full sm:min-w-0',
+      )}
       role="toolbar"
       aria-label="Sale actions"
     >
@@ -110,14 +114,24 @@ export function DispenseMainActions({
               disabled={isDisabled}
               onClick={handler}
               className={cn(
-                'relative h-9 min-w-[7.5rem] gap-1.5 rounded-none bg-transparent px-3 text-[12px] font-semibold text-slate-700 shadow-none',
+                'relative rounded-none bg-transparent shadow-none',
                 'hover:bg-emerald-50 hover:text-emerald-900',
                 'disabled:opacity-45',
+                compact
+                  ? 'h-9 min-w-[4.25rem] shrink-0 gap-1 px-2 text-[11px] font-semibold text-slate-700 sm:min-w-[5.5rem] sm:gap-1.5 sm:px-2.5 sm:text-[12px]'
+                  : 'h-9 min-w-[7rem] gap-1.5 px-3 text-[12px] font-semibold text-slate-700',
               )}
             >
               <Icon className={cn('size-3.5 shrink-0', action.iconClass)} />
-              <span className="truncate">{action.label}</span>
-              <PharmacyKbd className="ms-0.5 h-4 min-w-4 border-slate-200 px-1 text-[9px] font-bold text-slate-500">
+              <span className={cn('truncate', compact && 'hidden sm:inline')}>
+                {action.label}
+              </span>
+              <PharmacyKbd
+                className={cn(
+                  'ms-0.5 h-4 min-w-4 border-slate-200 px-1 text-[9px] font-bold text-slate-500',
+                  compact && 'hidden md:inline-flex',
+                )}
+              >
                 {action.shortcut}
               </PharmacyKbd>
               {badge > 0 ? (
@@ -141,15 +155,20 @@ export function DispenseMoreMenu({
   checkingOut,
   shiftOpen,
   disabled,
+  embedded = false,
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="size-10 shrink-0 rounded-xl border-slate-200 bg-white p-0 text-slate-600 shadow-sm hover:border-slate-300 hover:bg-slate-50"
+          className={cn(
+            embedded
+              ? 'size-9 shrink-0 rounded-lg p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+              : 'size-9 shrink-0 rounded-xl border border-slate-200 bg-white p-0 text-slate-600 shadow-sm hover:border-slate-300 hover:bg-slate-50',
+          )}
         >
           <MoreHorizontal className="size-4" />
         </Button>
@@ -207,7 +226,14 @@ export function DispenseMoreMenu({
   );
 }
 
-export function DispenseUserChip({ cashierName, userRole, onShift, shiftOpen }) {
+export function DispenseUserChip({
+  cashierName,
+  userRole,
+  onShift,
+  shiftOpen,
+  embedded = false,
+  compact = false,
+}) {
   const initials = initialsFromName(cashierName);
   const roleLabel = formatDispenseRole(userRole);
 
@@ -216,18 +242,42 @@ export function DispenseUserChip({ cashierName, userRole, onShift, shiftOpen }) 
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-9 max-w-[11rem] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
+          className={cn(
+            'flex items-center text-left transition-colors',
+            compact
+              ? 'size-9 shrink-0 justify-center rounded-xl p-0'
+              : 'h-9 max-w-[12rem] gap-2 px-2.5',
+            embedded
+              ? compact
+                ? 'rounded-xl hover:bg-slate-100'
+                : 'rounded-lg hover:bg-slate-100'
+              : 'rounded-xl border border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:bg-slate-50',
+          )}
+          aria-label={cashierName || 'Cashier menu'}
         >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-100">
+          <span
+            className={cn(
+              'flex shrink-0 items-center justify-center rounded-full bg-emerald-600 font-bold text-white ring-2 ring-emerald-100',
+              compact ? 'size-8 text-[11px]' : 'size-8 text-[11px]',
+            )}
+          >
             {initials}
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12px] font-semibold leading-tight text-slate-900">
-              {cashierName || 'Cashier'}
-            </span>
-            <span className="block truncate text-[10px] font-medium text-slate-500">{roleLabel}</span>
-          </span>
-          <ChevronDown className="size-3.5 shrink-0 text-slate-400" />
+          {!compact ? (
+            <>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12px] font-semibold leading-tight text-slate-900">
+                  {cashierName || 'Cashier'}
+                </span>
+                {!embedded ? (
+                  <span className="block truncate text-[10px] font-medium text-slate-500">
+                    {roleLabel}
+                  </span>
+                ) : null}
+              </span>
+              <ChevronDown className="size-3.5 shrink-0 text-slate-400" />
+            </>
+          ) : null}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

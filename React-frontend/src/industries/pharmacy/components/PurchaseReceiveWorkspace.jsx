@@ -1944,7 +1944,7 @@ export function PurchaseReceiveWorkspace({
                     <GrnTh>Item</GrnTh>
                     <GrnTh align="center">Batch</GrnTh>
                     <GrnTh align="center">Exp</GrnTh>
-                    <GrnTh align="center" data-lookup-stop="qty">Qty</GrnTh>
+                    <GrnTh align="center" data-lookup-stop="qty">Packs</GrnTh>
                     <GrnTh align="center">
                       <CellTip text={BONUS_COL_TIP}>
                         <span className="cursor-help underline decoration-dotted decoration-white/70 underline-offset-2">
@@ -2282,7 +2282,7 @@ export function PurchaseReceiveWorkspace({
           <div className="flex flex-wrap items-stretch gap-4 px-4 py-3">
             <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-6 gap-y-3">
               <SummaryStat label="Lines" value={filledLineCount} />
-              <SummaryStat label="Units" value={totals.strips || 0} />
+              <SummaryStat label="Packs" value={totals.strips || 0} />
               <SummaryStat
                 label="Amounts"
                 value={moneyPlain(totals.lineAmountTotal)}

@@ -321,6 +321,7 @@ export function ReportViewerPage() {
         compact
         title={pageTitle}
         subtitle={pageSubtitle}
+        showBreadcrumb
         breadcrumbs={[
           { label: 'Reports', to: `${base}/accounting/reports` },
           { label: definition?.name || pageTitle },

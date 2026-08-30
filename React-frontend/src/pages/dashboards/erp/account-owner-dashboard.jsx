@@ -11,6 +11,7 @@ import {
   ToolbarHeading,
 } from '@/layouts/demo1/components/toolbar';
 import { useAuthStore } from '@/store/authStore';
+import { getWorkspaceHomePath } from '@/industries';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AccountOwnerDashboardContent } from './components/account-owner-dashboard-content';
@@ -66,7 +67,7 @@ export function AccountOwnerDashboard() {
       return;
     }
     setActiveCompany(company);
-    navigate(`/workspace/${company.id}`);
+    navigate(getWorkspaceHomePath(company));
   }
 
   return (

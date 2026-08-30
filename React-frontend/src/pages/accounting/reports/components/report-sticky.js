@@ -23,12 +23,11 @@ export const reportStickyFiltersClass = [
   'print:static print:bg-transparent print:shadow-none',
 ].join(' ');
 
-/** Optional letterhead under filters (aging / financial statements). */
+/** Statement letterhead — scrolls with the page (not sticky). */
 export const reportStickySheetHeaderClass = [
-  'report-sticky-sheet-header sticky z-[15]',
-  REPORT_STICKY_BELOW_FILTERS,
-  'bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/90',
-  'print:static print:bg-white print:backdrop-blur-none',
+  'report-sticky-sheet-header',
+  'bg-white',
+  'print:static print:bg-white',
 ].join(' ');
 
 /**

@@ -1,6 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { getMedicinePricing, parsePackSize, formatPackStock } from './pharmacy-pricing.js';
+import {
+  formatPackAndLooseQty,
+  formatPackStock,
+  getMedicinePricing,
+  normalizeBaseQty,
+  parsePackSize,
+} from './pharmacy-pricing.js';
 
 describe('pharmacy-pricing', () => {
   it('divides pack sale price by pack size for unit rate', () => {
@@ -51,5 +57,17 @@ describe('pharmacy-pricing', () => {
     assert.equal(formatPackStock(4198, 200), '21');
     assert.equal(formatPackStock(5, 1), '5');
     assert.equal(formatPackStock(150, 100), '1.5');
+  });
+
+  it('normalizes float qty for display', () => {
+    assert.equal(normalizeBaseQty(6.00000001), 6);
+    assert.equal(normalizeBaseQty('1.00000000'), 1);
+  });
+
+  it('formats pack and loose qty breakdown', () => {
+    assert.equal(formatPackAndLooseQty(200, 200, 'Tab').display, '1 pack · 200 tabs');
+    assert.equal(formatPackAndLooseQty(250, 200, 'Tab').display, '1 pack · 50 tabs');
+    assert.equal(formatPackAndLooseQty(400, 200, 'Tab').display, '2 packs · 400 tabs');
+    assert.equal(formatPackAndLooseQty(6.00000001, 1, 'Tab').display, '6 tabs');
   });
 });

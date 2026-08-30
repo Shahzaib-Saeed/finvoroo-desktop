@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { DispenseContextBar } from './DispenseContextBar';
 import { PharmacyKbd } from './PharmacyKbd';
 
 function MoneyRow({ label, value, strong = false, accent = false }) {
@@ -27,6 +28,11 @@ export function DispenseSaleRail({
   totals,
   formatMoney,
   unitLabel = 'pcs',
+  customer,
+  onOpenCustomer,
+  needsRxNote = false,
+  rxNote = '',
+  onRxNoteChange,
   onPostAndPrint,
   checkingOut = false,
   shiftOpen = true,
@@ -39,7 +45,16 @@ export function DispenseSaleRail({
           Checkout
         </p>
       </div>
-      <div className="min-h-0 flex-1 space-y-3 overflow-hidden px-4 py-4">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto px-2 py-2 sm:px-4 sm:py-3">
+        <DispenseContextBar
+          customer={customer}
+          formatMoney={formatMoney}
+          onOpenCustomer={onOpenCustomer}
+          needsRxNote={needsRxNote}
+          rxNote={rxNote}
+          onRxNoteChange={onRxNoteChange}
+        />
+
         <div className="grid grid-cols-2 gap-2.5">
           <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Lines</p>
@@ -81,18 +96,18 @@ export function DispenseSaleRail({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-4">
-        <div className="mb-3 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 px-4 py-3.5 shadow-md ring-1 ring-emerald-700/30">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-300/80">
+      <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-3 sm:px-4 sm:py-4 max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:shadow-[0_-4px_16px_rgba(15,23,42,0.08)]">
+        <div className="mb-2.5 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 px-3.5 py-3 shadow-md ring-1 ring-emerald-700/30 sm:mb-3 sm:px-4 sm:py-3.5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-300/80 sm:text-[11px]">
             Grand total
           </p>
-          <p className="mt-1 text-[28px] font-bold leading-none tracking-tight tabular-nums text-white">
+          <p className="mt-1 text-2xl font-bold leading-none tracking-tight tabular-nums text-white sm:text-[28px]">
             {formatMoney(totals.total)}
           </p>
         </div>
         <Button
           type="button"
-          className="h-12 w-full rounded-xl bg-emerald-700 text-[15px] font-bold text-white shadow-md shadow-emerald-900/20 hover:bg-emerald-800"
+          className="h-11 w-full rounded-xl bg-emerald-700 text-[14px] font-bold text-white shadow-md shadow-emerald-900/20 hover:bg-emerald-800 sm:h-12 sm:text-[15px]"
           onClick={onPostAndPrint}
           disabled={disabled || checkingOut || !shiftOpen}
         >
@@ -102,7 +117,7 @@ export function DispenseSaleRail({
             Ctrl+P
           </PharmacyKbd>
         </Button>
-        <p className="mt-2.5 text-center text-[12px] font-medium text-slate-500">
+        <p className="mt-2 hidden text-center text-[12px] font-medium text-slate-500 sm:block">
           Custom tender · <PharmacyKbd className="text-[11px]">Ctrl+S</PharmacyKbd>
         </p>
       </div>

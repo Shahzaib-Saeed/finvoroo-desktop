@@ -97,7 +97,6 @@ export function ManufacturerExpiryReportPage() {
   const groups = data?.groups || [];
   const totals = data?.totals || {};
   const showReport = Boolean(data);
-  const reportsHub = `/workspace/${workspaceId}/pharmacy/reports`;
 
   const applyFilters = () => {
     const days = Number(draft.withinDays);
@@ -195,10 +194,6 @@ export function ManufacturerExpiryReportPage() {
       title="Manufacturer-wise Expiry"
       subtitle="On-hand items with expiry, grouped by manufacturer — expired, near, and remaining stock."
       showFavorite={false}
-      breadcrumbs={[
-        { label: "Pharmacy reports", to: reportsHub },
-        { label: "Manufacturer-wise expiry" },
-      ]}
       actions={
         <ReportActionBar
           onExport={handleExport}

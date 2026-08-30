@@ -5,7 +5,6 @@ import { useSettings } from "@/providers/settings-provider";
 import { useAuthStore } from "@/store/authStore";
 import { filterMenuByPermission } from "@/config/filter-menu-by-permission";
 import { getWorkspaceNav, resolveIndustryFeatures } from "@/industries";
-import { toAbsoluteUrl } from "@/lib/helpers";
 import { Button } from "@/components/ui/button";
 import {
   AccordionMenu,
@@ -17,6 +16,7 @@ import {
   AccordionMenuSubTrigger,
 } from "@/components/ui/accordion-menu";
 import { ChevronFirst, HelpCircle, LogOut } from "lucide-react";
+import { WorkspaceSidebarBrand } from "./workspace-sidebar-brand";
 
 function r(path, companyId) {
   return path ? path.replace(":id", companyId) : path;
@@ -190,21 +190,7 @@ export function WorkspaceSidebar({ companyName }) {
         className="sidebar-header hidden lg:flex items-center relative justify-between px-3 lg:px-5 shrink-0"
         style={{ height: "70px" }}
       >
-        <Link to="/" className="flex items-center gap-2 overflow-hidden">
-          <img
-            src={toAbsoluteUrl("/media/app/finvoroo.svg")}
-            className="h-10 max-w-none shrink-0"
-            alt="Logo"
-          />
-          <span
-            className={cn(
-              "text-primary font-bold text-base leading-none whitespace-nowrap transition-all duration-300 overflow-hidden",
-              collapsed ? "w-0 opacity-0" : "w-auto opacity-100",
-            )}
-          >
-            {companyName || "Workspace"}
-          </span>
-        </Link>
+        <WorkspaceSidebarBrand collapsed={collapsed} companyName={companyName} />
         <Button
           onClick={() =>
             storeOption("layouts.demo1.sidebarCollapse", !collapsed)

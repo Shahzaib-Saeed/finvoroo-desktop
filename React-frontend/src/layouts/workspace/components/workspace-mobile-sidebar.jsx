@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { HelpCircle, LogOut, Menu } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { toAbsoluteUrl } from "@/lib/helpers";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -13,6 +12,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { WorkspaceSidebarMenu } from "./workspace-sidebar";
+import { WorkspaceSidebarBrand } from "./workspace-sidebar-brand";
 
 export function WorkspaceMobileSidebar({ companyName }) {
   const { id: companyId } = useParams();
@@ -48,13 +48,12 @@ export function WorkspaceMobileSidebar({ companyName }) {
         className="w-[min(300px,88vw)] p-0 gap-0 flex flex-col"
       >
         <SheetHeader className="px-4 py-4 border-b border-border text-left space-y-0">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            <img
-              src={toAbsoluteUrl("/media/app/finvoroo.svg")}
-              className="h-7 w-7 shrink-0"
-              alt=""
+          <SheetTitle className="flex items-center gap-2 text-base min-w-0">
+            <WorkspaceSidebarBrand
+              collapsed={false}
+              companyName={companyName}
+              compact
             />
-            <span className="truncate">{companyName || "Workspace"}</span>
           </SheetTitle>
         </SheetHeader>
         <SheetBody className="flex flex-col flex-1 min-h-0 p-0 overflow-hidden">
