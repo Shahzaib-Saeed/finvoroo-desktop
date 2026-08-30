@@ -15,3 +15,11 @@ export function pharmacyLoosePurchasePath(companyId) {
 export function pharmacyLooseSaleReturnPath(companyId) {
   return `/workspace/${companyId}/pharmacy/loose-sale-return`;
 }
+
+export function pharmacyInvestorsPath(companyId) {
+  return `/workspace/${companyId}/pharmacy/investors`;
+}
+
+export function pharmacyDistributionPath(companyId, investmentId) {
+  return `/workspace/${companyId}/pharmacy/investors/${investmentId}/distribution`;
+}

@@ -56,14 +56,14 @@ export function PharmacyPosPage() {
 
   if (pos.bootLoading) {
     return (
-      <div className="flex h-[100dvh] items-center justify-center bg-slate-100">
+      <div className="flex h-full min-h-0 w-full flex-1 items-center justify-center bg-slate-100">
         <Loader2 className="size-8 animate-spin text-emerald-600" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-white text-slate-900 antialiased">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white text-slate-900 antialiased">
       <DispenseTopShell
         headerProps={{
           companyId: pos.companyId,
@@ -99,7 +99,7 @@ export function PharmacyPosPage() {
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-slate-50/70 p-2 sm:gap-3 sm:p-3 lg:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 lg:min-h-0">
+        <div className="flex min-h-0 min-w-0 flex-[1.35] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 lg:min-h-0 lg:flex-1">
           <DispenseCartGrid
               lines={pos.lines}
               cartFocus={pos.cartFocus}
@@ -123,7 +123,7 @@ export function PharmacyPosPage() {
           />
         </div>
 
-        <div className="flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 max-lg:max-h-[min(52dvh,540px)] lg:w-[300px] lg:max-h-none xl:w-[340px]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 lg:w-[280px] lg:flex-none lg:shrink-0 xl:w-[320px]">
         <DispenseSaleRail
           totals={pos.totals}
           formatMoney={pos.formatMoney}

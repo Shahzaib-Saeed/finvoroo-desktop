@@ -117,6 +117,14 @@ const PHARMACY_SECTION = {
       feature: 'pharmacy_shell',
     },
     {
+      // Named Investors rather than Finance so the entry says what it does.
+      // The module underneath is category-generic, not pharmacy-specific.
+      title: 'Investors',
+      path: '/workspace/:id/pharmacy/investors',
+      permission: 'investors.view',
+      feature: 'pharmacy_shell',
+    },
+    {
       title: 'Pharmacy settings',
       path: '/workspace/:id/pharmacy/settings',
       permission: 'accounting_settings.view',

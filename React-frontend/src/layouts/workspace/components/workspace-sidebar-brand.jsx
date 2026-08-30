@@ -3,10 +3,8 @@ import { cn } from '@/lib/utils';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { getWorkspaceHomePath, resolveUiPack } from '@/industries';
 import { useAuthStore } from '@/store/authStore';
-import {
-  PHARMACY_BRAND_LOGO,
-  PHARMACY_BRAND_TITLE,
-} from '@/industries/pharmacy/branding';
+import { PHARMACY_BRAND_TITLE } from '@/industries/pharmacy/branding';
+import { PharmacyBrandMark } from '@/industries/pharmacy/components/PharmacyBrandMark';
 
 export function WorkspaceSidebarBrand({
   collapsed,
@@ -26,19 +24,10 @@ export function WorkspaceSidebarBrand({
   );
 
   const content = isPharmacy ? (
-    <>
-      <img
-        src={toAbsoluteUrl(PHARMACY_BRAND_LOGO)}
-        className={cn(
-          'shrink-0 object-contain',
-          compact ? 'size-7' : 'size-10',
-        )}
-        alt=""
-      />
-      <span className={labelClass}>
-        Finvoroo <span className="text-emerald-700">Pharmacy</span>
-      </span>
-    </>
+    <PharmacyBrandMark
+      compact={compact}
+      labelClassName={collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}
+    />
   ) : (
     <>
       <img

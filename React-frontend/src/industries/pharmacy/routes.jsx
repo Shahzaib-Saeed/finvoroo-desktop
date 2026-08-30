@@ -33,6 +33,16 @@ const ManufacturerExpiryReportPage = lazy(() =>
     default: m.ManufacturerExpiryReportPage,
   })),
 );
+const InvestorsListPage = lazy(() =>
+  import('./pages/investments/InvestorsListPage').then((m) => ({
+    default: m.InvestorsListPage,
+  })),
+);
+const DistributionCalculationPage = lazy(() =>
+  import('./pages/investments/DistributionCalculationPage').then((m) => ({
+    default: m.DistributionCalculationPage,
+  })),
+);
 const StockValuationReportPage = lazy(() =>
   import('./pages/reports/StockValuationReportPage').then((m) => ({
     default: m.StockValuationReportPage,
@@ -166,6 +176,26 @@ export function PharmacyIndustryRoutes() {
           <IndustryModuleGate feature="pharmacy_shell">
             <Lazy>
               <StockValuationReportPage />
+            </Lazy>
+          </IndustryModuleGate>
+        }
+      />
+      <Route
+        path="/workspace/:id/pharmacy/investors"
+        element={
+          <IndustryModuleGate feature="pharmacy_shell">
+            <Lazy>
+              <InvestorsListPage />
+            </Lazy>
+          </IndustryModuleGate>
+        }
+      />
+      <Route
+        path="/workspace/:id/pharmacy/investors/:investmentId/distribution"
+        element={
+          <IndustryModuleGate feature="pharmacy_shell">
+            <Lazy>
+              <DistributionCalculationPage />
             </Lazy>
           </IndustryModuleGate>
         }

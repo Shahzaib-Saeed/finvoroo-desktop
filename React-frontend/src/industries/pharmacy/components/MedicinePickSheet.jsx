@@ -49,7 +49,8 @@ const LOOKUP_COLS_SALE_NARROW = [
 const NARROW_LOOKUP_MQ = "(max-width: 1536px)";
 
 const LOOKUP_SHEET_WIDTH_FULL = 940;
-const LOOKUP_SHEET_WIDTH_NARROW = 640;
+const LOOKUP_SHEET_WIDTH_NARROW = 480;
+const COMPACT_LOOKUP_MAX_VW = 1366;
 
 function useLookupSheetWidth(open, narrowViewport) {
   const fallback = narrowViewport ? LOOKUP_SHEET_WIDTH_NARROW : LOOKUP_SHEET_WIDTH_FULL;
@@ -62,15 +63,22 @@ function useLookupSheetWidth(open, narrowViewport) {
     }
 
     const measure = () => {
+      const vw = window.innerWidth;
+      const compact = vw <= COMPACT_LOOKUP_MAX_VW;
+      const sheetCap = compact ? LOOKUP_SHEET_WIDTH_NARROW : LOOKUP_SHEET_WIDTH_FULL;
+      const maxVwFraction = compact ? 0.44 : 0.58;
+      const minGridFraction = compact ? 0.56 : 0.46;
+      const minGridFloor = compact ? 520 : 560;
+      const minSheetWidth = compact ? 420 : 480;
+
       const dispenseQty = document.querySelector("[data-dispense-qty]");
       if (dispenseQty) {
         const qtyRight = dispenseQty.getBoundingClientRect().right;
-        const vw = window.innerWidth;
         const fromQty = Math.round(vw - qtyRight);
-        const minGridPx = Math.max(560, Math.round(vw * 0.46));
-        const maxAllowed = Math.max(480, vw - minGridPx);
-        const cap = Math.min(fromQty, maxAllowed, Math.round(vw * 0.58), 980);
-        setWidthPx(Math.max(480, Math.min(cap, LOOKUP_SHEET_WIDTH_FULL)));
+        const minGridPx = Math.max(minGridFloor, Math.round(vw * minGridFraction));
+        const maxAllowed = Math.max(minSheetWidth, vw - minGridPx);
+        const cap = Math.min(fromQty, maxAllowed, Math.round(vw * maxVwFraction), sheetCap);
+        setWidthPx(Math.max(minSheetWidth, Math.min(cap, sheetCap)));
         return;
       }
       setWidthPx(fallback);

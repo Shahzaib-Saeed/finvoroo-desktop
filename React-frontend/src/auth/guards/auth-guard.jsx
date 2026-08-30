@@ -4,6 +4,13 @@ import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authCookies } from '@/auth/auth-cookies';
 
+const FULLSCREEN_WORKSPACE_PATH =
+  /^\/workspace\/[^/]+\/(accounting\/pos|pharmacy\/pos|pharmacy\/receive|pharmacy\/purchase-entry)\/?$/;
+
+function isFullscreenWorkspaceRoute(pathname) {
+  return FULLSCREEN_WORKSPACE_PATH.test(pathname);
+}
+
 const COMPANY_EXEMPT_PATHS = [
   '/select-company',
   '/onboarding',
@@ -63,7 +70,13 @@ export function AuthGuard() {
         return <Navigate to="/superadmin/dashboard" replace />;
       }
       return (
-        <div className="w-full min-h-screen">
+        <div
+          className={
+            isFullscreenWorkspaceRoute(location.pathname)
+              ? 'flex h-screen w-full min-h-0 flex-col overflow-hidden'
+              : 'w-full min-h-screen'
+          }
+        >
           <Outlet />
         </div>
       );
@@ -84,7 +97,13 @@ export function AuthGuard() {
   }
 
   return (
-    <div className="w-full min-h-screen">
+    <div
+      className={
+        isFullscreenWorkspaceRoute(location.pathname)
+          ? 'flex h-screen w-full min-h-0 flex-col overflow-hidden'
+          : 'w-full min-h-screen'
+      }
+    >
       <Outlet />
     </div>
   );

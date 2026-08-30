@@ -22,6 +22,7 @@ import { FinvorooFooter } from '@/components/common/finvoroo-footer';
 import { DashboardRefreshProvider } from '@/pages/workspace/dashboard/DashboardRefreshContext';
 import { OfflineSyncBanner } from '@/offline/OfflineSyncBanner';
 import { IndustryAccentSync } from '@/components/industry/IndustryAccentSync';
+import { cn } from '@/lib/utils';
 import { runSyncCycle } from '@/offline/sync-manager';
 import { syncApi } from '@/offline/sync.api';
 import { setMeta } from '@/offline/db';
@@ -148,7 +149,10 @@ export function WorkspaceLayout() {
       )}
 
       <div
-        className="workspace-shell flex grow flex-col w-full min-h-screen transition-[padding-inline-start] duration-300 ease-in-out"
+        className={cn(
+          'workspace-shell flex w-full flex-col transition-[padding-inline-start] duration-300 ease-in-out',
+          fullscreenWorkspace ? 'h-screen min-h-0 overflow-hidden' : 'min-h-screen grow',
+        )}
         style={!isMobile && !fullscreenWorkspace ? { paddingInlineStart: sidebarWidth } : undefined}
       >
         {!fullscreenWorkspace ? (
@@ -164,7 +168,7 @@ export function WorkspaceLayout() {
         <main
           className={
             fullscreenWorkspace
-              ? 'flex min-h-0 w-full grow flex-col overflow-hidden'
+              ? 'flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden'
               : 'grow pt-21.5 pb-10 px-5 lg:px-8 max-w-[2500px]'
           }
           role="content"
@@ -181,7 +185,13 @@ export function WorkspaceLayout() {
               <OfflineSyncBanner companyId={companyId} />
             </div>
           ) : null}
-          <WorkspacePermissionGate context={{ companyId, companyName }} />
+          <div
+            className={cn(
+              fullscreenWorkspace && 'flex min-h-0 flex-1 flex-col overflow-hidden',
+            )}
+          >
+            <WorkspacePermissionGate context={{ companyId, companyName }} />
+          </div>
         </main>
 
         {!fullscreenWorkspace ? (

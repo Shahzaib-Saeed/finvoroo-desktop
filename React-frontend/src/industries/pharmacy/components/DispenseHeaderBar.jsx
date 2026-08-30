@@ -8,16 +8,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { toAbsoluteUrl } from '@/lib/helpers';
-import { cn } from '@/lib/utils';
 import {
   DispenseMainActions,
   DispenseMoreMenu,
   DispenseUserChip,
 } from './DispenseToolbar';
-import { PHARMACY_BRAND_LOGO } from '../branding';
-
-const PHARMACY_POS_LOGO = PHARMACY_BRAND_LOGO;
+import { PharmacyBrandMark } from './PharmacyBrandMark';
 
 function formatClock(now) {
   return now.toLocaleTimeString('en-GB', {
@@ -39,34 +35,14 @@ function BrandBlock({ companyId, compact = false }) {
   return (
     <Link
       to={`/workspace/${companyId}/pharmacy`}
-      className="group flex min-w-0 items-center gap-2 rounded-lg py-0.5 transition-colors hover:opacity-95 sm:gap-3"
+      className="group flex min-w-0 items-center rounded-lg py-0.5 transition-opacity hover:opacity-95"
       aria-label="Finvoroo Pharmacy POS — back to operations"
     >
-      <img
-        src={toAbsoluteUrl(PHARMACY_POS_LOGO)}
-        alt=""
-        className={cn(
-          'w-auto shrink-0 object-contain object-left',
-          compact
-            ? 'h-8 max-w-[108px] sm:h-9 sm:max-w-[140px]'
-            : 'h-10 max-w-[160px] sm:h-11 sm:max-w-[200px] lg:h-12 lg:max-w-[240px]',
-        )}
+      <PharmacyBrandMark
+        compact={compact}
+        showPosBadge={!compact}
+        showSubtitle={!compact}
       />
-      <span
-        className={cn(
-          'hidden min-w-0 border-s border-slate-200 ps-2 sm:block sm:ps-3',
-          compact && 'max-lg:hidden',
-        )}
-      >
-        <span className="block truncate text-[14px] font-bold leading-tight tracking-tight text-slate-900 sm:text-[15px]">
-          Finvoroo{' '}
-          <span className="text-emerald-700">Pharmacy</span>{' '}
-          <span className="font-semibold text-slate-600">POS</span>
-        </span>
-        <span className="mt-0.5 hidden truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 md:block">
-          Counter sale · Smart dispensing
-        </span>
-      </span>
     </Link>
   );
 }
@@ -87,7 +63,7 @@ function HeaderSessionBar({
 }) {
   return (
     <div className="hidden items-stretch overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100 lg:flex">
-      <div className="flex min-w-0 max-w-[260px] items-center gap-2.5 px-3 py-2">
+      <div className="flex min-w-0 max-w-[220px] items-center gap-2.5 px-3 py-2 xl:max-w-[260px]">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100/80">
           <Store className="size-4" strokeWidth={2.25} />
         </span>
@@ -239,8 +215,8 @@ export function DispenseHeaderBar({
       </div>
 
       {/* Desktop top row */}
-      <div className="hidden min-h-[60px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-4 py-2 lg:grid">
-        <div className="flex min-w-0 items-center gap-2 justify-self-start pe-2">
+      <div className="hidden min-h-[56px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-4 py-2 lg:grid xl:min-h-[60px] xl:gap-4">
+        <div className="flex min-w-0 items-center gap-2 justify-self-start pe-1 xl:pe-2">
           <TooltipProvider delayDuration={300}>
             <Tooltip>
               <TooltipTrigger asChild>
