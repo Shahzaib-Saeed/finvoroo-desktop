@@ -7,12 +7,13 @@
 //!   origin, not the Tauri asset protocol — so BrowserRouter, cookies, and the
 //!   X-Company-ID header (derived from window.location.pathname) all keep working
 //!   completely unmodified. See src/server.rs.
-//! - All business logic (offline queue, Dexie/IndexedDB, sync-manager, POS,
-//!   printing) is the existing React-frontend code — this shell only hosts it. No
-//!   second accounting/inventory engine, no new local API for data.
+//! - All business logic runs in an embedded PHP/Laravel sidecar backed by SQLite.
+//!   The axum server on 127.0.0.1:47391 serves the SPA and proxies /api/v1/* to
+//!   the sidecar (local scope) or the cloud API (online-only routes).
 //! - Printing goes through the separately-installed Finvoroo Print Agent
 //!   (http://127.0.0.1:17392), exactly as it does from a browser tab today.
 
+pub mod php_sidecar;
 pub mod server;
 
 use std::fs::OpenOptions;
@@ -148,6 +149,20 @@ pub fn run() {
                     webapp_dir.display()
                 ),
             );
+
+            match php_sidecar::resolve_laravel_root(app.handle()) {
+                Ok(laravel_root) => {
+                    let sidecar = php_sidecar::PhpSidecar::new(laravel_root, log_path.clone());
+                    php_sidecar::PhpSidecar::spawn_supervisor(sidecar);
+                    log_line(&log_path, "PHP sidecar supervisor started");
+                }
+                Err(err) => {
+                    log_line(
+                        &log_path,
+                        &format!("WARN: PHP sidecar not started ({err:#}) — API proxy will fail until Laravel is bundled"),
+                    );
+                }
+            }
 
             let server_log_path = log_path.clone();
             tauri::async_runtime::spawn(async move {

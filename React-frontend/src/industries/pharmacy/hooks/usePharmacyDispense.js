@@ -30,9 +30,9 @@ import { thermalReceiptFromPos } from '@/pages/accounting/document-output/compon
 import { getCachedReceiptImageUrl } from '@/lib/thermal-receipt-images';
 import { resolveCompanyLogoUrl } from '@/lib/helpers';
 import { isOnline, subscribeConnectivity } from '@/offline/connectivity';
-import { getMeta } from '@/offline/db';
-import { saveDocumentDraft } from '@/offline/documents-repository';
+import { getMeta, setMeta } from '@/offline/db';
 import { runSyncCycle } from '@/offline/sync-manager';
+import { syncApi } from '@/offline/sync.api';
 import { PosOfflineStore } from '@/pages/accounting/pos/lib/offline-store';
 import { isWalkInCustomer } from '../lib/pharmacy-open-return';
 import { formatPharmacyPosMoney, roundWholeRupee } from '../lib/cash-tender-suggestions';
@@ -398,6 +398,30 @@ export function usePharmacyDispense() {
     };
   }, [companyId]);
 
+  // Pharmacy POS is fullscreen — workspace layout skips its sync bootstrap, so
+  // cache the offline flag and masters here while the till still has a connection.
+  useEffect(() => {
+    if (!companyId || !isOnline()) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const statusRes = await syncApi.status();
+        const enabled = Boolean(statusRes?.data?.data?.offline_sync_enabled);
+        if (cancelled) return;
+        await setMeta(companyId, 'offline_sync_enabled', enabled);
+        setOfflineSyncEnabled(enabled);
+        if (enabled) {
+          await runSyncCycle(companyId, { reason: 'pharmacy-pos-entry' });
+        }
+      } catch {
+        /* next online event or manual sync will retry */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
+
   useEffect(() => {
     const unsub = subscribeConnectivity(setOnline);
     const onOnline = () => {
@@ -407,14 +431,8 @@ export function usePharmacyDispense() {
       void refreshHolds();
       if (companyId) void runSyncCycle(companyId, { reason: 'pharmacy-pos-online' });
     };
-    const onOffline = async () => {
+    const onOffline = () => {
       setOnline(false);
-      const enabled = companyId
-        ? Boolean(await getMeta(companyId, 'offline_sync_enabled', false))
-        : false;
-      if (enabled) {
-        toast.message('Offline — complete sales as usual; they sync when connection returns');
-      }
     };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
@@ -503,17 +521,7 @@ export function usePharmacyDispense() {
         try {
           [data] = await Promise.all([reloadBootstrap(), refreshHolds()]);
         } catch (e) {
-          if (syncEnabled && !isOnline()) {
-            data = await PosOfflineStore.loadPharmacyBootstrap();
-            if (data && !cancelled) {
-              setBootstrap(data);
-              toast.message('Working offline — sales queue until connection returns');
-            } else {
-              throw e;
-            }
-          } else {
-            throw e;
-          }
+          throw e;
         }
         if (cancelled) return;
         let walkIn = data?.walk_in_customer || null;
@@ -526,7 +534,7 @@ export function usePharmacyDispense() {
             return walkIn;
           });
         }
-        const needsShift = !data?.shift?.id && !(syncEnabled && !isOnline());
+        const needsShift = !data?.shift?.id;
         if (needsShift) setShiftOpen(true);
       } catch (e) {
         toast.error(errMsg(e, 'Could not start dispensing'));
@@ -900,19 +908,15 @@ export function usePharmacyDispense() {
       toast.error('Cart is empty');
       return;
     }
-    const offlineCheckout = !online && offlineSyncEnabled;
-    if (!shift?.id && !offlineCheckout) {
+    if (!shift?.id) {
       toast.error('Open a shift first');
       setShiftOpen(true);
       return;
     }
-    if (offlineCheckout) {
-      toast.message('Offline checkout saves a draft — payment posts after sync');
-    }
     setCashAmount(String(totals.total.toFixed(2)));
     setPaymentExpanded(true);
     focusTender();
-  }, [lines.length, offlineSyncEnabled, online, shift?.id, totals.total, focusTender]);
+  }, [lines.length, shift?.id, totals.total, focusTender]);
 
   const openShift = useCallback(
     async ({ opening_cash, opening_notes } = {}) => {
@@ -1083,71 +1087,32 @@ export function usePharmacyDispense() {
         toast.error('Credit sales not permitted');
         return false;
       }
-      if (allowCredit && !online) {
-        toast.error('Unpaid / credit sales require a connection');
-        return false;
-      }
       if (needsRxNote && !String(rxNote || '').trim()) {
         toast.error('Prescription note is required for Rx medicines in this cart');
         return false;
       }
 
-      const offlineCheckout = !online && offlineSyncEnabled;
+      if (!shift?.id) {
+        setShiftOpen(true);
+        return false;
+      }
 
-      if (!offlineCheckout) {
-        if (!shift?.id) {
-          setShiftOpen(true);
-          return false;
-        }
-
-        const staleLines = lines.filter(
-          (l) => l.product_id && !isProductInPharmacyCatalog(l.product_id),
+      const staleLines = lines.filter(
+        (l) => l.product_id && !isProductInPharmacyCatalog(l.product_id),
+      );
+      if (staleLines.length) {
+        const names = staleLines.map((l) => l.name || 'Item').slice(0, 2).join(', ');
+        toast.error(
+          `Catalog out of date for ${names}. Refreshing medicine list — re-add those lines and try again.`,
+          { duration: 6000 },
         );
-        if (staleLines.length) {
-          const names = staleLines.map((l) => l.name || 'Item').slice(0, 2).join(', ');
-          toast.error(
-            `Catalog out of date for ${names}. Refreshing medicine list — re-add those lines and try again.`,
-            { duration: 6000 },
-          );
-          void reloadPharmacyCatalog({ warehouseId });
-          return false;
-        }
+        void reloadPharmacyCatalog({ warehouseId });
+        return false;
       }
 
       checkoutLock.current = true;
       setCheckingOut(true);
       try {
-        if (offlineCheckout) {
-          if (!companyId) {
-            toast.error('Workspace not found');
-            return false;
-          }
-          await saveDocumentDraft({
-            companyId,
-            entity: 'pos',
-            op: 'checkout',
-            offlineSyncEnabled: true,
-            forceOffline: true,
-            payload: {
-              customer_id: customer.id,
-              invoice_discount: invoiceDiscountNum,
-              invoice_date: new Date().toISOString().slice(0, 10),
-              due_date: new Date().toISOString().slice(0, 10),
-              warehouse_id: warehouseId ? Number(warehouseId) : undefined,
-              lines: toCheckoutLines(lines),
-              rx_note: needsRxNote ? String(rxNote).trim() : undefined,
-              skip_approval: true,
-              document_source: 'pos_offline',
-            },
-          });
-          setPaymentExpanded(false);
-          setPayDialogOpen(false);
-          clearCart();
-          focusScan();
-          toast.success('Sale saved offline — sync when online to post invoice and payment');
-          return { offline: true };
-        }
-
         const resolvedPayments =
           payments ??
           (allowCredit
@@ -1304,8 +1269,7 @@ export function usePharmacyDispense() {
       setCustomerOpen(true);
       return false;
     }
-    const offlineCheckout = !online && offlineSyncEnabled;
-    if (!shift?.id && !offlineCheckout) {
+    if (!shift?.id) {
       toast.error('Open a shift first');
       setShiftOpen(true);
       return false;
@@ -1314,11 +1278,8 @@ export function usePharmacyDispense() {
       toast.error('Prescription note is required for Rx medicines in this cart');
       return false;
     }
-    if (offlineCheckout) {
-      toast.message('Offline checkout saves a draft — invoice posts after sync');
-    }
     return true;
-  }, [customer?.id, lines.length, needsRxNote, offlineSyncEnabled, online, rxNote, shift?.id]);
+  }, [customer?.id, lines.length, needsRxNote, rxNote, shift?.id]);
 
   /** Open cash tender dialog — discount, tender, then post. */
   const openPayDialog = useCallback(
@@ -1689,7 +1650,7 @@ export function usePharmacyDispense() {
     bootstrap,
     online,
     offlineSyncEnabled,
-    canCheckoutOffline: !online && offlineSyncEnabled,
+    canCheckoutOffline: false,
     customer,
     setCustomer,
     customerInvoices,

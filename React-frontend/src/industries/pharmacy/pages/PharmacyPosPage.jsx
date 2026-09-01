@@ -98,46 +98,46 @@ export function PharmacyPosPage() {
         }}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-slate-50/70 p-2 sm:gap-3 sm:p-3 lg:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-[1.35] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 lg:min-h-0 lg:flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-slate-200 lg:border-e">
           <DispenseCartGrid
-              lines={pos.lines}
-              cartFocus={pos.cartFocus}
-              entryRowVisible={pos.entryRowVisible}
-              maxCartRowIndex={pos.maxCartRowIndex}
-              taxRatesById={pos.taxRatesById}
-              permissions={pos.permissions}
-              formatMoney={pos.formatMoney}
-              unitLabel={pos.unitLabel}
-              itemSearchRef={pos.scanRef}
-              onSelectRow={pos.setCartFocus}
-              onShowEntryRow={pos.showEntryRow}
-              onUpdateLine={pos.updateLine}
-              onUpdateDiscPercent={pos.updateLineDiscountPercent}
-              onRemoveLine={pos.removeLine}
-              onPickProduct={pos.addProduct}
-              onSetLineProduct={pos.setLineProduct}
-              onSubmitRaw={pos.scanOrSearch}
-              getAvailableStock={pos.getAvailableStock}
-              warehouseId={pos.warehouseId}
+            lines={pos.lines}
+            cartFocus={pos.cartFocus}
+            entryRowVisible={pos.entryRowVisible}
+            maxCartRowIndex={pos.maxCartRowIndex}
+            taxRatesById={pos.taxRatesById}
+            permissions={pos.permissions}
+            formatMoney={pos.formatMoney}
+            unitLabel={pos.unitLabel}
+            itemSearchRef={pos.scanRef}
+            onSelectRow={pos.setCartFocus}
+            onShowEntryRow={pos.showEntryRow}
+            onUpdateLine={pos.updateLine}
+            onUpdateDiscPercent={pos.updateLineDiscountPercent}
+            onRemoveLine={pos.removeLine}
+            onPickProduct={pos.addProduct}
+            onSetLineProduct={pos.setLineProduct}
+            onSubmitRaw={pos.scanOrSearch}
+            getAvailableStock={pos.getAvailableStock}
+            warehouseId={pos.warehouseId}
           />
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 lg:w-[280px] lg:flex-none lg:shrink-0 xl:w-[320px]">
-        <DispenseSaleRail
-          totals={pos.totals}
-          formatMoney={pos.formatMoney}
-          unitLabel={pos.unitLabel}
-          customer={pos.customer}
-          onOpenCustomer={() => pos.setCustomerOpen(true)}
-          needsRxNote={pos.needsRxNote}
-          rxNote={pos.rxNote}
-          onRxNoteChange={pos.setRxNote}
-          onPostAndPrint={pos.completeAndPrint}
-          checkingOut={pos.checkingOut}
-          shiftOpen={!!pos.shift?.id || pos.canCheckoutOffline}
-          disabled={!pos.lines.length}
-        />
+        <div className="flex min-h-0 w-full shrink-0 flex-col overflow-hidden lg:w-[340px]">
+          <DispenseSaleRail
+            totals={pos.totals}
+            formatMoney={pos.formatMoney}
+            unitLabel={pos.unitLabel}
+            customer={pos.customer}
+            onOpenCustomer={() => pos.setCustomerOpen(true)}
+            needsRxNote={pos.needsRxNote}
+            rxNote={pos.rxNote}
+            onRxNoteChange={pos.setRxNote}
+            onPostAndPrint={pos.completeAndPrint}
+            checkingOut={pos.checkingOut}
+            shiftOpen={!!pos.shift?.id || pos.canCheckoutOffline}
+            disabled={!pos.lines.length}
+          />
         </div>
       </div>
 
@@ -256,7 +256,6 @@ export function PharmacyPosPage() {
           </ul>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

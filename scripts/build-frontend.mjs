@@ -31,11 +31,8 @@ const env = {
   // desktop updates come via the installer, not a same-origin redeploy) and by
   // signin-page.jsx (defaults "keep me logged in" on for a paired device).
   VITE_DESKTOP_BUILD: 'true',
-  // Real cloud API. The existing offline layer (Dexie/outbox/sync-manager)
-  // already handles the cloud-unreachable case automatically — there is no
-  // separate "local API" to stand up for data, only this shell + a local
-  // static-file server (see src-tauri/src/server.rs).
-  VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || 'https://api.finvoroo.com/api/v1',
+  // Local axum origin proxies /api/v1/* to the embedded PHP sidecar (see src-tauri/src/server.rs).
+  VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || 'http://127.0.0.1:47391/api/v1',
 };
 
 const result = spawnSync('npm', ['run', 'build:app'], {

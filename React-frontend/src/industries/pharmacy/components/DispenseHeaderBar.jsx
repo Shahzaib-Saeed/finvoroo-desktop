@@ -77,11 +77,6 @@ function HeaderSessionBar({
                 {terminalCode}
               </span>
             ) : null}
-            {!online && offlineSyncEnabled ? (
-              <span className="shrink-0 rounded-md bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
-                Off
-              </span>
-            ) : null}
           </div>
           <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500">
             {terminalLabel}

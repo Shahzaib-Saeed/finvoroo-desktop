@@ -54,7 +54,7 @@ function pickEnrichedReference(row) {
   ).trim();
   if (!enriched || isInternalGlRef(enriched)) return '';
   if (isSystemPaymentLabel(enriched)) return '';
-  return enriched;
+  return enriched.replace(/\s*\(COGS\)\s*$/i, '');
 }
 
 /**

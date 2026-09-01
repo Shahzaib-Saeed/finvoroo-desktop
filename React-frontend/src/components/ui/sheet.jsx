@@ -61,10 +61,11 @@ function SheetContent({
   close = true,
   className,
   children,
+  portalContainer,
   ...props
 }) {
   return (
-    <SheetPortal>
+    <SheetPortal container={portalContainer}>
       {overlay && <SheetOverlay className={overlayClassName} />}
       <SheetPrimitive.Content
         className={cn(sheetVariants({ side }), className)}

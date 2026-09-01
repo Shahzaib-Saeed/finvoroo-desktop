@@ -8,9 +8,7 @@ export function formatStatementNarrative(entry, account) {
     entry?.line_description || entry?.entry_description || "",
   ).trim();
 
-  if (memo && account?.name) {
-    memo = stripRedundantAccountMemo(memo, account.name);
-  }
+  memo = stripRedundantAccountMemo(memo, account?.name);
 
   if (party && memo) {
     const memoLower = memo.toLowerCase();
@@ -25,7 +23,17 @@ export function formatStatementNarrative(entry, account) {
 }
 
 function stripRedundantAccountMemo(memo, accountName) {
-  const name = String(accountName).trim();
+  const generic = [
+    /^Cost of Goods Sold$/i,
+    /^Cost of Goods Returned$/i,
+    /^COGS rounding parity$/i,
+    /^COGS sale-cost true-up$/i,
+  ];
+  for (const pattern of generic) {
+    if (pattern.test(memo)) return "";
+  }
+
+  const name = String(accountName ?? "").trim();
   if (!name) return memo;
 
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

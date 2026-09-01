@@ -244,7 +244,7 @@ export function StockValuationStatement({
         ))}
       </div>
 
-      <PharmacyReportFooter note="Purchase is qty × catalog purchase price. Average is qty × weighted average inventory cost (batch cost if no ledger cost). Sale is qty × selling price. Only items with on-hand stock are listed unless zero stock is included." />
+      <PharmacyReportFooter note="Purchase column = qty × catalog purchase price (reference only, not GL valuation). Average column = qty × FIFO/FEFO inventory cost from the ledger (official stock value; batch WAC or catalog fallback when no ledger cost). Sale column = qty × selling price. Totals and potential profit use Average, not Purchase. Only items with on-hand stock are listed unless zero stock is included." />
     </div>
   );
 }

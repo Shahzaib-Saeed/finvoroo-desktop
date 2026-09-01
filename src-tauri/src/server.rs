@@ -1,29 +1,22 @@
 use std::net::TcpListener as StdTcpListener;
 use std::path::PathBuf;
 
+use axum::body::Body;
+use axum::extract::Request;
+use axum::http::{HeaderMap, HeaderName, HeaderValue, StatusCode};
+use axum::response::Response;
 use axum::Router;
 use tower_http::services::{ServeDir, ServeFile};
 
-/// Serves the built React SPA (`webapp_dir`, produced by
-/// `scripts/build-frontend.mjs` / `bundle.resources` in tauri.conf.json) on the
-/// given already-bound listener, with history-API fallback: any request path
-/// that isn't a real static file (e.g. `/workspace/42/pos`, a client-side
-/// BrowserRouter route) falls back to `index.html`, exactly like a normal SPA
-/// static host (Netlify/Vercel/nginx try_files) would serve it.
-///
-/// This is deliberately plain static-file serving, not a "local API" — the
-/// existing offline layer (Dexie/IndexedDB, outbox, sync-manager) already
-/// handles the cloud-unreachable case from inside the SPA itself. Serving over
-/// a real `http://127.0.0.1:<port>` origin (rather than the `tauri://` asset
-/// protocol) is the whole point: it keeps BrowserRouter, cookies
-/// (`erp_auth_token`) and the `X-Company-ID` header (derived from
-/// `window.location.pathname` in `src/lib/api.js`) working completely
-/// unmodified, exactly as they do in a real browser tab.
+use crate::php_sidecar::{cloud_api_base, is_cloud_only_api_path, sidecar_base_url, PHP_SIDECAR_PORT};
+
+/// Serves the React SPA and proxies API traffic to the embedded PHP sidecar
+/// (local scope) or the cloud Laravel API (online-only routes).
 pub async fn serve(std_listener: StdTcpListener, webapp_dir: PathBuf) -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::from_std(std_listener)?;
     let addr = listener.local_addr()?;
     tracing::info!(
-        "Finvoroo Desktop serving {} on http://{addr}",
+        "Finvoroo Desktop serving {} on http://{addr} (API sidecar :{PHP_SIDECAR_PORT})",
         webapp_dir.display()
     );
     axum::serve(listener, router(webapp_dir)).await?;
@@ -34,7 +27,109 @@ pub fn router(webapp_dir: PathBuf) -> Router {
     let index = webapp_dir.join("index.html");
     let serve_dir = ServeDir::new(&webapp_dir).not_found_service(ServeFile::new(index));
 
-    Router::new().fallback_service(serve_dir)
+    Router::new()
+        .fallback_service(serve_dir)
+        .layer(axum::middleware::from_fn(api_proxy_middleware))
+}
+
+async fn api_proxy_middleware(request: Request, next: axum::middleware::Next) -> Response {
+    let path = request.uri().path().to_string();
+
+    if !path.starts_with("/api/v1/") {
+        return next.run(request).await;
+    }
+
+    if is_cloud_only_api_path(&path) {
+        return proxy_request(cloud_api_base(), request).await;
+    }
+
+    proxy_request(sidecar_base_url(), request).await
+}
+
+async fn proxy_request(base: String, request: Request) -> Response {
+    let path_and_query = request
+        .uri()
+        .path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/")
+        .to_string();
+
+    let target = format!("{}{}", base.trim_end_matches('/'), path_and_query);
+    let method = request.method().clone();
+    let headers = clone_forward_headers(request.headers());
+    let body_bytes = match axum::body::to_bytes(request.into_body(), 32 * 1024 * 1024).await {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            return Response::builder()
+                .status(StatusCode::BAD_GATEWAY)
+                .body(Body::from("Failed to read request body"))
+                .unwrap();
+        }
+    };
+
+    let client = match reqwest::Client::builder().build() {
+        Ok(c) => c,
+        Err(_) => {
+            return Response::builder()
+                .status(StatusCode::BAD_GATEWAY)
+                .body(Body::from("Proxy client unavailable"))
+                .unwrap();
+        }
+    };
+
+    let mut builder = client.request(method.clone(), &target);
+    builder = builder.headers(headers);
+    if !body_bytes.is_empty() {
+        builder = builder.body(body_bytes.to_vec());
+    }
+
+    match builder.send().await {
+        Ok(upstream) => {
+            let status = StatusCode::from_u16(upstream.status().as_u16())
+                .unwrap_or(StatusCode::BAD_GATEWAY);
+            let mut response = Response::builder().status(status);
+            if let Some(headers) = response.headers_mut() {
+                for (name, value) in upstream.headers().iter() {
+                    if name == reqwest::header::TRANSFER_ENCODING {
+                        continue;
+                    }
+                    if let (Ok(hname), Ok(hval)) = (
+                        HeaderName::from_bytes(name.as_str().as_bytes()),
+                        HeaderValue::from_bytes(value.as_bytes()),
+                    ) {
+                        headers.insert(hname, hval);
+                    }
+                }
+            }
+            let bytes = upstream.bytes().await.unwrap_or_default();
+            response.body(Body::from(bytes)).unwrap_or_else(|_| {
+                Response::builder()
+                    .status(StatusCode::BAD_GATEWAY)
+                    .body(Body::from("Bad gateway"))
+                    .unwrap()
+            })
+        }
+        Err(err) => Response::builder()
+            .status(StatusCode::BAD_GATEWAY)
+            .body(Body::from(format!("Upstream unavailable: {err}")))
+            .unwrap(),
+    }
+}
+
+fn clone_forward_headers(headers: &HeaderMap) -> reqwest::header::HeaderMap {
+    let mut out = reqwest::header::HeaderMap::new();
+    for (name, value) in headers.iter() {
+        if name == axum::http::header::HOST {
+            continue;
+        }
+        if let (Ok(hname), Ok(hval)) = (
+            reqwest::header::HeaderName::from_bytes(name.as_str().as_bytes()),
+            reqwest::header::HeaderValue::from_bytes(value.as_bytes()),
+        ) {
+            out.insert(hname, hval);
+        }
+    }
+    out
 }
 
 #[cfg(test)]

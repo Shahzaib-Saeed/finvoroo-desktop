@@ -1,7 +1,7 @@
 {
   "name": "finvoroo-desktop",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Finvoroo Desktop — native Windows shell for the Finvoroo ERP web app (online + offline).",
   "type": "module",
   "scripts": {

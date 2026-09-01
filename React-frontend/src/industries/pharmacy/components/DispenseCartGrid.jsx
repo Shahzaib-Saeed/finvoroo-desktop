@@ -1,4 +1,3 @@
-import { useLayoutEffect, useRef, useState } from 'react';
 import { GripVertical, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ItemNameSearchCell } from './ItemNameSearchCell';
@@ -154,9 +153,8 @@ function gridFieldFocusProps(index, onSelectRow, { selectAll = false } = {}) {
     },
   };
 }
-/** Minimum grid rows when the scroll area has not been measured yet. */
+/** Minimum empty rows so the grid reads as a sheet before items are scanned. */
 const MIN_VISIBLE_ROWS = 2;
-const CART_ROW_HEIGHT_PX = 44;
 
 /**
  * FEFO already picked the batch when the line was added, so the batch number and
@@ -246,35 +244,7 @@ export function DispenseCartGrid({
 }) {
   const navMaxIndex = maxCartRowIndex ?? (entryRowVisible ? lines.length : Math.max(0, lines.length - 1));
   const contentRowCount = lines.length + (entryRowVisible ? 1 : 0);
-  const scrollRef = useRef(null);
-  const [fillerCount, setFillerCount] = useState(() =>
-    Math.max(0, MIN_VISIBLE_ROWS - contentRowCount),
-  );
-
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return undefined;
-
-    const update = () => {
-      const thead = el.querySelector('thead');
-      const theadHeight = thead?.offsetHeight ?? CART_ROW_HEIGHT_PX;
-      const available = Math.max(0, el.clientHeight - theadHeight);
-      const targetRows = Math.max(
-        MIN_VISIBLE_ROWS,
-        Math.floor(available / CART_ROW_HEIGHT_PX),
-      );
-      setFillerCount(Math.max(0, targetRows - contentRowCount));
-    };
-
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    window.addEventListener('resize', update);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', update);
-    };
-  }, [contentRowCount]);
+  const fillerCount = Math.max(0, MIN_VISIBLE_ROWS - contentRowCount);
 
   return (
     <div className="flex h-full min-w-0 flex-col antialiased" style={{ fontFamily: GRID_FONT }}>
@@ -289,10 +259,7 @@ export function DispenseCartGrid({
         </div>
       </div>
 
-      <div
-        ref={scrollRef}
-        className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto"
-      >
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto">
         <table className="w-full min-w-[640px] table-fixed border-collapse text-[13px] text-slate-900">
             <colgroup>
               <col style={{ width: '2.5rem' }} />

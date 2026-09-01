@@ -1,0 +1,32 @@
+/**
+ * Pharmacy POS — uniform canvas scale is applied on [data-pharmacy-pos-canvas].
+ * Modal dialogs portaled to body pick up the same zoom factor.
+ */
+html:has([data-pharmacy-pos-canvas]) {
+  --pos-ui-scale: 1;
+}
+
+html:has([data-pharmacy-pos-canvas]) [data-slot='dialog-content'] {
+  zoom: var(--pos-ui-scale);
+}
+
+html:has([data-pharmacy-pos-canvas]) [data-slot='dialog-overlay'] {
+  zoom: var(--pos-ui-scale);
+}
+
+/* Inside the fixed 1280×800 canvas always use desktop POS chrome. */
+[data-pharmacy-pos-canvas] .pos-mobile-chrome {
+  display: none !important;
+}
+
+[data-pharmacy-pos-canvas] .pos-desktop-chrome {
+  display: grid !important;
+}
+
+[data-pharmacy-pos-canvas] .pos-mobile-session-strip {
+  display: none !important;
+}
+
+[data-pharmacy-pos-canvas] [data-pos-session-bar] {
+  display: flex !important;
+}
