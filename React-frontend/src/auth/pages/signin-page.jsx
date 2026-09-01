@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { getSigninSchema } from '@/auth/forms/signin-schema';
 import api from '@/lib/api';
+import { isRunningInDesktopApp } from '@/lib/desktop-app';
 import { authCookies, clearLegacyAuthStorage } from '@/auth/auth-cookies';
 import { resetSessionRedirectFlag } from '@/auth/session';
 import { useAuthStore } from '@/store/authStore';
@@ -317,7 +318,7 @@ export function SignInPage() {
       // Desktop app: default "keep me logged in" on so a paired device
       // naturally stays signed in for the existing 30-day remember-me window
       // instead of forcing a login every launch.
-      rememberMe: import.meta.env.VITE_DESKTOP_BUILD === 'true',
+      rememberMe: isRunningInDesktopApp(),
     },
   });
 

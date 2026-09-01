@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { LoadingBarContainer } from 'react-top-loading-bar';
 import { Toaster } from '@/components/ui/sonner';
 import { AppVersionWatcher } from '@/components/app-version-watcher';
+import { DesktopUpdateWatcher } from '@/components/desktop-update-watcher';
 import { PageTitleManager } from '@/components/page-title-manager';
 import { AppRouting } from '@/routing/app-routing';
 import { I18nProvider } from '@/providers/i18n-provider';
@@ -25,6 +26,7 @@ export function App() {
               <LoadingBarContainer>
                 <BrowserRouter basename={routerBasename}>
                   <AppVersionWatcher />
+                  <DesktopUpdateWatcher />
                   <PageTitleManager />
                   <Toaster position="top-right" />
                   <ModulesProvider>

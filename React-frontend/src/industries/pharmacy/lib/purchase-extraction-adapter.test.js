@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   apiItemsToExtractionRows,
   computeReceiveLineAmounts,
+  parseLineTaxAmount,
   emptyExtractionRow,
   extractionRowToProductPrefill,
   repairOcrReceiveLine,
@@ -320,6 +321,27 @@ describe('computeReceiveLineAmounts', () => {
     };
     const a = computeReceiveLineAmounts(line);
     expect(a.totalInc).toBeCloseTo(252.98, 2);
+  });
+
+  it('OCR row: cleared tax field does not apply hidden gst_percent', () => {
+    const line = {
+      _fromOcr: true,
+      quantity: '3',
+      unit_price: '80.31',
+      tax_amount: '',
+      gst_percent: '5',
+      discount_type: 'percent',
+      discount: '0',
+    };
+    const a = computeReceiveLineAmounts(line, 5);
+    expect(a.totalInc).toBeCloseTo(240.93, 2);
+    expect(a.tax).toBe(0);
+  });
+
+  it('parseLineTaxAmount treats empty and zero as no tax', () => {
+    expect(parseLineTaxAmount({ tax_amount: '' })).toBe(0);
+    expect(parseLineTaxAmount({ tax_amount: '0' })).toBe(0);
+    expect(parseLineTaxAmount({ tax_amount: '12.05' })).toBe(12.05);
   });
 });
 

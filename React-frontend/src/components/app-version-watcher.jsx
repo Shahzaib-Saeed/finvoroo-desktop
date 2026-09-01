@@ -49,9 +49,9 @@ export function AppVersionWatcher() {
 
   useEffect(() => {
     if (!import.meta.env.PROD) return undefined;
-    // Desktop builds get updates via the installer (new webapp/ bundled fresh
-    // into the .exe), not a same-origin redeploy — comparing version.json
-    // against itself here would be meaningless noise, so skip entirely.
+    // Embedded offline bundle only — version.json is baked in and never changes until
+    // a new installer. When online, the shell proxies the live browser build from
+    // app.finvoroo.com (VITE_DESKTOP_BUILD=false), so this watcher runs normally.
     if (import.meta.env.VITE_DESKTOP_BUILD === 'true') return undefined;
 
     const clearUpdateToast = () => {

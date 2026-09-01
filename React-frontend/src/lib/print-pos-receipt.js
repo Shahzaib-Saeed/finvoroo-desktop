@@ -5,6 +5,7 @@ import {
   buildThermalHtmlFromElement,
   buildThermalHtmlFromProps,
   buildThermalReceiptInnerHtml,
+  prepareDesignerHtmlForPrintAgent,
 } from '@/lib/thermal-receipt-html';
 import { inlineReceiptImagesInDocument, warmReceiptLogoCache } from '@/lib/thermal-receipt-images';
 import {
@@ -59,14 +60,22 @@ export async function loadPosReceiptPrintPrefs(force = false) {
       const prefs = unwrapDoc(res);
       const posPref = prefs?.preferences?.find((p) => p.document_type === 'pos_receipt');
       const defaultLayout = posPref?.default_layout || prefs?.defaults?.pos_receipt || null;
-      const layoutId = posPref?.default_layout_id || defaultLayout?.id || null;
-      const adapter = posPref?.default_adapter || 'escpos';
-      const schemaVersion = Number(defaultLayout?.schema_version ?? 0);
+      const layoutIdRaw = posPref?.default_layout_id || defaultLayout?.id || null;
+      const schemaVersion = Number(
+        defaultLayout?.schema_version ?? prefs?.defaults?.pos_receipt?.schema_version ?? 0,
+      );
+      const layoutIdResolved = layoutIdRaw ? Number(layoutIdRaw) : null;
+      const savedAdapter = posPref?.default_adapter || '';
+      // Designer / canvas layouts cannot render through ESC/POS — default to HTML when a layout is chosen.
+      const adapter =
+        savedAdapter ||
+        (layoutIdResolved || schemaVersion === SCHEMA_V2_CANVAS ? 'html' : 'escpos');
       posReceiptPrefsCache = {
-        layoutId: layoutId ? Number(layoutId) : null,
+        layoutId: layoutIdResolved,
         adapter,
         isCanvas: schemaVersion === SCHEMA_V2_CANVAS,
-        layoutPaper: defaultLayout?.paper || 'thermal_80',
+        layoutPaper:
+          defaultLayout?.paper || prefs?.defaults?.pos_receipt?.paper || 'thermal_80',
       };
       return posReceiptPrefsCache;
     })
@@ -172,7 +181,7 @@ export async function fetchEscPosReceipt({
   return bytes;
 }
 
-/** Full HTML receipt from document-output — respects the selected designer layout. */
+/** Full HTML receipt from document-output — respects the selected designer layout (print-ready CSS). */
 export async function fetchHtmlReceipt({
   documentType = 'pos_receipt',
   documentId,
@@ -183,7 +192,7 @@ export async function fetchHtmlReceipt({
   }
 
   const res = await documentOutputApi.render(documentType, documentId, {
-    adapter: 'html',
+    adapter: 'browser',
     layout_id: layoutId || undefined,
   });
 
@@ -201,12 +210,16 @@ function resolveReceiptPaper(paper, prefs) {
   return paper === 'thermal_58' ? 'thermal_58' : 'thermal_80';
 }
 
-/** Canvas / HTML adapter layouts must render via document-output HTML, not raw ESC/POS. */
-function shouldUseLayoutHtml(prefs) {
+/** Plain ESC/POS text — only when explicitly configured with no designer layout. */
+function shouldUseEscPosFastPath(prefs) {
   if (!prefs) return false;
-  if (prefs.isCanvas) return true;
+  if (prefs.layoutId || prefs.isCanvas) return false;
   const adapter = String(prefs.adapter || '').toLowerCase();
-  return adapter === 'html' || adapter === 'browser';
+  return adapter === 'escpos' || adapter === 'thermal';
+}
+
+function shouldUseDesignerHtml(prefs) {
+  return !shouldUseEscPosFastPath(prefs);
 }
 
 /**
@@ -306,27 +319,32 @@ export async function printPosReceipt({
   try {
     const driver = getPrintDriver();
 
-    // Finvoroo Print Agent: use workspace print preferences (layout + adapter).
+    // Finvoroo Print Agent: designer layout (HTML) unless user explicitly chose plain ESC/POS.
     if (invoiceId && driver === PRINT_DRIVERS.AGENT) {
       const prefs = await loadPosReceiptPrintPrefs();
       const resolvedLayoutId = layoutId || prefs.layoutId;
       const resolvedPaper = resolveReceiptPaper(paper, prefs);
 
-      if (shouldUseLayoutHtml(prefs)) {
+      if (shouldUseDesignerHtml(prefs)) {
         try {
-          const html = await fetchHtmlReceipt({
+          const rawHtml = await fetchHtmlReceipt({
             documentId: invoiceId,
             documentType,
             layoutId: resolvedLayoutId,
           });
-          return printViaAgent({ htmlDocument: html, paper: resolvedPaper, openDrawer });
+          const html = prepareDesignerHtmlForPrintAgent(rawHtml, resolvedPaper);
+          if (html) {
+            const result = await printViaAgent({
+              htmlDocument: html,
+              paper: resolvedPaper,
+              openDrawer,
+            });
+            if (result?.ok) return result;
+          }
         } catch (err) {
-          console.warn(
-            '[Finvoroo print] Layout HTML print failed, trying fallback',
-            err?.message || err,
-          );
+          console.warn('[Finvoroo print] Designer layout print failed, falling back', err?.message || err);
         }
-      } else {
+      } else if (shouldUseEscPosFastPath(prefs)) {
         try {
           const bytes = await fetchEscPosReceipt({
             documentId: invoiceId,
@@ -340,20 +358,7 @@ export async function printPosReceipt({
             return { ok: true, via: 'finvoroo-print-agent', silent: true, type: 'escpos' };
           }
         } catch (err) {
-          console.warn(
-            '[Finvoroo print] ESC/POS print failed, falling back to layout HTML',
-            err?.message || err,
-          );
-          try {
-            const html = await fetchHtmlReceipt({
-              documentId: invoiceId,
-              documentType,
-              layoutId: resolvedLayoutId,
-            });
-            return printViaAgent({ htmlDocument: html, paper: resolvedPaper, openDrawer });
-          } catch (htmlErr) {
-            console.warn('[Finvoroo print] Layout HTML fallback failed', htmlErr?.message || htmlErr);
-          }
+          console.warn('[Finvoroo print] ESC/POS print failed', err?.message || err);
         }
       }
     }

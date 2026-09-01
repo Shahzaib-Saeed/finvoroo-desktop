@@ -414,38 +414,56 @@ export function isOcrReceiveLine(line) {
   return Boolean(line?._fromOcr || String(line?.supplier_invoice_label || '').trim());
 }
 
+/** Empty, "0", and "0.00" in the Tax column all mean no line tax. */
+export function parseLineTaxAmount(line) {
+  const raw = String(line?.tax_amount ?? '').trim();
+  if (raw === '') return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+export function formatTaxInputValue(value) {
+  if (value === null || value === undefined) return '';
+  const raw = String(value).trim();
+  if (raw === '') return '';
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n === 0) return '';
+  return raw;
+}
+
+export function normalizeTaxFieldPatch(value) {
+  const raw = String(value ?? '').trim();
+  if (raw === '') {
+    return { tax_amount: '', gst_percent: '', tax_rate_id: '' };
+  }
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) {
+    return { tax_amount: '', gst_percent: '', tax_rate_id: '' };
+  }
+  return { tax_amount: raw };
+}
+
 /**
  * Line money for the receive grid.
  *
- * Amount is always Packs × Purchase price − Disc Amt + Tax.
- * Manual GRN rows: no silent GST from the product tax rate or invoice GST % —
- * only an explicit value in the Tax column. OCR rows keep printed bill tax.
+ * Amount = Packs × Purchase price − Disc Amt + Tax.
+ * Tax comes **only** from the Tax column when it is a positive number.
+ * Empty / cleared / "0" tax → treated as 0 (never silent GST % from OCR or product).
  */
-export function computeReceiveLineAmounts(line, invGstFallback = 0) {
+export function computeReceiveLineAmounts(line, _invGstFallback = 0) {
   const qty = Number(line.quantity) || 0;
   const rate = Number(line.unit_price) || 0;
-  const rawGst = String(line.gst_percent ?? '').trim();
-  const gst =
-    rawGst === '' ? Number(invGstFallback) || 0 : Number(rawGst) || 0;
   const bonus = Number(line.bonus) || 0;
   const gross = qty * rate;
   const discRaw = Number(line.discount) || 0;
   const discPct = line.discount_type === 'percent' ? discRaw : 0;
   const discount =
     line.discount_type === 'percent' ? (gross * discRaw) / 100 : discRaw;
-  const fromInvoice = isOcrReceiveLine(line);
-  const hasInvoiceTax =
-    line.tax_amount != null && String(line.tax_amount).trim() !== '';
-  const printedTax = hasInvoiceTax ? Number(line.tax_amount) || 0 : 0;
+  const printedTax = parseLineTaxAmount(line);
   const taxLooksLikeDiscount =
-    discount > 0.001 && hasInvoiceTax && amountsNear(printedTax, discount);
+    discount > 0.001 && printedTax > 0 && amountsNear(printedTax, discount);
 
-  let tax = 0;
-  if (hasInvoiceTax) {
-    tax = taxLooksLikeDiscount ? 0 : printedTax;
-  } else if (fromInvoice) {
-    tax = (Math.max(0, gross - discount) * gst) / 100;
-  }
+  const tax = taxLooksLikeDiscount ? 0 : printedTax;
 
   const totalExc = Math.max(0, gross - discount);
   const totalInc = totalExc + tax;
@@ -463,7 +481,7 @@ export function computeReceiveLineAmounts(line, invGstFallback = 0) {
     rate,
     discPct,
     discount,
-    gst,
+    gst: 0,
     gross,
     taxable: totalExc,
     tax,

@@ -1,4 +1,4 @@
-import { getOfflineDb, getMeta, setMeta } from './db';
+import { isRunningInDesktopApp } from '@/lib/desktop-app';
 import { isOnline, isReallyOnline, subscribeConnectivity } from './connectivity';
 import {
   listPendingOutbox,
@@ -38,7 +38,7 @@ export function subscribeSyncEvents(fn) {
  * browser tabs stay 'browser' — unrestricted, exactly as before.
  */
 function getSyncDeviceType() {
-  return import.meta.env?.VITE_DESKTOP_BUILD === 'true' ? 'desktop' : 'browser';
+  return isRunningInDesktopApp() ? 'desktop' : 'browser';
 }
 
 async function ensureDeviceRegistered(companyId) {

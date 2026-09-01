@@ -1,30 +1,115 @@
-import { CheckCircle2, Download, LaptopMinimal } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { CheckCircle2, Download, LaptopMinimal, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   DESKTOP_APP_DOWNLOAD_URL,
   DESKTOP_APP_LATEST_VERSION,
+  desktopShellUpdateAvailable,
+  fetchDesktopShellStatus,
+  fetchDesktopUpdateManifest,
   isRunningInDesktopApp,
 } from '@/lib/desktop-app';
 
 /**
- * "Download the Windows app" — same shape as PrintAgentSetupPanel's download
- * section (companion native app, installed once per PC), just without a
- * live status check: a browser tab has no way to ask "is the desktop app
- * installed on this PC", unlike the Print Agent, which exposes a local HTTP
- * status endpoint the browser can call directly.
+ * Windows desktop app download + in-app update status.
  */
 export function DesktopAppDownloadPanel({ embedded = false }) {
-  if (isRunningInDesktopApp()) {
+  const inDesktop = isRunningInDesktopApp();
+  const [status, setStatus] = useState(null);
+  const [manifest, setManifest] = useState(null);
+  const [loading, setLoading] = useState(inDesktop);
+
+  const refresh = useCallback(async () => {
+    if (!inDesktop) return;
+    setLoading(true);
+    try {
+      const [shell, latest] = await Promise.all([
+        fetchDesktopShellStatus(),
+        fetchDesktopUpdateManifest(),
+      ]);
+      setStatus(shell);
+      setManifest(latest);
+    } finally {
+      setLoading(false);
+    }
+  }, [inDesktop]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  if (inDesktop) {
+    const installed = status?.version || '—';
+    const latest =
+      manifest?.version || manifest?.latest_version || DESKTOP_APP_LATEST_VERSION;
+    const updateReady = desktopShellUpdateAvailable(installed, latest);
+    const cloudLive = status?.cloud_spa === true;
+
     return (
       <div
         className={cn(
-          'flex items-center gap-2 text-sm text-emerald-700',
+          'space-y-3 text-sm',
           !embedded && 'rounded-lg border border-emerald-200/80 bg-emerald-50/40 p-4',
         )}
       >
-        <CheckCircle2 className="size-4 shrink-0" />
-        You&apos;re using the Finvoroo Desktop app on this PC.
+        <div className="flex items-center gap-2 text-emerald-800">
+          <CheckCircle2 className="size-4 shrink-0" />
+          <span className="font-medium">Finvoroo Desktop on this PC</span>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="rounded-lg border border-border/80 bg-background/80 px-3 py-2 text-xs">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              App shell
+            </p>
+            <p className="mt-0.5 font-bold tabular-nums">v{installed}</p>
+          </div>
+          <div className="rounded-lg border border-border/80 bg-background/80 px-3 py-2 text-xs">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              UI updates
+            </p>
+            <p className="mt-0.5 font-medium">
+              {cloudLive ? 'Live from app.finvoroo.com' : 'Offline bundle (embedded)'}
+            </p>
+          </div>
+        </div>
+
+        {updateReady ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2.5 text-xs text-amber-950">
+            <p className="font-semibold">Shell update v{latest} available</p>
+            <p className="mt-1 leading-relaxed text-amber-900/90">
+              Run the installer once to update the Windows app. Your offline data is kept.
+            </p>
+            <Button asChild size="sm" variant="outline" className="mt-2 h-8">
+              <a
+                href={manifest?.download_url || DESKTOP_APP_DOWNLOAD_URL}
+                download="FinvorooDesktop-Setup.exe"
+              >
+                <Download className="mr-1.5 size-3.5" />
+                Download v{latest}
+              </a>
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            When you deploy frontend changes to app.finvoroo.com, this app picks them up
+            automatically on the next launch (online). Shell updates only when the .exe version
+            changes.
+          </p>
+        )}
+
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-8 px-2 text-xs"
+          disabled={loading}
+          onClick={refresh}
+        >
+          <RefreshCw className={cn('mr-1.5 size-3.5', loading && 'animate-spin')} />
+          Refresh status
+        </Button>
       </div>
     );
   }
@@ -45,7 +130,7 @@ export function DesktopAppDownloadPanel({ embedded = false }) {
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             A native Windows app for this PC — no browser tab to keep open, keeps working through
             internet drops (invoices, POS, credit/debit notes, payments), and syncs automatically
-            the moment you&apos;re back online.
+            the moment you&apos;re back online. UI updates load automatically when online.
           </p>
         </div>
       ) : null}

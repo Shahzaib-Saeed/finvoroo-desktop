@@ -68,7 +68,7 @@ export function PrintPreferencesTab({
           String(p?.defaults?.[t.id]?.id || p?.preferences?.find((x) => x.document_type === t.id)?.default_layout_id || '');
         nextAd[t.id] =
           p?.preferences?.find((x) => x.document_type === t.id)?.default_adapter ||
-          (t.id === 'pos_receipt' ? 'escpos' : 'browser');
+          (t.id === 'pos_receipt' ? 'html' : 'browser');
       }
       setSelected(nextSel);
       setAdapters(nextAd);
@@ -90,12 +90,28 @@ export function PrintPreferencesTab({
     }
     setSaving(true);
     try {
+      const layoutRow = (layoutsByType[documentType] || []).find(
+        (l) => String(l.id) === String(selected[documentType]),
+      );
+      const isCanvas = Number(layoutRow?.schema_version) === 2;
+      let adapterToSave = adapters[documentType] || null;
+      if (
+        documentType === 'pos_receipt' &&
+        isCanvas &&
+        (adapterToSave === 'escpos' || adapterToSave === 'thermal')
+      ) {
+        adapterToSave = 'html';
+      }
+
       await documentOutputApi.updatePreferences({
         document_type: documentType,
         default_layout_id: selected[documentType] ? Number(selected[documentType]) : null,
-        default_adapter: adapters[documentType] || null,
+        default_adapter: adapterToSave,
       });
       invalidatePosReceiptPrintPrefs();
+      if (adapterToSave !== adapters[documentType]) {
+        setAdapters((s) => ({ ...s, [documentType]: adapterToSave }));
+      }
       toast.success('Print preference saved');
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Save failed');

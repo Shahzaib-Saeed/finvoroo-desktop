@@ -28,6 +28,8 @@ import { loadMedicineCatalog, prefetchMedicineCatalog } from '../lib/medicine-ca
 import { onPharmacyCatalogChange, reloadPharmacyCatalog } from '../lib/pharmacy-catalog-store';
 import {
   computeReceiveLineAmounts,
+  formatTaxInputValue,
+  normalizeTaxFieldPatch,
   enrichReceiveLinesFromCatalog,
   receiveCostChangedFromLast,
   repairOcrReceiveLines,
@@ -497,8 +499,11 @@ function mapExtractionToGrnLines(incoming, pharmacySettings = {}) {
         discount: row.discount != null && row.discount !== '' ? String(row.discount) : '0',
         discount_type: row.discount_type === 'fixed' ? 'fixed' : 'percent',
         gst_percent:
-          row.gst_percent != null && row.gst_percent !== '' ? String(row.gst_percent) : '0',
-        tax_amount: row.tax_amount != null ? String(row.tax_amount) : '',
+          row.gst_percent != null && row.gst_percent !== '' ? String(row.gst_percent) : '',
+        tax_amount:
+          row.tax_amount != null && Number(row.tax_amount) > 0
+            ? String(row.tax_amount)
+            : '',
         _needsMatch: !row.product_id,
         _fromOcr: true,
       },
@@ -939,7 +944,11 @@ export function PurchaseReceiveWorkspace({
   }, []);
 
   const updateLine = (index, patch) => {
-    setLines((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    const normalized = { ...patch };
+    if ('tax_amount' in normalized) {
+      Object.assign(normalized, normalizeTaxFieldPatch(normalized.tax_amount));
+    }
+    setLines((prev) => prev.map((row, i) => (i === index ? { ...row, ...normalized } : row)));
   };
 
   const focusNewItemRow = useCallback(() => {
@@ -2278,8 +2287,14 @@ export function PurchaseReceiveWorkspace({
                             min={0}
                             step="0.01"
                             className={cn(PURCHASE_CELL_NUMBER, 'text-[13px]', ocrCellClass(line, 'tax_amount'))}
-                            value={line.tax_amount}
+                            value={formatTaxInputValue(line.tax_amount)}
                             onChange={(e) => updateLine(index, { tax_amount: e.target.value })}
+                            onBlur={() => {
+                              const formatted = formatTaxInputValue(line.tax_amount);
+                              if (formatted !== String(line.tax_amount ?? '').trim()) {
+                                updateLine(index, { tax_amount: formatted });
+                              }
+                            }}
                             onKeyDown={(e) => onCellEnter(e, 'sale')}
                             disabled={!editable}
                             title={
