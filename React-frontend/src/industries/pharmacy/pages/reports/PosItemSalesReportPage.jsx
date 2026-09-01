@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { format } from "date-fns";
+import { format, startOfMonth } from "date-fns";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { pharmacyApi } from "../../api/pharmacy.api";
@@ -18,9 +18,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PosItemSalesStatement } from "./PosItemSalesStatement";
 import { resolveFiscalYear } from "./PharmacyReportChrome";
 
-function todayPeriod() {
-  const d = format(new Date(), "yyyy-MM-dd");
-  return { from: d, to: d };
+function defaultPeriod() {
+  const today = new Date();
+  return {
+    from: format(startOfMonth(today), "yyyy-MM-dd"),
+    to: format(today, "yyyy-MM-dd"),
+  };
 }
 
 function csvCell(value) {
@@ -45,8 +48,8 @@ function formatDisplayAmount(value) {
 export function PosItemSalesReportPage() {
   const { id: workspaceId } = useParams();
   const user = useAuthStore((s) => s.user);
-  const [period, setPeriod] = useState(todayPeriod);
-  const [draft, setDraft] = useState(todayPeriod);
+  const [period, setPeriod] = useState(() => defaultPeriod());
+  const [draft, setDraft] = useState(() => defaultPeriod());
   const [search, setSearch] = useState("");
   const [draftSearch, setDraftSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -93,10 +96,13 @@ export function PosItemSalesReportPage() {
     setPeriod({ ...draft });
     setSearch(draftSearch.trim());
   };
+
   const resetFilters = () => {
-    const next = todayPeriod();
+    const next = defaultPeriod();
     setDraft(next);
+    setPeriod(next);
     setDraftSearch("");
+    setSearch("");
   };
 
   const filename = useMemo(
@@ -151,8 +157,8 @@ export function PosItemSalesReportPage() {
         formatAmountCsv(row.rate),
         formatAmountCsv(row.discount),
         formatAmountCsv(row.sale),
-        formatAmountCsv(row.cost_available === false ? 'UNAVAILABLE' : row.cost),
-        formatAmountCsv(row.profit_available === false ? 'UNAVAILABLE' : row.profit),
+        formatAmountCsv(row.cost_available === false ? "UNAVAILABLE" : row.cost),
+        formatAmountCsv(row.profit_available === false ? "UNAVAILABLE" : row.profit),
       ]);
     }
     out.push([
@@ -191,7 +197,7 @@ export function PosItemSalesReportPage() {
     <ReportPageShell
       workspaceId={workspaceId}
       title="Item-wise POS Sales"
-      subtitle="Who sold each item, when, qty, rate, discount, and profit from posted counter sales."
+      subtitle="Counter sale lines with cashier, qty, rate, discount, and profit."
       showFavorite={false}
       actions={
         <ReportActionBar
@@ -203,11 +209,11 @@ export function PosItemSalesReportPage() {
           printDisabled={!showReport || loading}
         />
       }
-      contentClassName="w-full min-w-0 max-w-full mx-auto space-y-4 pos-item-sales-report-root lg:max-w-[1280px]"
+      contentClassName="w-full min-w-0 max-w-full mx-auto space-y-4 pos-item-sales-report-root lg:max-w-[1200px]"
     >
-      <div className="no-print">
+      <div className="no-print rounded-xl border border-border/70 bg-card p-3 shadow-xs sm:p-4">
         <ReportDateFilter
-          compact
+          embedded
           from={draft.from}
           to={draft.to}
           onFromChange={(v) => setDraft((p) => ({ ...p, from: v }))}
@@ -216,7 +222,7 @@ export function PosItemSalesReportPage() {
           onReset={resetFilters}
           loading={loading}
           currency={currency}
-          hint="Posted counter receipts only. Defaults to today. Draft, cancelled, and void sales are excluded."
+          hint="Posted counter receipts only. Defaults to this month."
         >
           <Input
             value={draftSearch}
@@ -226,7 +232,7 @@ export function PosItemSalesReportPage() {
             }}
             placeholder="Search item, SKU, or invoice"
             aria-label="Search item, SKU, or invoice"
-            className="h-8 w-full min-w-0 text-xs sm:w-[220px]"
+            className="h-9 w-full min-w-0 sm:w-[220px]"
           />
         </ReportDateFilter>
       </div>
@@ -266,7 +272,7 @@ export function PosItemSalesReportPage() {
       ) : null}
 
       {showReport && totals?.profit_complete === false && Number(totals.missing_ledger_cogs_lines || 0) > 0 ? (
-        <p className="no-print rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="no-print rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           {totals.missing_ledger_cogs_lines} sale line
           {totals.missing_ledger_cogs_lines === 1 ? "" : "s"} missing ledger COGS — profit totals
           exclude those lines.
@@ -281,11 +287,11 @@ export function PosItemSalesReportPage() {
       ) : null}
 
       {loading && !showReport ? (
-        <Skeleton className="h-[520px] w-full rounded-xl" />
+        <Skeleton className="h-[420px] w-full rounded-xl" />
       ) : showReport ? (
         <div
           ref={sheetRef}
-          className="report-print-sheet pos-item-sales-print overflow-visible rounded-lg border border-slate-200 bg-white print:overflow-visible print:rounded-none print:border-0"
+          className="report-print-sheet pos-item-sales-print overflow-hidden rounded-xl border border-border/70 bg-card shadow-xs print:overflow-visible print:rounded-none print:border-0 print:shadow-none"
         >
           <PosItemSalesStatement
             companyName={companyName}
@@ -299,6 +305,7 @@ export function PosItemSalesReportPage() {
             rows={rows}
             totals={totals}
             truncated={truncated}
+            compact
           />
         </div>
       ) : null}
