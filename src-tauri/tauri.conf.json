@@ -22,8 +22,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../webapp": "webapp",
-      "../../Laravel-api-backend": "laravel"
+      "../webapp": "webapp"
     },
     "windows": {
       "webviewInstallMode": {

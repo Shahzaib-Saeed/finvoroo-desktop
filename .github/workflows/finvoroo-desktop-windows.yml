@@ -5,8 +5,9 @@
 #   React-frontend/              ← bundled React source for CI build
 #   webapp/                      ← generated (gitignored), embedded in installer
 #
-# Tauri also bundles ../../Laravel-api-backend (see src-tauri/tauri.conf.json).
-# CI checks out Shahzaib-Saeed/finvoroo next to this repo as Laravel-api-backend/.
+# The installer is a Tauri shell around the React app. It talks to the
+# cloud API (api.finvoroo.com). Laravel is NOT cloned or bundled in CI —
+# that extra checkout was breaking Windows builds.
 
 name: Finvoroo Desktop Windows installer
 
@@ -36,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout finvoroo-desktop (includes React-frontend/)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Verify React-frontend is bundled in this repo
         shell: pwsh
@@ -62,30 +63,6 @@ jobs:
           cache-dependency-path: |
             React-frontend/package-lock.json
             package-lock.json
-
-      - name: Require Laravel repo access token
-        shell: pwsh
-        env:
-          LARAVEL_REPO_PAT: ${{ secrets.LARAVEL_REPO_PAT }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:LARAVEL_REPO_PAT)) {
-            Write-Error @"
-          Missing repository secret: LARAVEL_REPO_PAT
-
-          The finvoroo Laravel API repo (Shahzaib-Saeed/finvoroo) is private.
-          GITHUB_TOKEN cannot read other private repos, so checkout returns "Not Found".
-
-          Fix (one-time):
-          1. GitHub → Settings → Developer settings → Personal access tokens
-          2. Create a token with read access to Shahzaib-Saeed/finvoroo
-             (classic: repo scope · fine-grained: Contents read on finvoroo)
-          3. finvoroo-desktop repo → Settings → Secrets → Actions
-          4. New secret: LARAVEL_REPO_PAT = paste the token
-          5. Re-run this workflow
-          "@
-            exit 1
-          }
-          Write-Host 'LARAVEL_REPO_PAT is configured.'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -120,57 +97,6 @@ jobs:
             exit 1
           }
           Write-Host "webapp bundle OK ($($assets.Count) asset file(s))."
-
-      - name: Checkout Laravel API for Tauri bundle
-        uses: actions/checkout@v4
-        with:
-          repository: Shahzaib-Saeed/finvoroo
-          path: _laravel-api-backend
-          token: ${{ secrets.LARAVEL_REPO_PAT }}
-
-      - name: Place Laravel API where Tauri expects it
-        shell: pwsh
-        run: |
-          $parent = Split-Path -Parent $env:GITHUB_WORKSPACE
-          $dest = Join-Path $parent "Laravel-api-backend"
-          $src = "_laravel-api-backend"
-
-          if (Test-Path (Join-Path $src "Laravel-api-backend/artisan")) {
-            $src = Join-Path $src "Laravel-api-backend"
-          }
-
-          if (-not (Test-Path (Join-Path $src "artisan"))) {
-            Write-Error @"
-          Checked out finvoroo repo but artisan was not found.
-          Expected either:
-            - _laravel-api-backend/artisan
-            - _laravel-api-backend/Laravel-api-backend/artisan
-          "@
-            exit 1
-          }
-
-          if (Test-Path $dest) {
-            Remove-Item -Recurse -Force $dest
-          }
-          Move-Item -Force $src $dest
-
-          $tauriExpects = (Resolve-Path (Join-Path $env:GITHUB_WORKSPACE "..\..\Laravel-api-backend")).Path
-          if ($tauriExpects -ne (Resolve-Path $dest).Path) {
-            Write-Error "Laravel path mismatch. Tauri expects $tauriExpects but placed at $dest"
-            exit 1
-          }
-
-          Write-Host "Laravel API ready at $dest"
-
-      - name: Verify Tauri Laravel resource path exists
-        shell: pwsh
-        run: |
-          $path = Join-Path $env:GITHUB_WORKSPACE "..\..\Laravel-api-backend"
-          if (-not (Test-Path (Join-Path $path "artisan"))) {
-            Write-Error "Tauri resource path missing: $path (artisan not found)"
-            exit 1
-          }
-          Write-Host "Tauri resource path OK: $path"
 
       - name: Build Windows NSIS installer (Tauri)
         run: npx tauri build --bundles nsis

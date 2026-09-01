@@ -109,12 +109,10 @@ CI checks out this repo and `React` side by side (same layout as local
 
 Built installers are **never committed to Git**.
 
-If the React repo is **private**, add a `REACT_REPO_PAT` secret (PAT with `repo` read).
+The Windows installer is built from **this repo only**. It does not clone
+the Laravel API. The desktop app talks to `https://api.finvoroo.com`.
 
-If the Laravel API repo (`Shahzaib-Saeed/finvoroo`) is **private**, add a
-`LARAVEL_REPO_PAT` secret (PAT with read access to that repo). Without it,
-CI fails at checkout with `Not Found` because `GITHUB_TOKEN` only sees
-`finvoroo-desktop`, not your other private repos.
+If the React repo is **private**, add a `REACT_REPO_PAT` secret (PAT with `repo` read).
 
 ### Publishing to app.finvoroo.com
 
