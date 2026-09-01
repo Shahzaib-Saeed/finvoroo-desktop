@@ -1,8 +1,5 @@
 import { Link } from "react-router";
 import {
-  Download,
-  Printer,
-  Share2,
   ExternalLink,
   Loader2,
   MousePointerClick,
@@ -11,6 +8,7 @@ import {
   FileText,
 } from "lucide-react";
 import { StatusBadge } from "@/components/workspace/documents/sharedColumns";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getDocTypeMeta } from "./document-explorer.lib";
 
@@ -28,6 +26,9 @@ const MONTH_SHORT = [
   "Nov",
   "Dec",
 ];
+
+const ICON_CHIP =
+  "flex size-9 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-slate-50 text-slate-600 ring-1 ring-slate-200/60";
 
 function formatDetailDate(value) {
   if (!value) return "—";
@@ -47,88 +48,80 @@ function formatDetailTime(value) {
   });
 }
 
-function iconAction(Icon, label) {
-  return (
-    <button
-      type="button"
-      title={label}
-      className="rounded-lg border border-border bg-background p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-    >
-      <Icon className="w-3.5 h-3.5" strokeWidth={2.5} />
-    </button>
-  );
-}
-
 function MetaRow({ label, value }) {
   return (
-    <div className="flex flex-col">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <span className="mt-1 truncate text-sm font-semibold text-foreground">
+    <div className="min-w-0">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <p className="mt-0.5 truncate text-sm font-medium text-foreground">
         {value || <span className="text-muted-foreground/40">—</span>}
-      </span>
+      </p>
     </div>
   );
 }
 
 function TimelineStep({ icon: Icon, title, subtitle, active, last }) {
   return (
-    <div className="relative flex gap-3 pb-4 last:pb-0">
+    <div className="relative flex gap-2.5 pb-3 last:pb-0">
       {!last ? (
-        <div className="absolute bottom-0 left-3 top-6 w-px bg-border" />
+        <div className="absolute bottom-0 left-[11px] top-5 w-px bg-border" />
       ) : null}
       <div
         className={cn(
-          "relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full border",
+          "relative z-10 flex size-[22px] shrink-0 items-center justify-center rounded-full border",
           active
-            ? "border-primary bg-primary text-primary-foreground shadow-sm"
-            : "border-border bg-background text-muted-foreground",
+            ? "border-primary/30 bg-primary/10 text-primary"
+            : "border-border bg-muted/40 text-muted-foreground",
         )}
       >
-        <Icon className="w-3 h-3" strokeWidth={3} />
+        <Icon className="size-3" strokeWidth={2.5} />
       </div>
-      <div className="flex flex-col min-w-0 -mt-0.5">
-        <span className="text-sm font-semibold tracking-tight text-foreground">
-          {title}
-        </span>
+      <div className="min-w-0 -mt-0.5 flex-1">
+        <p className="text-[13px] font-medium text-foreground">{title}</p>
         {subtitle ? (
-          <span className="mt-0.5 text-xs text-muted-foreground">
-            {subtitle}
-          </span>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>
         ) : null}
       </div>
     </div>
   );
 }
 
+function PanelShell({ children, className }) {
+  return (
+    <div
+      className={cn(
+        "sticky top-4 overflow-hidden rounded-xl border border-border/70 bg-card shadow-xs",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 function EmptyState() {
   return (
-    <div className="sticky top-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <div className="flex flex-col items-center text-center py-10">
-        <div className="mb-3 rounded-2xl bg-muted p-3 text-muted-foreground">
-          <MousePointerClick className="w-6 h-6" />
+    <PanelShell>
+      <div className="flex flex-col items-center px-4 py-12 text-center">
+        <div className="mb-3 flex size-10 items-center justify-center rounded-lg border border-border/70 bg-muted/50 text-muted-foreground">
+          <MousePointerClick className="size-4" />
         </div>
         <p className="text-sm font-semibold text-foreground">Select a document</p>
-        <p className="mt-1.5 max-w-xs text-sm text-muted-foreground">
-          Click any document on the left to preview its details, audit trail and
-          linked postings here.
+        <p className="mt-1 max-w-[220px] text-xs text-muted-foreground">
+          Choose a row to preview details, audit trail, and linked documents.
         </p>
       </div>
-    </div>
+    </PanelShell>
   );
 }
 
 function LoadingState() {
   return (
-    <div className="sticky top-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <PanelShell>
       <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        <span className="text-xs font-semibold">
-          Loading document…
-        </span>
+        <Loader2 className="size-4 animate-spin" />
+        <span className="text-xs font-medium">Loading document…</span>
       </div>
-    </div>
+    </PanelShell>
   );
 }
 
@@ -139,7 +132,7 @@ function buildTimeline(document, audit) {
   steps.push({
     icon: CheckCircle2,
     title: "Created",
-    subtitle: `${formatDetailDate(document?.date)} ${formatDetailTime(document?.date)}`,
+    subtitle: `${formatDetailDate(document?.date)} ${formatDetailTime(document?.date)}`.trim(),
     active: true,
   });
 
@@ -151,7 +144,7 @@ function buildTimeline(document, audit) {
             ? entry.action.charAt(0).toUpperCase() + entry.action.slice(1)
             : "Updated",
         subtitle: entry.created_at
-          ? `${formatDetailDate(entry.created_at)} ${formatDetailTime(entry.created_at)}`
+          ? `${formatDetailDate(entry.created_at)} ${formatDetailTime(entry.created_at)}`.trim()
           : entry.user_name || "System",
         active: true,
       }))
@@ -213,21 +206,14 @@ export function DocumentInspectPanel({
     : [];
 
   return (
-    <div className="sticky top-6 h-fit overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-border bg-muted/20 px-5 py-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <div
-            className={cn(
-              "rounded-xl border p-2.5 shadow-sm",
-              meta.iconBg,
-              meta.chip,
-            )}
-          >
-            <Icon className="w-4 h-4" strokeWidth={2.5} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <PanelShell>
+      <div className="border-b border-border/60 px-4 py-3">
+        <div className="flex items-start gap-3">
+          <span className={ICON_CHIP}>
+            <Icon className="size-4" strokeWidth={2} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               {document.doc_type_label || meta.label}
             </p>
             <p className="truncate text-base font-semibold tracking-tight text-foreground">
@@ -235,47 +221,39 @@ export function DocumentInspectPanel({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {iconAction(Download, "Download")}
-          {iconAction(Printer, "Print")}
-          {iconAction(Share2, "Share")}
+
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <StatusBadge status={document.status} />
+          <span
+            className={cn(
+              "text-base font-semibold tabular-nums tracking-tight",
+              hasAmount ? "text-foreground" : "text-muted-foreground/40",
+            )}
+          >
+            {hasAmount ? formatMoney(document.amount) : "—"}
+          </span>
         </div>
       </div>
 
-      {/* Status + Amount */}
-      <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <StatusBadge status={document.status} />
-        <span
-          className={cn(
-            "font-mono text-base font-semibold tracking-tight",
-            hasAmount ? "text-foreground" : "text-muted-foreground/40",
-          )}
-        >
-          {hasAmount ? formatMoney(document.amount) : "—"}
-        </span>
-      </div>
-
-      {/* Metadata Grid */}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-5 border-b border-border px-5 py-5">
-        <MetaRow label="Posting Date" value={formatDetailDate(document.date)} />
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-border/60 px-4 py-3">
+        <MetaRow label="Posting date" value={formatDetailDate(document.date)} />
         <MetaRow
           label={document.party_type === "vendor" ? "Vendor" : "Customer"}
           value={document.party_name}
         />
         <MetaRow
-          label="Journal Lines"
+          label="Journal lines"
           value={journalCount > 0 ? String(journalCount) : "—"}
         />
         <MetaRow
-          label="Linked Docs"
+          label="Linked docs"
           value={relatedFlat.length > 0 ? String(relatedFlat.length) : "—"}
         />
       </div>
 
-      {/* Timeline */}
-      <div className="px-5 pb-3 pt-5">
-        <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Audit Trail
+      <div className="px-4 py-3">
+        <p className="mb-2.5 text-[11px] font-medium text-muted-foreground">
+          Audit trail
         </p>
         <div>
           {timeline.map((step, i) => (
@@ -291,25 +269,24 @@ export function DocumentInspectPanel({
         </div>
       </div>
 
-      {/* Linked Documents */}
       {relatedFlat.length > 0 ? (
-        <div className="mx-5 mt-2 border-t border-border pt-4">
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Linked Documents
+        <div className="border-t border-border/60 px-4 py-3">
+          <p className="mb-2 text-[11px] font-medium text-muted-foreground">
+            Linked documents
           </p>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             {relatedFlat.slice(0, 4).map((item) => (
               <Link
                 key={`${item.doc_type}-${item.id}`}
                 to={item.path ? `/workspace/${workspaceId}${item.path}` : "#"}
-                className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2.5 transition-colors hover:bg-muted/50"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/50"
               >
                 <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">
+                  <p className="truncate text-[13px] font-medium text-foreground">
                     {item.document_no}
                   </p>
-                  <p className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <p className="truncate text-[11px] text-muted-foreground">
                     {item.doc_type_label}
                   </p>
                 </div>
@@ -319,16 +296,14 @@ export function DocumentInspectPanel({
         </div>
       ) : null}
 
-      {/* Footer Action */}
-      <div className="mt-5 border-t border-border bg-muted/20 p-5">
-        <Link
-          to={detailHref}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          Open full document
-          <ExternalLink className="w-3.5 h-3.5" strokeWidth={2.5} />
-        </Link>
+      <div className="border-t border-border/60 p-3">
+        <Button className="h-9 w-full gap-2" asChild>
+          <Link to={detailHref}>
+            Open full document
+            <ExternalLink className="size-3.5" />
+          </Link>
+        </Button>
       </div>
-    </div>
+    </PanelShell>
   );
 }

@@ -9,6 +9,16 @@ import { formatBsAmount } from './BalanceSheetStatement';
 import { STATEMENT_AMOUNT_COL } from './report-typography';
 import { categoryLabel } from './CategoryTradingPartnerCards';
 
+const GROUP_SALES =
+  'border-b border-sky-200 bg-sky-50/80 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-sky-800';
+const GROUP_PURCHASE =
+  'border-b border-amber-200 bg-amber-50/80 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-amber-900';
+const GROUP_RESULT =
+  'border-b border-emerald-200 bg-emerald-50/80 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-800';
+const SUB_TH =
+  'px-2 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-500';
+const DIVIDER = 'border-l-2 border-slate-300';
+
 function formatPct(value) {
   if (value === null || value === undefined || value === '') return '—';
   const n = Number(value);
@@ -37,29 +47,33 @@ function Amount({ value, className, emphasize = false }) {
   );
 }
 
-function SummaryCell({ label, value, tone, hint }) {
+function PanelLine({ label, value, profit = false, bold = false, muted = false }) {
   return (
-    <div className="bg-white px-4 py-2.5 sm:px-5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <span
         className={cn(
-          'mt-0.5 text-sm font-bold tabular-nums',
-          tone === 'profit' && 'text-emerald-700',
-          tone === 'loss' && 'text-red-700',
-          !tone && 'text-slate-900',
+          'text-sm',
+          muted ? 'text-slate-500' : 'text-slate-700',
+          bold && 'font-semibold text-slate-900',
         )}
       >
-        {value}
-      </p>
-      {hint ? <p className="mt-0.5 text-[10px] text-slate-400">{hint}</p> : null}
+        {label}
+      </span>
+      <span
+        className={cn(
+          STATEMENT_AMOUNT_COL,
+          bold && 'text-base font-bold',
+          profit && profitColor(value),
+          !profit && Number(value) < -0.004 && 'text-red-700',
+        )}
+      >
+        {formatReportMoney(value)}
+      </span>
     </div>
   );
 }
 
 function MoneyLine({ label, value, profit = false, bold = false }) {
-  const n = Number(value);
   return (
     <div className="flex items-center justify-between gap-4 py-1">
       <span className={cn('text-sm text-slate-700', bold && 'font-semibold text-slate-900')}>
@@ -70,7 +84,7 @@ function MoneyLine({ label, value, profit = false, bold = false }) {
           STATEMENT_AMOUNT_COL,
           bold && 'font-bold',
           profit && profitColor(value),
-          !profit && n < -0.004 && 'text-red-700',
+          !profit && Number(value) < -0.004 && 'text-red-700',
         )}
       >
         {formatBsAmount(value) || '—'}
@@ -117,45 +131,83 @@ export function CategoryTradingStatement({
         printedAt={printedAt}
       />
 
-      <div className="grid grid-cols-2 gap-px border-b border-slate-200 bg-slate-200 sm:grid-cols-4">
-        <SummaryCell label="Sales" value={formatReportMoney(sale)} />
-        <SummaryCell label="COGS" value={formatReportMoney(cogs)} />
-        <SummaryCell
-          label={grossProfit < 0 ? 'Gross loss' : 'Gross profit'}
-          value={formatReportMoney(grossProfit)}
-          tone={grossProfit < -0.004 ? 'loss' : grossProfit > 0.004 ? 'profit' : undefined}
-          hint={marginPct != null ? `${formatPct(marginPct)} margin` : null}
-        />
-        <SummaryCell
-          label="Stock purchased"
-          value={formatReportMoney(purchase)}
-          hint="Not in P&L"
-        />
+      <div className="grid grid-cols-1 divide-y divide-slate-200 border-b border-slate-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+        <div className="px-5 py-4 sm:px-6">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-sky-800">
+            Sales — what you sold
+          </p>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            Revenue and the cost of goods that left stock for those sales.
+          </p>
+          <div className="mt-3 space-y-0 divide-y divide-slate-100">
+            <PanelLine label="Sales revenue" value={sale} bold />
+            <PanelLine label="Cost of goods sold (COGS)" value={cogs} muted />
+            <PanelLine
+              label={grossProfit < 0 ? 'Gross loss' : 'Gross profit'}
+              value={grossProfit}
+              profit
+              bold
+            />
+            {marginPct != null ? (
+              <div className="flex items-center justify-between gap-3 py-1.5">
+                <span className="text-sm text-slate-500">Margin on sales</span>
+                <span
+                  className={cn(
+                    STATEMENT_AMOUNT_COL,
+                    'text-sm font-semibold tabular-nums',
+                    profitColor(marginPct),
+                  )}
+                >
+                  {formatPct(marginPct)}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="bg-slate-50/40 px-5 py-4 sm:px-6">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-900">
+            Purchases — stock you bought
+          </p>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            Inventory received in this period. Not subtracted from gross profit.
+          </p>
+          <div className="mt-3">
+            <PanelLine label="Stock purchased" value={purchase} bold />
+          </div>
+          <p className="mt-3 rounded-md border border-amber-200/80 bg-amber-50/60 px-3 py-2 text-[11px] leading-snug text-amber-950/80">
+            Purchases add to inventory. Profit is only{' '}
+            <span className="font-semibold">sales − COGS</span>, not sales minus purchases.
+          </p>
+        </div>
       </div>
 
       <div className="px-5 py-4 print:px-4 sm:px-6">
         <div className="overflow-x-auto">
-          <table className="category-trading-table w-full min-w-[640px] border-collapse">
+          <table className="category-trading-table w-full min-w-[720px] border-collapse">
             <thead>
-              <tr className="border-b border-slate-900">
-                <th className="pb-2 pl-0 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+              <tr>
+                <th
+                  rowSpan={2}
+                  className="w-[22%] border-b border-slate-900 pb-2 pl-0 pr-4 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-slate-600"
+                >
                   Category
                 </th>
-                <th className="px-3 pb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <th colSpan={3} className={GROUP_SALES}>
                   Sales
                 </th>
-                <th className="px-3 pb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  COGS
+                <th colSpan={1} className={cn(GROUP_PURCHASE, DIVIDER)}>
+                  Purchases
                 </th>
-                <th className="px-3 pb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <th rowSpan={2} className={cn(GROUP_RESULT, DIVIDER, 'align-bottom')}>
                   Gross profit
                 </th>
-                <th className="px-3 pb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  Margin
-                </th>
-                <th className="pb-2 pl-3 pr-0 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Stock purchased
-                </th>
+              </tr>
+              <tr className="border-b border-slate-300">
+                <th className={SUB_TH}>Revenue</th>
+                <th className={SUB_TH}>COGS</th>
+                <th className={SUB_TH}>Margin</th>
+                <th className={cn(SUB_TH, DIVIDER)}>Stock purchased</th>
               </tr>
             </thead>
             <tbody>
@@ -169,40 +221,43 @@ export function CategoryTradingStatement({
                 rows.map((row, index) => {
                   const label = categoryLabel(row.category_name, row.category_code);
                   return (
-                    <tr key={row.category_id ?? `row-${index}`}>
-                      <td className="py-2 pl-0 pr-4">
+                    <tr
+                      key={row.category_id ?? `row-${index}`}
+                      className="border-b border-slate-100 last:border-0"
+                    >
+                      <td className="py-2.5 pl-0 pr-4">
                         <span
                           className={cn(
-                            'text-sm text-slate-800',
-                            row.uncategorized && 'italic text-slate-500',
+                            'text-sm font-medium text-slate-800',
+                            row.uncategorized && 'italic font-normal text-slate-500',
                           )}
                         >
                           {label}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-2 py-2.5 text-right">
                         <Amount value={row.sale} />
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <Amount value={row.cogs} />
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <Amount
-                          value={row.net_profit}
-                          emphasize
-                          className={profitColor(row.net_profit)}
-                        />
+                      <td className="px-2 py-2.5 text-right">
+                        <Amount value={row.cogs} className="text-slate-600" />
                       </td>
                       <td
                         className={cn(
-                          'px-3 py-2 text-right text-sm tabular-nums',
+                          'px-2 py-2.5 text-right text-sm tabular-nums',
                           profitColor(row.margin_percent),
                         )}
                       >
                         {formatPct(row.margin_percent)}
                       </td>
-                      <td className="py-2 pl-3 pr-0 text-right">
-                        <Amount value={row.purchase} className="text-slate-400" />
+                      <td className={cn('px-2 py-2.5 text-right', DIVIDER)}>
+                        <Amount value={row.purchase} className="text-slate-600" />
+                      </td>
+                      <td className={cn('px-2 py-2.5 text-right', DIVIDER)}>
+                        <Amount
+                          value={row.net_profit}
+                          emphasize
+                          className={profitColor(row.net_profit)}
+                        />
                       </td>
                     </tr>
                   );
@@ -211,33 +266,33 @@ export function CategoryTradingStatement({
             </tbody>
             {rows.length > 0 ? (
               <tfoot>
-                <tr className="border-y-[3px] border-double border-slate-900">
+                <tr className="border-y-[3px] border-double border-slate-900 bg-slate-50/50">
                   <td className="py-2.5 pl-0 pr-4 text-sm font-semibold text-slate-900">
                     Total
                   </td>
-                  <td className="px-3 py-2.5 text-right">
+                  <td className="px-2 py-2.5 text-right">
                     <Amount value={sale} emphasize />
                   </td>
-                  <td className="px-3 py-2.5 text-right">
+                  <td className="px-2 py-2.5 text-right">
                     <Amount value={cogs} emphasize />
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    <Amount
-                      value={grossProfit}
-                      emphasize
-                      className={cn('font-bold', profitColor(grossProfit))}
-                    />
                   </td>
                   <td
                     className={cn(
-                      'px-3 py-2.5 text-right text-sm font-semibold tabular-nums',
+                      'px-2 py-2.5 text-right text-sm font-semibold tabular-nums',
                       profitColor(marginPct),
                     )}
                   >
                     {formatPct(marginPct)}
                   </td>
-                  <td className="py-2.5 pl-3 pr-0 text-right">
-                    <Amount value={purchase} className="font-semibold text-slate-400" />
+                  <td className={cn('px-2 py-2.5 text-right', DIVIDER)}>
+                    <Amount value={purchase} emphasize className="text-slate-700" />
+                  </td>
+                  <td className={cn('px-2 py-2.5 text-right', DIVIDER)}>
+                    <Amount
+                      value={grossProfit}
+                      emphasize
+                      className={cn('font-bold', profitColor(grossProfit))}
+                    />
                   </td>
                 </tr>
               </tfoot>
@@ -286,7 +341,7 @@ export function CategoryTradingStatement({
         ) : null}
       </div>
 
-      <PharmacyReportFooter note="Gross profit = sales − COGS. Stock purchased is inventory bought, not a profit deduction." />
+      <PharmacyReportFooter note="Left side = sales activity (revenue and COGS). Right side = stock purchased (inventory in). Gross profit = sales − COGS only." />
     </div>
   );
 }

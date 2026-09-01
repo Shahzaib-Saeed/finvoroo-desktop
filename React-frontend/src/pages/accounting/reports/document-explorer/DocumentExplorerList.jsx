@@ -19,6 +19,9 @@ const MONTH_SHORT = [
   "Dec",
 ];
 
+const ICON_CHIP =
+  "flex size-8 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-slate-50 text-slate-600 ring-1 ring-slate-200/60";
+
 function formatDocDate(value) {
   if (!value) return null;
   const d = new Date(value);
@@ -30,17 +33,15 @@ function rowKeyOf(row) {
   return `${row.doc_type}-${row.id}`;
 }
 
-/* Shared grid template so the header and every row align on the same columns:
-   [icon+document] [party/ref] [date] [amount] [status] */
 const ROW_GRID =
-  "grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_7rem_8rem_7.25rem] items-center gap-3";
+  "grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_6.5rem_7.5rem_6.5rem] items-center gap-2.5";
 
 function DocumentRow({ row, formatMoney, selected, onSelect }) {
   const meta = getDocTypeMeta(row.doc_type);
   const Icon = meta.icon;
   const hasAmount = row.amount !== null && row.amount !== undefined;
   const dateLabel = formatDocDate(row.date);
-  const reference = row.reference || row.external_reference || row.id;
+  const reference = row.reference || row.external_reference;
 
   return (
     <button
@@ -48,100 +49,78 @@ function DocumentRow({ row, formatMoney, selected, onSelect }) {
       onClick={() => onSelect(row)}
       aria-pressed={selected}
       className={cn(
-        "group relative w-full cursor-pointer px-4 py-3.5 text-left outline-none transition-all duration-150 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-inset",
+        "group relative w-full cursor-pointer px-3 py-2.5 text-left outline-none transition-colors focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-inset",
         ROW_GRID,
-        selected
-          ? "bg-primary/[0.055] ring-1 ring-inset ring-primary/10"
-          : "bg-card hover:bg-muted/30",
+        selected ? "bg-primary/[0.06]" : "hover:bg-muted/40",
       )}
     >
-      {/* Selection accent bar */}
       <span
         className={cn(
-          "absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-primary transition-all duration-200",
+          "absolute inset-y-1.5 left-0 w-0.5 rounded-r-full bg-primary transition-opacity",
           selected ? "opacity-100" : "opacity-0",
         )}
         aria-hidden
       />
 
-      {/* Document: type icon + number + type label */}
-      <div className="flex min-w-0 items-center gap-3">
-        <span
-          className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-xl border border-current/10 shadow-sm transition-transform duration-200 group-hover:scale-[1.03]",
-            meta.iconBg,
-            selected && "ring-2 ring-primary/10",
-          )}
-        >
-          <Icon className="size-[17px]" strokeWidth={2} />
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className={cn(ICON_CHIP, selected && "border-primary/25 bg-primary/5 text-primary")}>
+          <Icon className="size-3.5" strokeWidth={2} />
         </span>
         <div className="min-w-0">
           <p
             className={cn(
-              "truncate text-sm font-bold tracking-tight",
+              "truncate text-[13px] font-semibold tracking-tight",
               selected ? "text-primary" : "text-foreground",
             )}
           >
             {row.document_no || "—"}
           </p>
-          <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs font-medium text-muted-foreground">
-            <span
-              className={cn(
-                "inline-flex shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider",
-                meta.chip,
-              )}
-            >
-              {meta.abbrev}
-            </span>
-            <span className="truncate">{row.doc_type_label || meta.label}</span>
-            <span className="md:hidden">
-              {dateLabel ? ` · ${dateLabel}` : ""}
-            </span>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {row.doc_type_label || meta.label}
+            {dateLabel ? (
+              <span className="md:hidden">{` · ${dateLabel}`}</span>
+            ) : null}
           </p>
         </div>
       </div>
 
-      {/* Party + reference */}
       <div className="hidden min-w-0 md:block">
-        <p className="truncate text-sm font-medium text-foreground/80">
-          {row.party_name || <span className="text-muted-foreground/60">—</span>}
+        <p className="truncate text-[13px] font-medium text-foreground/90">
+          {row.party_name || <span className="text-muted-foreground/50">—</span>}
         </p>
-        <p className="mt-1 truncate font-mono text-xs tracking-wide text-muted-foreground/70">
-          REF · {reference}
-        </p>
+        {reference ? (
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            Ref {reference}
+          </p>
+        ) : null}
       </div>
 
-      {/* Date */}
-      <p className="hidden whitespace-nowrap text-xs font-medium tabular-nums text-muted-foreground md:block">
+      <p className="hidden whitespace-nowrap text-[12px] tabular-nums text-muted-foreground md:block">
         {dateLabel || "—"}
       </p>
 
-      {/* Amount */}
       <p
         className={cn(
-          "hidden whitespace-nowrap text-right text-sm font-bold tabular-nums tracking-tight md:block",
-          hasAmount ? "text-foreground" : "text-muted-foreground/30",
+          "hidden whitespace-nowrap text-right text-[13px] font-semibold tabular-nums md:block",
+          hasAmount ? "text-foreground" : "text-muted-foreground/40",
         )}
       >
         {hasAmount ? formatMoney(row.amount) : "—"}
       </p>
 
-      {/* Status (also shows amount inline on mobile) */}
-      <div className="flex shrink-0 items-center justify-end gap-2">
-        <div className="flex min-w-0 flex-col items-end gap-1">
+      <div className="flex shrink-0 items-center justify-end gap-1.5">
+        <div className="flex flex-col items-end gap-0.5">
           <StatusBadge status={row.status} />
           {hasAmount ? (
-            <span className="text-xs font-bold tabular-nums text-foreground md:hidden">
+            <span className="text-[11px] font-semibold tabular-nums text-foreground md:hidden">
               {formatMoney(row.amount)}
             </span>
           ) : null}
         </div>
         <ChevronRight
           className={cn(
-            "hidden size-3.5 shrink-0 transition-all md:block",
-            selected
-              ? "translate-x-0 text-primary"
-              : "-translate-x-0.5 text-muted-foreground/30 group-hover:translate-x-0 group-hover:text-muted-foreground",
+            "hidden size-3.5 shrink-0 md:block",
+            selected ? "text-primary" : "text-muted-foreground/30 group-hover:text-muted-foreground",
           )}
           aria-hidden
         />
@@ -155,22 +134,16 @@ function ListHeader() {
     <div
       className={cn(
         ROW_GRID,
-        "hidden border-b border-border/70 bg-muted/25 px-4 py-3 md:grid",
+        "hidden border-b border-border/60 bg-muted/20 px-3 py-2 md:grid",
       )}
     >
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Document
-      </span>
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Party / Reference
-      </span>
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Date
-      </span>
-      <span className="text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="text-[11px] font-medium text-muted-foreground">Document</span>
+      <span className="text-[11px] font-medium text-muted-foreground">Party</span>
+      <span className="text-[11px] font-medium text-muted-foreground">Date</span>
+      <span className="text-right text-[11px] font-medium text-muted-foreground">
         Amount
       </span>
-      <span className="pr-5 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="text-right text-[11px] font-medium text-muted-foreground">
         Status
       </span>
     </div>
@@ -179,21 +152,18 @@ function ListHeader() {
 
 function SkeletonRow() {
   return (
-    <div className={cn(ROW_GRID, "bg-card px-4 py-3.5")}>
-      <div className="flex items-center gap-3">
-        <Skeleton className="size-10 rounded-xl" />
-        <div className="space-y-1.5">
-          <Skeleton className="h-3.5 w-28" />
-          <Skeleton className="h-3 w-16" />
+    <div className={cn(ROW_GRID, "px-3 py-2.5")}>
+      <div className="flex items-center gap-2.5">
+        <Skeleton className="size-8 rounded-md" />
+        <div className="space-y-1">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-2.5 w-16" />
         </div>
       </div>
-      <div className="hidden space-y-1.5 md:block">
-        <Skeleton className="h-3.5 w-32" />
-        <Skeleton className="h-3 w-20" />
-      </div>
-      <Skeleton className="hidden h-3 w-16 md:block" />
+      <Skeleton className="hidden h-3 w-28 md:block" />
+      <Skeleton className="hidden h-3 w-14 md:block" />
       <Skeleton className="hidden h-3.5 w-16 justify-self-end md:block" />
-      <Skeleton className="h-5 w-16 justify-self-end rounded-md" />
+      <Skeleton className="h-5 w-14 justify-self-end rounded-md" />
     </div>
   );
 }
@@ -205,11 +175,16 @@ export function DocumentExplorerList({
   perPage,
   selectedKey,
   onSelect,
+  embedded = false,
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+    <div
+      className={cn(
+        embedded ? "" : "overflow-hidden rounded-xl border border-border/70 bg-card shadow-xs",
+      )}
+    >
       <ListHeader />
-      <div className="divide-y divide-border/60">
+      <div className="divide-y divide-border/50">
         {loading
           ? Array.from({ length: Math.min(perPage || 8, 8) }).map((_, i) => (
               <SkeletonRow key={i} />

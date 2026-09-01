@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { format, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
+import { useCan } from "@/hooks/use-can";
 import { reportsApi } from "./api/reports.api";
 import { defaultReportPeriod, formatCurrency } from "./constants";
 import { ReportPageShell } from "./components/ReportPageShell";
@@ -190,6 +191,8 @@ function downloadGeneralLedgerCsv({
 export function GeneralLedgerReportPage() {
   const { id: workspaceId } = useParams();
   const user = useAuthStore((s) => s.user);
+  const canCreateJournal = useCan("journal_entries.create");
+  const journalCreatePath = `/workspace/${workspaceId}/accounting/journal/create`;
   const [period, setPeriod] = useState(defaultReportPeriod());
   const [draft, setDraft] = useState(defaultReportPeriod());
   const [accountId, setAccountId] = useState("");
@@ -427,6 +430,14 @@ export function GeneralLedgerReportPage() {
         <ReportActionBar
           leading={
             <>
+              {canCreateJournal ? (
+                <Button size="sm" variant="mono" className="h-8 gap-1.5 px-3 text-xs" asChild>
+                  <Link to={journalCreatePath}>
+                    <Plus className="size-3.5" />
+                    New entry
+                  </Link>
+                </Button>
+              ) : null}
               <ReportTableToolbar
                 columns={allColumns}
                 isColumnVisible={isColumnVisible}

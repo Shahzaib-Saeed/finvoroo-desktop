@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { FileSpreadsheet, Inbox } from "lucide-react";
 import { toast } from "sonner";
@@ -24,40 +24,33 @@ function norm(s) {
 
 const SECTION_META = {
   custom: {
-    title: "Custom Layout Models",
+    title: "Custom views",
     aside: (n) =>
-      n ? `${n} saved custom view${n === 1 ? "" : "s"}` : "Build your own layouts",
-    dot: "bg-blue-500",
+      n ? `${n} saved layout${n === 1 ? "" : "s"}` : "Build your own layouts",
   },
   financial: {
-    title: "Financial Statements",
-    aside: () => "GAAP / IFRS Compliant",
-    dot: "bg-emerald-500",
+    title: "Financial statements",
+    aside: () => "Income, position & cash flow",
   },
   ledger: {
-    title: "General Ledger & Posting",
-    aside: () => "Audit & Account Verification",
-    dot: "bg-violet-500",
+    title: "General ledger & posting",
+    aside: () => "Trial balance & account detail",
   },
   "ar-ap": {
-    title: "Receivables & Payables",
-    aside: () => "Collections & Vendor Payables",
-    dot: "bg-teal-500",
+    title: "Receivables & payables",
+    aside: () => "Customer & vendor balances",
   },
   inventory: {
     title: "Inventory",
-    aside: () => "Stock & Valuation",
-    dot: "bg-emerald-500",
+    aside: () => "Stock, movement & valuation",
   },
   compliance: {
-    title: "Tax & Compliance",
-    aside: () => "Statutory & Tax Summaries",
-    dot: "bg-amber-500",
+    title: "Tax & compliance",
+    aside: () => "VAT summaries & audit trail",
   },
   traceability: {
     title: "Traceability",
-    aside: () => "Document & Job Trails",
-    dot: "bg-sky-500",
+    aside: () => "Document trails",
   },
 };
 
@@ -71,17 +64,10 @@ function SectionHeading({ sectionId, count }) {
   if (!meta) return null;
   const aside = meta.aside(count ?? 0);
   return (
-    <div className="mb-3.5 flex items-center justify-between gap-3">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className={cn("size-1.5 shrink-0 rounded-full", meta.dot)} />
-        <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-          {meta.title}
-        </h2>
-      </div>
+    <div className="mb-2.5 flex items-center justify-between gap-3">
+      <h2 className="text-sm font-semibold text-foreground">{meta.title}</h2>
       {aside ? (
-        <span className="shrink-0 text-[12px] font-medium text-slate-400">
-          {aside}
-        </span>
+        <span className="shrink-0 text-xs text-muted-foreground">{aside}</span>
       ) : null}
     </div>
   );
@@ -96,14 +82,18 @@ export function AccountingReportsHubPage() {
   const [hub, setHub] = useState(null);
   const [hubLoading, setHubLoading] = useState(true);
 
-  useEffect(() => {
+  const loadHub = useCallback(() => {
     setHubLoading(true);
-    reportCenterApi
+    return reportCenterApi
       .index()
       .then(({ data }) => setHub(data?.data ?? null))
       .catch(() => setHub(null))
       .finally(() => setHubLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadHub();
+  }, [loadHub]);
 
   const sections = useMemo(
     () => getReportHubSections(workspaceId),
@@ -126,6 +116,16 @@ export function AccountingReportsHubPage() {
     allItems.forEach((item) => map.set(favoriteKeyForPath(item.path), item));
     return map;
   }, [allItems]);
+
+  const favoritedStandardKeys = useMemo(() => {
+    const set = new Set();
+    (hub?.favorites ?? []).forEach((f) => {
+      if (f.favoritable_kind === "standard" && f.standard_report_key) {
+        set.add(f.standard_report_key);
+      }
+    });
+    return set;
+  }, [hub?.favorites]);
 
   const q = norm(search);
 
@@ -174,8 +174,8 @@ export function AccountingReportsHubPage() {
     }
   };
 
-  const primarySectionIds = ["financial", "ledger", "ar-ap"];
   const allCustomCount = hub?.my_reports?.length ?? 0;
+  const favoritesCount = hub?.favorites?.length ?? 0;
 
   const filteredSections = useMemo(() => {
     return sections
@@ -204,25 +204,41 @@ export function AccountingReportsHubPage() {
     return [
       {
         id: "all",
-        label: "All Reports",
+        label: "All",
         count: standardTotal + customCount,
       },
       {
+        id: "favorites",
+        label: "Favorites",
+        count: favoritesCount,
+      },
+      {
         id: "financial",
-        label: "Financial Statements",
+        label: "Financial",
         count: countFor("financial"),
       },
-      { id: "ledger", label: "General Ledger", count: countFor("ledger") },
+      { id: "ledger", label: "Ledger", count: countFor("ledger") },
       {
         id: "ar-ap",
-        label: "Receivables & Payables",
+        label: "AR / AP",
         count: countFor("ar-ap"),
       },
-      { id: "custom", label: "Custom Views", count: customCount },
+      {
+        id: "inventory",
+        label: "Inventory",
+        count: countFor("inventory"),
+      },
+      {
+        id: "compliance",
+        label: "Compliance",
+        count: countFor("compliance"),
+      },
+      { id: "custom", label: "Custom", count: customCount },
     ];
-  }, [filteredSections, customReports.length]);
+  }, [filteredSections, customReports.length, favoritesCount]);
 
   const showingCount = useMemo(() => {
+    if (categoryFilter === "favorites") return favoritesCount;
     if (categoryFilter === "all") {
       return (
         filteredSections.reduce((n, s) => n + s.items.length, 0) +
@@ -233,30 +249,69 @@ export function AccountingReportsHubPage() {
     return (
       filteredSections.find((s) => s.id === categoryFilter)?.items.length ?? 0
     );
-  }, [categoryFilter, filteredSections, customReports.length]);
+  }, [categoryFilter, filteredSections, customReports.length, favoritesCount]);
 
   const showCustom =
     (categoryFilter === "all" || categoryFilter === "custom") &&
     (!q || customReports.length > 0 || categoryFilter === "custom");
 
   const visibleStandardSections = filteredSections.filter((section) => {
-    if (categoryFilter === "custom") return false;
-    if (categoryFilter === "all") {
-      return (
-        primarySectionIds.includes(section.id) ||
-        !primarySectionIds.includes(section.id)
-      );
-    }
+    if (categoryFilter === "custom" || categoryFilter === "favorites")
+      return false;
+    if (categoryFilter === "all") return true;
     return section.id === categoryFilter;
   });
 
   const createPath = `${base}/accounting/reports/create`;
+
+  const favoriteItemsForGrid = useMemo(() => {
+    if (categoryFilter !== "favorites") return [];
+    return (hub?.favorites ?? [])
+      .map((fav, idx) => {
+        if (fav.favoritable_kind === "standard") {
+          const item = standardItemsByKey.get(fav.standard_report_key);
+          if (!item) return null;
+          return {
+            key: `fav-std-${fav.standard_report_key}-${idx}`,
+            type: "standard",
+            item,
+          };
+        }
+        if (!fav.report_definition) return null;
+        return {
+          key: `fav-def-${fav.report_definition.id}`,
+          type: "definition",
+          def: fav.report_definition,
+        };
+      })
+      .filter(Boolean);
+  }, [categoryFilter, hub?.favorites, standardItemsByKey]);
+
   const hasAnyResults =
-    (showCustom && (customReports.length > 0 || !q)) ||
-    visibleStandardSections.length > 0;
+    categoryFilter === "favorites"
+      ? favoriteItemsForGrid.length > 0
+      : (showCustom && (customReports.length > 0 || !q)) ||
+        visibleStandardSections.length > 0;
+
+  const renderStandardTile = (item) => {
+    const reportKey = favoriteKeyForPath(item.path);
+    return (
+      <ReportTile
+        key={item.path}
+        title={item.title}
+        description={item.description}
+        path={item.path}
+        icon={item.icon}
+        iconClass={item.iconClass}
+        standardReportKey={reportKey}
+        isFavorited={favoritedStandardKeys.has(reportKey)}
+        onFavoriteChange={() => loadHub()}
+      />
+    );
+  };
 
   return (
-    <div className="w-full min-w-0 space-y-6 pt-1">
+    <div className="w-full min-w-0 space-y-5 pt-1">
       <ReportsHubHeader
         base={base}
         filters={filters}
@@ -269,14 +324,14 @@ export function AccountingReportsHubPage() {
       />
 
       {!hasAnyResults && q ? (
-        <div className="flex flex-col items-center rounded-xl border border-dashed border-slate-300 bg-white py-14 text-center shadow-sm">
-          <div className="flex size-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400">
+        <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-card py-14 text-center shadow-xs">
+          <div className="flex size-12 items-center justify-center rounded-xl border border-border/70 bg-muted text-muted-foreground">
             <Inbox className="size-5" strokeWidth={1.5} />
           </div>
-          <p className="mt-3 text-sm font-semibold text-slate-900">
+          <p className="mt-3 text-sm font-semibold text-foreground">
             No reports match “{search.trim()}”
           </p>
-          <p className="mt-1 max-w-sm text-xs text-slate-500">
+          <p className="mt-1 max-w-sm text-xs text-muted-foreground">
             Try another keyword, or clear search to browse all reports.
           </p>
           <Button
@@ -289,7 +344,61 @@ export function AccountingReportsHubPage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
+          {categoryFilter === "favorites" ? (
+            <section>
+              <div className="mb-2.5 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-foreground">Favorites</h2>
+                <span className="text-xs text-muted-foreground">
+                  {favoriteItemsForGrid.length} pinned
+                </span>
+              </div>
+              {favoriteItemsForGrid.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Star any report from the browse view to pin it here.
+                  </p>
+                </div>
+              ) : (
+                <div className={cn(REPORT_HUB_GRID_CLASS, "gap-2")}>
+                  {favoriteItemsForGrid.map((entry) => {
+                    if (entry.type === "standard") {
+                      return renderStandardTile(entry.item);
+                    }
+                    const def = entry.def;
+                    const openPath = definitionOpenPath(
+                      def,
+                      base,
+                      standardItemsByKey,
+                    );
+                    const editPath = definitionEditPath(def, base);
+                    return (
+                      <ReportTile
+                        key={entry.key}
+                        title={def.name}
+                        description={
+                          def.description ||
+                          "Saved custom layout with your filters and columns"
+                        }
+                        path={openPath}
+                        editPath={editPath}
+                        icon={FileSpreadsheet}
+                        reportDefinitionId={def.id}
+                        isFavorited
+                        onFavoriteChange={() => loadHub()}
+                        onNavigate={() => {
+                          const payload = recordViewPayload(def);
+                          if (payload)
+                            reportCenterApi.recordView(payload).catch(() => {});
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          ) : null}
+
           {showCustom ? (
             <section>
               <SectionHeading
@@ -302,14 +411,14 @@ export function AccountingReportsHubPage() {
                   {[0, 1].map((i) => (
                     <div
                       key={i}
-                      className="min-h-[88px] rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50"
+                      className="min-h-[72px] animate-pulse rounded-xl border border-border/70 bg-muted/40"
                     />
                   ))}
                 </div>
               ) : (
                 <div className={REPORT_HUB_GRID_CLASS}>
                   {!q ? <BuildNewCustomViewCard to={createPath} /> : null}
-                  {customReports.map((def, index) => {
+                  {customReports.map((def) => {
                     const openPath = definitionOpenPath(
                       def,
                       base,
@@ -348,16 +457,7 @@ export function AccountingReportsHubPage() {
                 count={section.items.length}
               />
               <div className={REPORT_HUB_GRID_CLASS}>
-                {section.items.map((item) => (
-                    <ReportTile
-                      key={item.path}
-                      title={item.title}
-                      description={item.description}
-                      path={item.path}
-                      icon={item.icon}
-                      iconClass={item.iconClass}
-                    />
-                  ))}
+                {section.items.map((item) => renderStandardTile(item))}
               </div>
             </section>
           ))}

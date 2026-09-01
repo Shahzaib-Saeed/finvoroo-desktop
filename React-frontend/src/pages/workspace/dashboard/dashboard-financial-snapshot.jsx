@@ -17,7 +17,7 @@ function Amount({ value, currency, loading, size = "lg" }) {
   const parts = fmtMoneyParts(value, currency);
 
   if (loading) {
-    return <Skeleton className={size === "lg" ? "mt-3 h-8 w-36" : "h-5 w-24"} />;
+    return <Skeleton className={size === "lg" ? "mt-3 h-8 w-36" : "mt-1 h-5 w-24"} />;
   }
 
   return (
@@ -129,7 +129,7 @@ export function DashboardFinancialSnapshot({
         <div>
           <h2 className="text-base font-semibold tracking-tight">Overview</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Cash, receivables, payables, and this month’s result
+            Cash, receivables, payables, and this month&apos;s result
           </p>
         </div>
         <Link

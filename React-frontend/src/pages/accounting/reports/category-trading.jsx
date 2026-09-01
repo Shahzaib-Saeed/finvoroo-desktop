@@ -209,7 +209,7 @@ export function CategoryTradingReportPage() {
     <ReportPageShell
       workspaceId={workspaceId}
       title="Category Sales & Purchases"
-      subtitle="Sales, cost of goods sold, and stock purchased by product category."
+      subtitle="Sales on the left, purchases on the right — gross profit is sales minus COGS, not minus purchases."
       actions={
         <ReportActionBar
           onExport={handleExport}
@@ -220,7 +220,7 @@ export function CategoryTradingReportPage() {
           printDisabled={!showReport || loading}
         />
       }
-      contentClassName="mx-auto w-full max-w-[1024px] space-y-4 category-trading-report-root"
+      contentClassName="mx-auto w-full max-w-[1120px] space-y-4 category-trading-report-root"
     >
       <div className="no-print">
         <ReportDateFilter

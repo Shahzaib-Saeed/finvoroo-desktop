@@ -13,8 +13,9 @@ import { useReportDataGridTable } from "@/pages/accounting/reports/hooks/useRepo
 import { ReportTableToolbar } from "@/pages/accounting/reports/components/ReportTableToolbar";
 import { ReportPageShell } from "@/pages/accounting/reports/components/ReportPageShell";
 import { ReportActionBar } from "@/pages/accounting/reports/components/ReportActionBar";
-import { ReportSummaryStrip } from "@/pages/accounting/reports/components/ReportSummaryStrip";
 import { ReportCompactFilterBar } from "@/pages/accounting/reports/components/ReportCompactFilterBar";
+import { InventoryActivitySummaryPanels } from "./InventoryActivitySummaryPanels";
+import { InventoryActivitySplitView } from "./InventoryActivitySplitView";
 import {
   buildInventoryActivityDocumentUrl,
   buildJournalUrl,
@@ -187,6 +188,7 @@ export function InventoryMovementsReportPage() {
   const [useTxnLedger, setUseTxnLedger] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsProductId, setDetailsProductId] = useState(null);
+  const [viewMode, setViewMode] = useState("split");
 
   const [filters, setFilters] = useState({
     product_id: "",
@@ -251,6 +253,14 @@ export function InventoryMovementsReportPage() {
   const applyFilters = () => {
     setPagination((p) => ({ ...p, page: 1 }));
     setFilters({ ...draftFilters });
+    if (
+      draftFilters.type === "adjustment" ||
+      draftFilters.type === "transfer"
+    ) {
+      setViewMode("full");
+    } else if (!draftFilters.type) {
+      setViewMode("split");
+    }
   };
 
   const resetFilters = () => {
@@ -264,7 +274,13 @@ export function InventoryMovementsReportPage() {
     setDraftFilters(emptyFilters);
     setPagination((p) => ({ ...p, page: 1 }));
     setFilters(emptyFilters);
+    setViewMode("split");
   };
+
+  const typeFilter = filters.type;
+  const supportsSplitView =
+    !typeFilter || typeFilter === "purchase" || typeFilter === "sale";
+  const useSplitLayout = supportsSplitView && viewMode === "split";
 
   const buildAllColumns = useCallback(
     () => [
@@ -486,8 +502,8 @@ export function InventoryMovementsReportPage() {
       title="Inventory Activity"
       subtitle={
         useTxnLedger
-          ? "Purchases, sales, and adjustments — quantities show inventory units with document units where applicable."
-          : "Posted movement records — inventory quantities in storage units with document quantities where available."
+          ? "Purchases on the left, sales on the right — stock in vs stock out for the filtered period."
+          : "Posted movement records — purchases and sales shown separately for easier review."
       }
       showBreadcrumb
       breadcrumbs={[
@@ -499,40 +515,44 @@ export function InventoryMovementsReportPage() {
       actions={
         <ReportActionBar
           leading={
-            <ReportTableToolbar
-              columns={allColumns}
-              isColumnVisible={isColumnVisible}
-              onToggle={toggleColumn}
-            />
+            <>
+              {supportsSplitView ? (
+                <div className="flex items-center rounded-md border border-slate-200 bg-white p-0.5">
+                  <Button
+                    type="button"
+                    variant={useSplitLayout ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 rounded-sm px-2.5 text-xs"
+                    onClick={() => setViewMode("split")}
+                  >
+                    Split view
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={!useSplitLayout ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 rounded-sm px-2.5 text-xs"
+                    onClick={() => setViewMode("full")}
+                  >
+                    Full list
+                  </Button>
+                </div>
+              ) : null}
+              <ReportTableToolbar
+                columns={allColumns}
+                isColumnVisible={isColumnVisible}
+                onToggle={toggleColumn}
+              />
+            </>
           }
         />
       }
       contentClassName="w-full max-w-none space-y-3"
     >
       {summary ? (
-        <ReportSummaryStrip
-          items={[
-            {
-              label: "Purchased qty",
-              value: summary.purchased_qty ?? 0,
-              tone: "positive",
-            },
-            {
-              label: "Sold qty",
-              value: summary.sold_qty ?? 0,
-              tone: "negative",
-            },
-            {
-              label: "Purchase cost",
-              value: formatCurrency(summary.purchased_cost ?? 0),
-            },
-            {
-              label: "COGS",
-              value: formatCurrency(summary.sold_cost ?? 0),
-              tone: "warning",
-            },
-          ]}
-          context={`${pagination.total} movement${pagination.total === 1 ? "" : "s"}`}
+        <InventoryActivitySummaryPanels
+          summary={summary}
+          movementCount={pagination.total}
         />
       ) : null}
 
@@ -590,12 +610,18 @@ export function InventoryMovementsReportPage() {
 
         <Select
           value={draftFilters.type || "__all__"}
-          onValueChange={(v) =>
+          onValueChange={(v) => {
+            const nextType = v === "__all__" ? "" : v;
             setDraftFilters((f) => ({
               ...f,
-              type: v === "__all__" ? "" : v,
-            }))
-          }
+              type: nextType,
+            }));
+            if (nextType === "adjustment" || nextType === "transfer") {
+              setViewMode("full");
+            } else if (!nextType) {
+              setViewMode("split");
+            }
+          }}
         >
           <SelectTrigger
             aria-label="Movement type"
@@ -646,21 +672,45 @@ export function InventoryMovementsReportPage() {
         </div>
       </ReportCompactFilterBar>
 
-      <DataGrid
-        table={table}
-        recordCount={pagination.total}
-        isLoading={loading}
-      >
-        <div className="w-full space-y-2">
-          <DataGridContainer className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none">
-            <ScrollArea className="w-full">
-              <DataGridTableDnd handleDragEnd={handleDragEnd} />
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-          </DataGridContainer>
-          <DataGridPagination sizes={[15, 25, 50, 100]} />
-        </div>
-      </DataGrid>
+      {useSplitLayout ? (
+        <DataGrid
+          table={table}
+          recordCount={pagination.total}
+          isLoading={loading}
+        >
+          <div className="space-y-3">
+            <InventoryActivitySplitView
+              rows={rows}
+              workspaceId={workspaceId}
+              onProductClick={openProductDetails}
+              highlight={
+                typeFilter === "purchase"
+                  ? "purchase"
+                  : typeFilter === "sale"
+                    ? "sale"
+                    : undefined
+              }
+            />
+            <DataGridPagination sizes={[15, 25, 50, 100]} />
+          </div>
+        </DataGrid>
+      ) : (
+        <DataGrid
+          table={table}
+          recordCount={pagination.total}
+          isLoading={loading}
+        >
+          <div className="w-full space-y-2">
+            <DataGridContainer className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none">
+              <ScrollArea className="w-full">
+                <DataGridTableDnd handleDragEnd={handleDragEnd} />
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </DataGridContainer>
+            <DataGridPagination sizes={[15, 25, 50, 100]} />
+          </div>
+        </DataGrid>
+      )}
 
       <ProductDetailsSheet
         open={detailsOpen}

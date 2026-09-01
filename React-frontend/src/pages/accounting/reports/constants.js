@@ -228,13 +228,6 @@ export function getReportHubSections(workspaceId) {
           iconClass: ICON,
         },
         {
-          title: "Category Sales & Purchases",
-          description: "Sales, cost of goods sold, and stock purchased by category",
-          path: `${r}/category-trading`,
-          icon: LayoutGrid,
-          iconClass: ICON,
-        },
-        {
           title: "Stock Summary",
           description: "On-hand qty, cost, and inventory value by product",
           path: `${inv}/stock-summary`,

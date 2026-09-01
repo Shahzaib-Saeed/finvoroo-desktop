@@ -150,9 +150,9 @@ export const BASE_SIDEBAR_MENU = [
   },
   {
     title: 'General Ledger',
-    path: '/workspace/:id/accounting/journal',
+    path: '/workspace/:id/accounting/reports/general-ledger',
     icon: ClipboardList,
-    permission: 'journal_entries.view',
+    permission: 'reports.view',
   },
   {
     title: 'Reports',
