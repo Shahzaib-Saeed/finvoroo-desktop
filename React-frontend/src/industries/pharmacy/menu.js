@@ -123,11 +123,15 @@ const PHARMACY_SECTION = {
       feature: 'pharmacy_shell',
     },
     {
-      // Named Investors rather than Finance so the entry says what it does.
-      // The module underneath is category-generic, not pharmacy-specific.
       title: 'Investors',
       path: '/workspace/:id/pharmacy/investors',
       permission: 'investors.view',
+      feature: 'pharmacy_shell',
+    },
+    {
+      title: 'Expenses',
+      path: '/workspace/:id/pharmacy/expenses',
+      permission: 'expenses.view',
       feature: 'pharmacy_shell',
     },
   ],
@@ -151,6 +155,16 @@ function filterPharmacySidebarItem(item) {
 
   if (next.path === '/workspace/:id/accounting/products') {
     return null;
+  }
+
+  if (next.path === '/workspace/:id/accounting/expenses') {
+    return {
+      ...next,
+      title: 'Expenses',
+      path: '/workspace/:id/pharmacy/expenses',
+      feature: 'pharmacy_shell',
+      industryZone: 'pharmacy',
+    };
   }
 
   if (next.children?.length) {

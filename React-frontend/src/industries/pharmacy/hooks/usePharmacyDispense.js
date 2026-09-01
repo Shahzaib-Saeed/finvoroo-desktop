@@ -25,7 +25,12 @@ import {
   syncPharmacyCatalog,
 } from '../lib/pharmacy-catalog-store';
 import { getReceiptPaper } from '@/lib/print-agent';
-import { printPosReceipt, maybeHintBrowserPrintSetup, warmReceiptLogoCache } from '@/lib/print-pos-receipt';
+import {
+  printPosReceipt,
+  maybeHintBrowserPrintSetup,
+  warmReceiptLogoCache,
+  warmPrintStack,
+} from '@/lib/print-pos-receipt';
 import { thermalReceiptFromPos } from '@/pages/accounting/document-output/components/ThermalReceiptBody';
 import { getCachedReceiptImageUrl } from '@/lib/thermal-receipt-images';
 import { resolveCompanyLogoUrl } from '@/lib/helpers';
@@ -583,7 +588,10 @@ export function usePharmacyDispense() {
   }, [companyId, reloadBootstrap, refreshHolds]);
 
   useEffect(() => {
-    if (bootstrap?.company) void warmReceiptLogoCache(bootstrap.company);
+    if (bootstrap?.company) {
+      void warmReceiptLogoCache(bootstrap.company);
+      warmPrintStack();
+    }
   }, [bootstrap?.company]);
 
   useEffect(() => {
@@ -1240,6 +1248,7 @@ export function usePharmacyDispense() {
         if (printAfterPost) {
           void printPosReceipt({
             thermalProps: printAfterPost,
+            invoiceId: data?.receipt?.invoice_id || data?.invoice?.id || null,
             paper: getReceiptPaper(),
             openDrawer: true,
           }).then((result) => {

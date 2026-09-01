@@ -17,15 +17,75 @@ import {
   getPrintDriver,
   getReceiptPrinterId,
   getPrintAgentToken,
+  getStatus,
   printESCPOS,
   printHtml,
 } from '@/lib/print-agent';
 
 export { warmReceiptLogoCache };
 
+/** Wake print driver connections when POS loads so first receipt is not cold-start slow. */
+export function warmPrintStack() {
+  void loadPosReceiptPrintPrefs();
+  const driver = getPrintDriver();
+  if (driver === PRINT_DRIVERS.AGENT) {
+    void getStatus();
+    return;
+  }
+  if (driver === PRINT_DRIVERS.QZ) {
+    void import('@/lib/qz-print-service').then((qz) => qz.connectQz());
+  }
+}
+
 export const POS_BRIDGE_URL_KEY = 'finvoroo.pos.bridge_url';
 
+const SCHEMA_V2_CANVAS = 2;
+
 let printInFlight = false;
+let posReceiptPrefsCache = null;
+let posReceiptPrefsPromise = null;
+
+/**
+ * Workspace default POS receipt layout + adapter (Print preferences tab).
+ * Cached for the session; preloaded when POS opens.
+ */
+export async function loadPosReceiptPrintPrefs(force = false) {
+  if (!force && posReceiptPrefsCache) return posReceiptPrefsCache;
+  if (!force && posReceiptPrefsPromise) return posReceiptPrefsPromise;
+
+  posReceiptPrefsPromise = documentOutputApi
+    .preferences()
+    .then((res) => {
+      const prefs = unwrapDoc(res);
+      const posPref = prefs?.preferences?.find((p) => p.document_type === 'pos_receipt');
+      const defaultLayout = posPref?.default_layout || prefs?.defaults?.pos_receipt || null;
+      const layoutId = posPref?.default_layout_id || defaultLayout?.id || null;
+      const adapter = posPref?.default_adapter || 'escpos';
+      const schemaVersion = Number(defaultLayout?.schema_version ?? 0);
+      posReceiptPrefsCache = {
+        layoutId: layoutId ? Number(layoutId) : null,
+        adapter,
+        isCanvas: schemaVersion === SCHEMA_V2_CANVAS,
+        layoutPaper: defaultLayout?.paper || 'thermal_80',
+      };
+      return posReceiptPrefsCache;
+    })
+    .catch(() => ({
+      layoutId: null,
+      adapter: 'escpos',
+      isCanvas: false,
+      layoutPaper: 'thermal_80',
+    }))
+    .finally(() => {
+      posReceiptPrefsPromise = null;
+    });
+
+  return posReceiptPrefsPromise;
+}
+
+export function invalidatePosReceiptPrintPrefs() {
+  posReceiptPrefsCache = null;
+}
 
 export function getPosBridgeUrl() {
   try {
@@ -110,6 +170,43 @@ export async function fetchEscPosReceipt({
   }
 
   return bytes;
+}
+
+/** Full HTML receipt from document-output — respects the selected designer layout. */
+export async function fetchHtmlReceipt({
+  documentType = 'pos_receipt',
+  documentId,
+  layoutId = null,
+} = {}) {
+  if (!documentId) {
+    throw new Error('Receipt ID not ready');
+  }
+
+  const res = await documentOutputApi.render(documentType, documentId, {
+    adapter: 'html',
+    layout_id: layoutId || undefined,
+  });
+
+  const data = unwrapDoc(res);
+  const body = typeof data?.body === 'string' ? data.body : null;
+  if (!body?.trim()) {
+    throw new Error('HTML receipt unavailable');
+  }
+  return body;
+}
+
+function resolveReceiptPaper(paper, prefs) {
+  const fromLayout = prefs?.layoutPaper;
+  if (fromLayout === 'thermal_58' || fromLayout === 'thermal_80') return fromLayout;
+  return paper === 'thermal_58' ? 'thermal_58' : 'thermal_80';
+}
+
+/** Canvas / HTML adapter layouts must render via document-output HTML, not raw ESC/POS. */
+function shouldUseLayoutHtml(prefs) {
+  if (!prefs) return false;
+  if (prefs.isCanvas) return true;
+  const adapter = String(prefs.adapter || '').toLowerCase();
+  return adapter === 'html' || adapter === 'browser';
 }
 
 /**
@@ -208,6 +305,58 @@ export async function printPosReceipt({
 
   try {
     const driver = getPrintDriver();
+
+    // Finvoroo Print Agent: use workspace print preferences (layout + adapter).
+    if (invoiceId && driver === PRINT_DRIVERS.AGENT) {
+      const prefs = await loadPosReceiptPrintPrefs();
+      const resolvedLayoutId = layoutId || prefs.layoutId;
+      const resolvedPaper = resolveReceiptPaper(paper, prefs);
+
+      if (shouldUseLayoutHtml(prefs)) {
+        try {
+          const html = await fetchHtmlReceipt({
+            documentId: invoiceId,
+            documentType,
+            layoutId: resolvedLayoutId,
+          });
+          return printViaAgent({ htmlDocument: html, paper: resolvedPaper, openDrawer });
+        } catch (err) {
+          console.warn(
+            '[Finvoroo print] Layout HTML print failed, trying fallback',
+            err?.message || err,
+          );
+        }
+      } else {
+        try {
+          const bytes = await fetchEscPosReceipt({
+            documentId: invoiceId,
+            documentType,
+            layoutId: resolvedLayoutId,
+            paper: resolvedPaper,
+            openDrawer,
+          });
+          const escResult = await printEscPosPayload(bytes);
+          if (escResult?.ok) {
+            return { ok: true, via: 'finvoroo-print-agent', silent: true, type: 'escpos' };
+          }
+        } catch (err) {
+          console.warn(
+            '[Finvoroo print] ESC/POS print failed, falling back to layout HTML',
+            err?.message || err,
+          );
+          try {
+            const html = await fetchHtmlReceipt({
+              documentId: invoiceId,
+              documentType,
+              layoutId: resolvedLayoutId,
+            });
+            return printViaAgent({ htmlDocument: html, paper: resolvedPaper, openDrawer });
+          } catch (htmlErr) {
+            console.warn('[Finvoroo print] Layout HTML fallback failed', htmlErr?.message || htmlErr);
+          }
+        }
+      }
+    }
 
     if (thermalProps && driver === PRINT_DRIVERS.AGENT) {
       const directHtml = buildThermalHtmlFromProps(thermalProps, paper);

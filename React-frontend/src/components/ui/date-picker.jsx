@@ -60,10 +60,12 @@ export function DatePicker({
     onChange('');
   };
 
+  const { className: triggerClassName, ...restTriggerProps } = triggerProps;
+
   return (
     <Popover open={open} onOpenChange={(next) => !disabled && setOpen(next)}>
       <PopoverTrigger asChild>
-        <div className={cn('relative w-full', className)}>
+        <div className={cn('relative min-w-0', className)}>
           <Button
             type="button"
             variant="outline"
@@ -71,26 +73,32 @@ export function DatePicker({
             placeholder={!date}
             disabled={disabled}
             id={id}
-            className="w-full h-9 justify-start font-normal text-sm"
-            {...triggerProps}
+            className={cn(
+              'h-9 w-full min-w-[9.5rem] justify-start gap-2 font-normal text-sm',
+              allowClear && date && 'pe-9',
+              triggerClassName,
+            )}
+            {...restTriggerProps}
           >
             <CalendarIcon className="size-4 shrink-0 opacity-60" />
-            {date ? (
-              format(date, DISPLAY_DATE_FORMAT)
-            ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
-            )}
+            <span className="truncate">
+              {date ? (
+                format(date, DISPLAY_DATE_FORMAT)
+              ) : (
+                <span className="text-muted-foreground">{placeholder}</span>
+              )}
+            </span>
           </Button>
           {allowClear && date && !disabled && (
             <Button
               type="button"
               variant="dim"
               size="sm"
-              className="absolute top-1/2 -end-0 -translate-y-1/2"
+              className="absolute end-0.5 top-1/2 size-7 -translate-y-1/2"
               onClick={handleReset}
               aria-label="Clear date"
             >
-              <X className="size-4" />
+              <X className="size-3.5" />
             </Button>
           )}
         </div>

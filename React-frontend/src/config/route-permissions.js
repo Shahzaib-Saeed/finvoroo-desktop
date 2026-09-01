@@ -193,6 +193,7 @@ export const ROUTE_PERMISSIONS = [
   { pattern: '/workspace/:id/pharmacy/purchase-entry', permission: 'bills.create' },
   { pattern: '/workspace/:id/pharmacy/loose-purchase', permission: 'bills.create' },
   { pattern: '/workspace/:id/pharmacy/loose-sale-return', permission: 'credit_notes.create' },
+  { pattern: '/workspace/:id/pharmacy/expenses', permission: 'expenses.view' },
 
   { pattern: '/workspace/:id/accounting/invoice-templates', permission: 'accounting_settings.view' },
   { pattern: '/workspace/:id/accounting/invoice-templates/:templateId/edit', permission: 'accounting_settings.edit' },

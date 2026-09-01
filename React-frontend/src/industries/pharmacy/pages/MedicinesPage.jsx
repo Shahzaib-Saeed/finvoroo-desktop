@@ -44,6 +44,7 @@ import { posApi } from '@/pages/accounting/pos/api/pos.api';
 import { cn } from '@/lib/utils';
 import { MedicineThumb } from '../components/MedicineThumb';
 import { PHARMACY_COPY } from '../copy';
+import { formatPackStock, getMedicinePricing } from '../lib/pharmacy-pricing';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -330,18 +331,26 @@ export function MedicinesPage() {
       },
       {
         id: 'stock',
-        header: 'Stock',
+        header: 'Stock (packs)',
         cell: ({ row }) => {
           const stock = Number(
             row.original.current_stock ?? row.original.quantity_on_hand ?? 0,
           );
+          const { packCount } = getMedicinePricing(row.original);
+          const packStock = formatPackStock(stock, packCount);
+          const label =
+            packCount > 1 && Number.isFinite(stock)
+              ? `${packStock} ${Number(packStock) === 1 ? 'pack' : 'packs'}`
+              : Number.isFinite(stock)
+                ? packStock
+                : '—';
           return (
             <span className={cn('text-sm tabular-nums', stockClass(row.original))}>
-              {Number.isFinite(stock) ? stock : '—'}
+              {label}
             </span>
           );
         },
-        size: 80,
+        size: 100,
         meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
       },
       {

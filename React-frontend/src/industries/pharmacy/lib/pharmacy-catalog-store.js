@@ -30,7 +30,7 @@ function activeCompanyId() {
 const SNAPSHOT_KEY = 'pharmacy_pos_catalog';
 
 /** Snapshot layout version. Bump to force every till to re-download. */
-const SNAPSHOT_FORMAT = 6;
+const SNAPSHOT_FORMAT = 7;
 
 /** Re-check the server for changes at most this often. */
 const SYNC_INTERVAL_MS = 5 * 60 * 1000;

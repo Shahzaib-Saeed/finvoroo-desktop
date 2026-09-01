@@ -23,6 +23,7 @@ export const FREQUENCIES = [
 export const EMPTY_EXPENSE_FORM = {
   vendor_id: '',
   job_order_id: '',
+  category_id: '',
   expense_account_id: '',
   payment_account_id: '',
   amount: '',
@@ -46,6 +47,26 @@ export const EMPTY_RECURRING_FORM = {
   description: '',
   is_active: true,
 };
+
+export const DEFAULT_OPERATING_EXPENSE_CODE = '60000';
+
+export function pickDefaultExpenseAccountId(accounts = []) {
+  if (!Array.isArray(accounts) || accounts.length === 0) return '';
+  const match = accounts.find((a) => {
+    const code = String(a.code ?? a.account_number ?? '').trim();
+    return code === DEFAULT_OPERATING_EXPENSE_CODE;
+  });
+  return String((match ?? accounts[0]).id);
+}
+
+export function buildPharmacyExpenseFormDefaults(expenseAccounts = [], currency = 'PKR') {
+  return {
+    ...EMPTY_EXPENSE_FORM,
+    currency,
+    expense_date: today(),
+    expense_account_id: pickDefaultExpenseAccountId(expenseAccounts),
+  };
+}
 
 export function formatCurrency(amount, currency = 'USD') {
   const n = Number(amount);
@@ -77,8 +98,9 @@ export function formatFrequency(freq) {
 export function buildExpenseFormData(form) {
   const fd = new FormData();
   if (form.vendor_id) fd.append('vendor_id', form.vendor_id);
+  if (form.category_id) fd.append('category_id', form.category_id);
   fd.append('expense_account_id', form.expense_account_id);
-  fd.append('payment_account_id', form.payment_account_id);
+  if (form.payment_account_id) fd.append('payment_account_id', form.payment_account_id);
   fd.append('amount', String(parseFloat(form.amount)));
   if (form.currency) fd.append('currency', form.currency);
   fd.append('expense_date', form.expense_date);
@@ -93,6 +115,7 @@ export function formFromExpense(expense) {
   return {
     vendor_id: expense.vendor_id ? String(expense.vendor_id) : '',
     job_order_id: expense.job_order_id ? String(expense.job_order_id) : '',
+    category_id: expense.category_id ? String(expense.category_id) : '',
     expense_account_id: expense.expense_account_id ? String(expense.expense_account_id) : '',
     payment_account_id: expense.payment_account_id ? String(expense.payment_account_id) : '',
     amount: expense.amount != null ? String(expense.amount) : '',

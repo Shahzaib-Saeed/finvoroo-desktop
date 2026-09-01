@@ -292,6 +292,35 @@ describe('computeReceiveLineAmounts', () => {
     expect(a.netRate).toBeCloseTo(362.4, 2);
     expect(a.netMargin).toBeCloseTo(10, 0);
   });
+
+  it('manual GRN: amount is packs × purchase price without silent product GST', () => {
+    const line = {
+      product_id: '1',
+      quantity: '3',
+      unit_price: '80.31',
+      gst_percent: '5',
+      tax_rate_id: '9',
+      discount_type: 'percent',
+      discount: '0',
+    };
+    const a = computeReceiveLineAmounts(line, 5);
+    expect(a.gross).toBeCloseTo(240.93, 2);
+    expect(a.tax).toBe(0);
+    expect(a.totalInc).toBeCloseTo(240.93, 2);
+  });
+
+  it('manual GRN: adds tax only when typed in the Tax column', () => {
+    const line = {
+      product_id: '1',
+      quantity: '3',
+      unit_price: '80.31',
+      tax_amount: '12.05',
+      discount_type: 'percent',
+      discount: '0',
+    };
+    const a = computeReceiveLineAmounts(line);
+    expect(a.totalInc).toBeCloseTo(252.98, 2);
+  });
 });
 
 describe('bonus continuation rows', () => {

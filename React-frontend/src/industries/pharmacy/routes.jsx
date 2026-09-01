@@ -73,6 +73,9 @@ const LooseSaleReturnPage = lazy(() =>
 const PurchaseEntryPage = lazy(() =>
   import('./pages/PurchaseEntry').then((m) => ({ default: m.PurchaseEntryPage })),
 );
+const PharmacyExpensesPage = lazy(() =>
+  import('./pages/PharmacyExpensesPage').then((m) => ({ default: m.PharmacyExpensesPage })),
+);
 
 function PharmacyRouteFallback() {
   return (
@@ -286,6 +289,16 @@ export function PharmacyIndustryRoutes() {
           <IndustryModuleGate feature="pharmacy_shell">
             <Lazy>
               <PurchaseEntryPage />
+            </Lazy>
+          </IndustryModuleGate>
+        }
+      />
+      <Route
+        path="/workspace/:id/pharmacy/expenses"
+        element={
+          <IndustryModuleGate feature="pharmacy_shell">
+            <Lazy>
+              <PharmacyExpensesPage />
             </Lazy>
           </IndustryModuleGate>
         }

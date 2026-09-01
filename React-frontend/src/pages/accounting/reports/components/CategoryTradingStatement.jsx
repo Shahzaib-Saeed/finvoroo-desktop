@@ -116,6 +116,7 @@ export function CategoryTradingStatement({
   const sale = Number(totals.sale || 0);
   const cogs = Number(totals.cogs || 0);
   const purchase = Number(totals.purchase || 0);
+  const netCash = Number(totals.net_cash ?? sale - purchase);
   const marginPct = totals.margin_percent;
 
   return (
@@ -174,10 +175,18 @@ export function CategoryTradingStatement({
           </p>
           <div className="mt-3">
             <PanelLine label="Stock purchased" value={purchase} bold />
+            <PanelLine
+              label="Net cash (sales − purchases)"
+              value={netCash}
+              profit
+              bold
+            />
           </div>
           <p className="mt-3 rounded-md border border-amber-200/80 bg-amber-50/60 px-3 py-2 text-[11px] leading-snug text-amber-950/80">
-            Purchases add to inventory. Profit is only{' '}
-            <span className="font-semibold">sales − COGS</span>, not sales minus purchases.
+            Purchases add to inventory. Gross profit is{' '}
+            <span className="font-semibold">sales − COGS</span>. Net cash shows how much
+            you collected from sales versus what you spent buying stock in this period
+            (negative = still to recover).
           </p>
         </div>
       </div>
@@ -202,6 +211,9 @@ export function CategoryTradingStatement({
                 <th rowSpan={2} className={cn(GROUP_RESULT, DIVIDER, 'align-bottom')}>
                   Gross profit
                 </th>
+                <th rowSpan={2} className={cn(GROUP_RESULT, DIVIDER, 'align-bottom')}>
+                  Net cash
+                </th>
               </tr>
               <tr className="border-b border-slate-300">
                 <th className={SUB_TH}>Revenue</th>
@@ -213,13 +225,14 @@ export function CategoryTradingStatement({
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-sm italic text-slate-400">
+                  <td colSpan={7} className="py-8 text-center text-sm italic text-slate-400">
                     No posted sales or purchases in this period.
                   </td>
                 </tr>
               ) : (
                 rows.map((row, index) => {
                   const label = categoryLabel(row.category_name, row.category_code);
+                  const rowNetCash = Number(row.net_cash ?? Number(row.sale || 0) - Number(row.purchase || 0));
                   return (
                     <tr
                       key={row.category_id ?? `row-${index}`}
@@ -259,6 +272,13 @@ export function CategoryTradingStatement({
                           className={profitColor(row.net_profit)}
                         />
                       </td>
+                      <td className={cn('px-2 py-2.5 text-right', DIVIDER)}>
+                        <Amount
+                          value={rowNetCash}
+                          emphasize
+                          className={profitColor(rowNetCash)}
+                        />
+                      </td>
                     </tr>
                   );
                 })
@@ -292,6 +312,13 @@ export function CategoryTradingStatement({
                       value={grossProfit}
                       emphasize
                       className={cn('font-bold', profitColor(grossProfit))}
+                    />
+                  </td>
+                  <td className={cn('px-2 py-2.5 text-right', DIVIDER)}>
+                    <Amount
+                      value={netCash}
+                      emphasize
+                      className={cn('font-bold', profitColor(netCash))}
                     />
                   </td>
                 </tr>
@@ -341,7 +368,7 @@ export function CategoryTradingStatement({
         ) : null}
       </div>
 
-      <PharmacyReportFooter note="Left side = sales activity (revenue and COGS). Right side = stock purchased (inventory in). Gross profit = sales − COGS only." />
+      <PharmacyReportFooter note="Gross profit = sales − COGS. Net cash = sales − stock purchased (cash collected vs cash spent on stock in this period)." />
     </div>
   );
 }

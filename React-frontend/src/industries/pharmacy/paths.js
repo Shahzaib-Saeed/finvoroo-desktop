@@ -23,3 +23,8 @@ export function pharmacyInvestorsPath(companyId) {
 export function pharmacyDistributionPath(companyId, investmentId) {
   return `/workspace/${companyId}/pharmacy/investors/${investmentId}/distribution`;
 }
+
+export function pharmacyExpensesPath(companyId, { create = false } = {}) {
+  const base = `/workspace/${companyId}/pharmacy/expenses`;
+  return create ? `${base}?new=1` : base;
+}

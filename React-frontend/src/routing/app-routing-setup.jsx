@@ -165,6 +165,7 @@ import { SuperAdminUsersPage } from '@/pages/superadmin/users/users-page';
 import { SuperAdminCreateAccountOwnerPage } from '@/pages/superadmin/users/create-account-owner-page';
 import { SuperAdminAccountOwnersPage } from '@/pages/superadmin/account-owners/account-owners-page';
 import { SuperAdminOwnerCompaniesPage } from '@/pages/superadmin/account-owners/owner-companies-page';
+import { UnknownRouteRedirect } from '@/routing/unknown-route-redirect';
 
 export function AppRoutingSetup() {
   return (
@@ -394,7 +395,7 @@ export function AppRoutingSetup() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<UnknownRouteRedirect />} />
     </Routes>
   );
 }

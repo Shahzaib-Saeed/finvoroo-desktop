@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { resolveUiPack } from "@/industries";
 
 export function fmtCurrency(n, currency = "USD") {
   if (typeof n !== "number" || Number.isNaN(n)) return n ?? "—";
@@ -56,7 +57,8 @@ export function statusBadge(status) {
   );
 }
 
-export function dashboardRoutes(base) {
+export function dashboardRoutes(base, company) {
+  const isPharmacy = resolveUiPack(company) === "pharmacy";
   const reports = `${base}/accounting/reports`;
   return {
     invoices: `${base}/accounting/invoices`,
@@ -67,8 +69,9 @@ export function dashboardRoutes(base) {
     payment: (id) => `${base}/accounting/payments/${id}`,
     billPayments: `${base}/accounting/bill-payments`,
     billPayment: (id) => `${base}/accounting/bill-payments/${id}`,
-    expenses: `${base}/accounting/expenses`,
-    expense: (id) => `${base}/accounting/expenses/${id}`,
+    expenses: isPharmacy ? `${base}/pharmacy/expenses` : `${base}/accounting/expenses`,
+    expense: (id) =>
+      isPharmacy ? `${base}/pharmacy/expenses?edit=${id}` : `${base}/accounting/expenses/${id}`,
     customers: `${base}/accounting/customers`,
     customer: (id) => `${base}/accounting/customers/${id}/edit`,
     vendors: `${base}/accounting/vendors`,
@@ -100,10 +103,10 @@ export function dashboardRoutes(base) {
   };
 }
 
-export function transactionPath(base, txn) {
+export function transactionPath(base, txn, company) {
   if (!txn?.txn_id && !txn?.id) return null;
   const id = txn.txn_id ?? txn.id;
-  const routes = dashboardRoutes(base);
+  const routes = dashboardRoutes(base, company);
   const type = String(txn.txn_type || txn.type || txn.entry_type || "")
     .toLowerCase()
     .replace(/[\s-]+/g, "_");

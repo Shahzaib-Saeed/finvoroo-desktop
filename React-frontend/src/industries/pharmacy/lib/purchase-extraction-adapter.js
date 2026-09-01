@@ -417,10 +417,9 @@ export function isOcrReceiveLine(line) {
 /**
  * Line money for the receive grid.
  *
- * Amount is always TP × Qty − Disc Amt + Tax. Disc Amt is calculated from
- * the percent on TP × Qty. Tax is the printed OCR figure (or GST % on a
- * manual line). Never replace Amount with the OCR line total — that number
- * is often a neighbour column or a net for the wrong qty.
+ * Amount is always Packs × Purchase price − Disc Amt + Tax.
+ * Manual GRN rows: no silent GST from the product tax rate or invoice GST % —
+ * only an explicit value in the Tax column. OCR rows keep printed bill tax.
  */
 export function computeReceiveLineAmounts(line, invGstFallback = 0) {
   const qty = Number(line.quantity) || 0;
@@ -442,11 +441,9 @@ export function computeReceiveLineAmounts(line, invGstFallback = 0) {
     discount > 0.001 && hasInvoiceTax && amountsNear(printedTax, discount);
 
   let tax = 0;
-  if (fromInvoice && hasInvoiceTax) {
+  if (hasInvoiceTax) {
     tax = taxLooksLikeDiscount ? 0 : printedTax;
-  } else if (hasInvoiceTax && !line.tax_rate_id) {
-    tax = taxLooksLikeDiscount ? 0 : printedTax;
-  } else {
+  } else if (fromInvoice) {
     tax = (Math.max(0, gross - discount) * gst) / 100;
   }
 

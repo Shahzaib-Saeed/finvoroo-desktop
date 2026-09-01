@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
+import { Navigate } from 'react-router-dom';
 import { tryLoadOfflineDocumentList } from '@/offline/form-lookups';
 import {
   useReactTable,
@@ -64,8 +65,11 @@ import { DataGridPagination } from '@/components/ui/data-grid-pagination';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
+import { resolveUiPack } from '@/industries';
+import { pharmacyExpensesPath } from '@/industries/pharmacy/paths';
+import { useAuthStore } from '@/store/authStore';
 
-export function ExpensesPage() {
+function UniversalExpensesPage() {
   const { id: workspaceId } = useParams();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
@@ -598,4 +602,15 @@ export function ExpensesPage() {
       />
     </div>
   );
+}
+
+export function ExpensesPage() {
+  const { id: workspaceId } = useParams();
+  const activeCompany = useAuthStore((s) => s.activeCompany);
+
+  if (resolveUiPack(activeCompany) === 'pharmacy') {
+    return <Navigate to={pharmacyExpensesPath(workspaceId)} replace />;
+  }
+
+  return <UniversalExpensesPage />;
 }

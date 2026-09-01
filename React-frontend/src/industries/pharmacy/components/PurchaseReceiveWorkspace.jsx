@@ -1291,6 +1291,11 @@ export function PurchaseReceiveWorkspace({
         // Receive paid + bonus into stock; blend unit cost so inventory value = paid qty × rate.
         const blended = totalQty > 0 ? (paidQty * rate) / totalQty : rate;
         const discType = l.discount_type === 'percent' ? 'percent' : 'fixed';
+        const manualLine = !l._fromOcr && !String(l.supplier_invoice_label || '').trim();
+        const explicitTax =
+          l.tax_amount != null &&
+          String(l.tax_amount).trim() !== '' &&
+          Number(l.tax_amount) > 0;
         const payload = {
           product_id: l.product_id ? Number(l.product_id) : null,
           description: l.name || 'Item',
@@ -1298,7 +1303,12 @@ export function PurchaseReceiveWorkspace({
           unit_price: blended,
           discount: Number(l.discount) || 0,
           discount_type: discType,
-          tax_rate_id: l.tax_rate_id ? Number(l.tax_rate_id) : null,
+          tax_rate_id:
+            manualLine && !explicitTax
+              ? null
+              : l.tax_rate_id
+                ? Number(l.tax_rate_id)
+                : null,
           batch_number: resolvePurchaseLineBatch(l, pharmacySettings) || null,
           expiry_date: resolvePurchaseLineExpiryIso(l, pharmacySettings) || null,
           manufactured_date: l.manufactured_date || null,
@@ -2017,7 +2027,7 @@ export function PurchaseReceiveWorkspace({
                     <GrnTh
                       align="right"
                       className={HEADER_WRAP}
-                      title="Purchase price per unit from the supplier bill"
+                      title="Purchase price per pack from the supplier bill"
                     >
                       Purchase price
                     </GrnTh>
@@ -2027,8 +2037,8 @@ export function PurchaseReceiveWorkspace({
                     <GrnTh align="right" className={HEADER_WRAP}>
                       Disc amt
                     </GrnTh>
-                    <GrnTh align="right" title="Tax on this line from the supplier bill">Tax</GrnTh>
-                    <GrnTh align="right" title="Line total including tax — amount payable for this item">Amount</GrnTh>
+                    <GrnTh align="right" title="Optional — only if tax is separate on the bill">Tax</GrnTh>
+                    <GrnTh align="right" title="Packs × Purchase price − discount + tax">Amount</GrnTh>
                     <GrnTh
                       align="right"
                       className={HEADER_WRAP}
@@ -2261,7 +2271,7 @@ export function PurchaseReceiveWorkspace({
                         {!isBlank ? moneyPlain(a.discount) : ''}
                       </ReadonlyCell>
                       <GrnTd>
-                        {line._fromOcr && !isBlank ? (
+                        {!isBlank ? (
                           <Input
                             data-grn-field={`tax-${index}`}
                             type="number"
@@ -2272,13 +2282,14 @@ export function PurchaseReceiveWorkspace({
                             onChange={(e) => updateLine(index, { tax_amount: e.target.value })}
                             onKeyDown={(e) => onCellEnter(e, 'sale')}
                             disabled={!editable}
-                            title="Tax from supplier bill"
+                            title={
+                              line._fromOcr
+                                ? 'Tax from supplier bill'
+                                : 'Leave blank when purchase price is all-in'
+                            }
+                            placeholder="0"
                           />
-                        ) : (
-                          <div className={cn(READONLY_CELL, 'justify-end')}>
-                            {!isBlank ? moneyPlain(a.tax) : ''}
-                          </div>
-                        )}
+                        ) : null}
                       </GrnTd>
                       <ReadonlyCell tone="strong" title="Line total including tax">
                         {!isBlank ? moneyPlain(a.totalInc) : ''}

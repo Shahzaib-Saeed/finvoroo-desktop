@@ -20,7 +20,7 @@ import {
   toCheckoutLines,
 } from '../lib/cart-math';
 import { PosHardwareBridge } from '../lib/hardware-bridge';
-import { printPosReceipt } from '@/lib/print-pos-receipt';
+import { printPosReceipt, warmPrintStack } from '@/lib/print-pos-receipt';
 import { getReceiptPaper } from '@/lib/print-agent';
 import { PosOfflineStore } from '../lib/offline-store';
 import {
@@ -151,6 +151,7 @@ export function usePosSession() {
     try {
       const data = unwrap(await posApi.bootstrap());
       setBootstrap(data);
+      warmPrintStack();
       setCustomer(data?.walk_in_customer || null);
       const defaultWh =
         data?.terminal?.warehouse_id ||
@@ -808,14 +809,12 @@ export function usePosSession() {
       refreshHolds();
       if (posSettings.autoPrint) {
         const invoiceId = data?.invoice?.id || data?.receipt?.invoice_id || null;
-        setTimeout(() => {
-          printPosReceipt({
-            elementId: 'pos-receipt-print',
-            paper: getReceiptPaper(),
-            invoiceId,
-            openDrawer: false,
-          });
-        }, 200);
+        void printPosReceipt({
+          elementId: 'pos-receipt-print',
+          paper: getReceiptPaper(),
+          invoiceId,
+          openDrawer: false,
+        });
       }
       if (permissions.can_open_drawer) {
         PosHardwareBridge.openCashDrawer();

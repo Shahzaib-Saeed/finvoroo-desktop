@@ -25,6 +25,7 @@ import {
   statusBadge,
   transactionPath,
 } from './dashboard-ui';
+import { useAuthStore } from '@/store/authStore';
 
 function ChannelStatCard({ label, value, loading, icon: Icon }) {
   return (
@@ -44,9 +45,9 @@ function ChannelStatCard({ label, value, loading, icon: Icon }) {
   );
 }
 
-function BusinessHighlights({ overview, currency, loading, base }) {
+function BusinessHighlights({ overview, currency, loading, base, activeCompany }) {
   const kpi = overview?.kpi ?? {};
-  const routes = dashboardRoutes(base);
+  const routes = dashboardRoutes(base, activeCompany);
   const profitPositive = (kpi.net_profit_month ?? 0) >= 0;
 
   const rows = [
@@ -190,7 +191,8 @@ export function BusinessReviewTab({ companyId, overview, loading, companyName })
   const chart = overview?.chart;
   const currency = overview?.company?.currency || 'USD';
   const base = `/workspace/${companyId}`;
-  const routes = dashboardRoutes(base);
+  const activeCompany = useAuthStore((s) => s.activeCompany);
+  const routes = dashboardRoutes(base, activeCompany);
 
   return (
     <div className="grid gap-5 lg:gap-7.5">
@@ -236,7 +238,13 @@ export function BusinessReviewTab({ companyId, overview, loading, companyName })
 
       <div className="grid lg:grid-cols-3 gap-5 lg:gap-7.5 items-stretch">
         <div className="lg:col-span-1">
-          <BusinessHighlights overview={overview} currency={currency} loading={loading} base={base} />
+          <BusinessHighlights
+            overview={overview}
+            currency={currency}
+            loading={loading}
+            base={base}
+            activeCompany={activeCompany}
+          />
         </div>
         <div className="lg:col-span-2">
           {chart ? (
@@ -344,7 +352,7 @@ export function BusinessReviewTab({ companyId, overview, loading, companyName })
                 subtitle={`${txn.party_name || '—'} · ${txn.txn_date || '—'}`}
                 badge={statusBadge(txn.txn_type)}
                 trailing={fmtCurrency(txn.amount, currency)}
-                to={transactionPath(base, txn)}
+                to={transactionPath(base, txn, activeCompany)}
               />
             ))}
           </div>

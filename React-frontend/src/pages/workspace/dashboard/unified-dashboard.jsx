@@ -37,6 +37,7 @@ import {
   statusBadge,
   transactionPath,
 } from "./dashboard-ui";
+import { useAuthStore } from "@/store/authStore";
 
 export function UnifiedDashboard({
   companyId,
@@ -50,7 +51,8 @@ export function UnifiedDashboard({
   const currency =
     overview?.company?.currency || dash?.company?.currency || "USD";
   const base = `/workspace/${companyId}`;
-  const routes = dashboardRoutes(base);
+  const activeCompany = useAuthStore((s) => s.activeCompany);
+  const routes = dashboardRoutes(base, activeCompany);
   const loading = overviewLoading || dashLoading;
   const stats = dash?.stats;
   const topVendors = overview?.top_vendors?.length
@@ -411,7 +413,7 @@ export function UnifiedDashboard({
                     subtitle={`${txn.party_name || '—'} · ${txn.txn_date || '—'}`}
                     badge={statusBadge(txn.txn_type)}
                     trailing={fmtCurrency(txn.amount, currency)}
-                    to={transactionPath(base, txn)}
+                    to={transactionPath(base, txn, activeCompany)}
                   />
                 ))}
               </div>

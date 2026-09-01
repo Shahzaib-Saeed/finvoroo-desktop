@@ -1,12 +1,16 @@
 import { Link, useNavigate, useParams } from 'react-router';
+import { Navigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ExpenseForm } from './components/ExpenseForm';
 import { useExpenseForm } from './hooks/useExpenseForm';
 import { useDashboardRefresh } from '@/pages/workspace/dashboard/DashboardRefreshContext';
+import { resolveUiPack } from '@/industries';
+import { pharmacyExpensesPath } from '@/industries/pharmacy/paths';
+import { useAuthStore } from '@/store/authStore';
 
-export function ExpenseCreatePage() {
+function UniversalExpenseCreatePage() {
   const { id: workspaceId } = useParams();
   const navigate = useNavigate();
   const base = `/workspace/${workspaceId}/accounting/expenses`;
@@ -43,4 +47,15 @@ export function ExpenseCreatePage() {
       </div>
     </div>
   );
+}
+
+export function ExpenseCreatePage() {
+  const { id: workspaceId } = useParams();
+  const activeCompany = useAuthStore((s) => s.activeCompany);
+
+  if (resolveUiPack(activeCompany) === 'pharmacy') {
+    return <Navigate to={pharmacyExpensesPath(workspaceId, { create: true })} replace />;
+  }
+
+  return <UniversalExpenseCreatePage />;
 }

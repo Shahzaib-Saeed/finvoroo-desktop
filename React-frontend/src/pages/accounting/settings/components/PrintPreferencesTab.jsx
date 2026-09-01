@@ -17,6 +17,7 @@ import {
   documentOutputApi,
   unwrapDoc,
 } from '@/pages/accounting/document-output/api/document-output.api';
+import { invalidatePosReceiptPrintPrefs } from '@/lib/print-pos-receipt';
 import { PrintAgentSetupPanel } from '@/industries/pharmacy/components/PrintAgentSetupPanel';
 import { DesktopAppDownloadPanel } from './DesktopAppDownloadPanel';
 import { PharmacyPrintExtras } from './PharmacySettingsTabs';
@@ -94,6 +95,7 @@ export function PrintPreferencesTab({
         default_layout_id: selected[documentType] ? Number(selected[documentType]) : null,
         default_adapter: adapters[documentType] || null,
       });
+      invalidatePosReceiptPrintPrefs();
       toast.success('Print preference saved');
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Save failed');

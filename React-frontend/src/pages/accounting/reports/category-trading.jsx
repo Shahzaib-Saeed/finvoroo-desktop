@@ -157,6 +157,7 @@ export function CategoryTradingReportPage() {
       "Gross profit",
       "Margin %",
       "Stock purchased",
+      "Net cash",
     ]);
     for (const row of rows) {
       out.push([
@@ -166,6 +167,7 @@ export function CategoryTradingReportPage() {
         formatAmountCsv(row.net_profit),
         row.margin_percent == null ? "" : Number(row.margin_percent).toFixed(2),
         formatAmountCsv(row.purchase),
+        formatAmountCsv(row.net_cash ?? Number(row.sale || 0) - Number(row.purchase || 0)),
       ]);
     }
     out.push([
@@ -177,6 +179,7 @@ export function CategoryTradingReportPage() {
         ? ""
         : Number(totals.margin_percent).toFixed(2),
       formatAmountCsv(purchase),
+      formatAmountCsv(totals.net_cash ?? sale - purchase),
     ]);
     if (includeExpenses) {
       out.push([]);
