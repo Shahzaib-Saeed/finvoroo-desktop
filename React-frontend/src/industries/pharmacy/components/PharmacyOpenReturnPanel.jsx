@@ -352,7 +352,7 @@ export function PharmacyOpenReturnPanel({
 
   return (
     <>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div data-pharmacy-density className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-3">
           <div className="grid gap-3 sm:grid-cols-[minmax(200px,240px)_minmax(0,1fr)]">
             <div className="space-y-1">

@@ -62,6 +62,7 @@ export function InventoryTab({ inventoryModel, onSaved, title, description, icon
         onSubmit={handleSubmit}
         footer={
           <SettingsStickyActionBar
+            placement="bottom"
             dirty={dirty}
             saving={saving}
             justSaved={justSaved}

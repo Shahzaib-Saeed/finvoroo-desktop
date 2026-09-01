@@ -12,6 +12,8 @@ export const pharmacyApi = {
     api.get('/workspace/pharmacy/expiry-report', { params }),
   itemSalesReport: (params) =>
     api.get('/workspace/pharmacy/reports/item-sales', { params }),
+  employeeSalesReport: (params) =>
+    api.get('/workspace/pharmacy/reports/employee-sales', { params }),
   manufacturerExpiryReport: (params) =>
     api.get('/workspace/pharmacy/reports/manufacturer-expiry', { params }),
   stockValuationReport: (params) =>
@@ -27,6 +29,8 @@ export const pharmacyApi = {
   batchesIndex: (params) => api.get('/workspace/pharmacy/batches/index', { params }),
   purchaseHistory: (productId) =>
     api.get(`/workspace/pharmacy/products/${productId}/purchase-history`),
+  saleHistory: (productId) =>
+    api.get(`/workspace/pharmacy/products/${productId}/sale-history`),
   /** Parse-only OCR — Mistral first; Gemini only when allow_fallback is set. */
   parseInvoice: (formData) =>
     api.post('/workspace/pharmacy/parse-invoice', formData, {

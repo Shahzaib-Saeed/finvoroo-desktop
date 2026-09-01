@@ -110,7 +110,7 @@ export function ReportPageShell({
   );
 
   const shell = (
-    <div className={cn(compact || hideTitle ? 'space-y-2' : 'space-y-3', className)}>
+    <div className={cn(compact || hideTitle ? 'space-y-2' : 'space-y-3', 'min-w-0 max-w-full', className)}>
       {hideTitle ? (
         (backTo ||
           actions ||
@@ -127,14 +127,14 @@ export function ReportPageShell({
 
           <div
             className={cn(
-              'no-print mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-3',
-              compact && 'mb-2 pb-2',
+              'no-print mb-4 flex flex-wrap items-start justify-between gap-3',
+              compact && 'mb-2',
             )}
           >
             {titleBlock}
             {actions ||
             (showFavorite && workspaceId && !isCustomViewer && inferredReportKey) ? (
-              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <div className="flex shrink-0 w-full flex-wrap items-center gap-1.5 sm:ml-auto sm:w-auto">
                 {headerActions}
               </div>
             ) : null}

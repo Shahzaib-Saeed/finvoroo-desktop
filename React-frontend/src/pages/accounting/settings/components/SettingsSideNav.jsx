@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { SETTINGS_TABS } from '../constants';
 import { SettingsIconBox } from './settings-ui';
 
-export function SettingsSideNav({ activeTab, onChange, className }) {
+export function SettingsSideNav({ activeTab, onChange, className, tabs = SETTINGS_TABS }) {
   let lastSection = null;
 
   return (
@@ -19,7 +19,7 @@ export function SettingsSideNav({ activeTab, onChange, className }) {
         <p className="text-[11px] text-muted-foreground mt-0.5">Choose a section to configure</p>
       </div>
 
-      {SETTINGS_TABS.map((tab) => {
+      {tabs.map((tab) => {
         const showSection = tab.section && tab.section !== lastSection;
         if (tab.section) lastSection = tab.section;
         const isActive = activeTab === tab.id;

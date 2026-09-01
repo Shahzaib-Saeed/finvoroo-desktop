@@ -21,7 +21,7 @@ const useCardContext = () => {
 
 // Variants
 const cardVariants = cva(
-  'flex flex-col items-stretch text-card-foreground rounded-xl',
+  'flex flex-col items-stretch min-w-0 w-full max-w-full text-card-foreground rounded-xl',
   {
     variants: {
       variant: {
@@ -62,7 +62,7 @@ const cardContentVariants = cva('grow p-5', {
   },
 });
 
-const cardTableVariants = cva('grid grow', {
+const cardTableVariants = cva('grid min-w-0 w-full max-w-full grow overflow-hidden', {
   variants: {
     variant: {
       default: '',

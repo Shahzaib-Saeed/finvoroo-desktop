@@ -19,6 +19,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { PharmacyKbd } from './PharmacyKbd';
 
 function ShortcutRow({ keys, label }) {
   return (
@@ -94,8 +95,7 @@ export function PurchaseReceiveMoreMenu({
           <ShortcutRow keys="↓ ↑" label="Next / previous item" />
           <ShortcutRow keys="F4" label="Medicine list" />
           <ShortcutRow keys="Ctrl+S" label="Save draft" />
-          <ShortcutRow keys="F5" label="Post & next (sidebar)" />
-          <ShortcutRow keys="Ctrl+P" label="Post with payment" />
+          <ShortcutRow keys="Ctrl+P" label="Post & next (sidebar)" />
           <ShortcutRow keys="Ctrl+D" label="Delete row" />
           <ShortcutRow keys="F2" label="Add line" />
         </div>
@@ -154,6 +154,7 @@ export function PurchaseReceiveMainActions({
       >
         {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
         Save draft
+        <PharmacyKbd className="ms-1.5 border-slate-300 bg-slate-50 text-[9px]">Ctrl+S</PharmacyKbd>
       </Button>
     </>
   );

@@ -1,22 +1,49 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { reportsApi } from "./api/reports.api";
 import { defaultReportPeriod } from "./constants";
 import { ReportPageShell } from "./components/ReportPageShell";
+import { ReportDateFilter } from "./components/ReportDateFilter";
 import { ReportActionBar } from "./components/ReportActionBar";
-import {
-  CategoryTradingReportView,
-  CategoryTradingToolbar,
-} from "./components/CategoryTradingReportView";
+import { CategoryTradingStatement } from "./components/CategoryTradingStatement";
 import {
   buildReportFilename,
   downloadReportPdf,
   printReportSheet,
 } from "./report-print.lib";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+
+function resolveFiscalYear(asOfDate, company) {
+  if (company?.fiscal_year) return company.fiscal_year;
+  if (company?.fiscal_year_label) return company.fiscal_year_label;
+  if (company?.fiscal_year_start) {
+    try {
+      const start = parseISO(String(company.fiscal_year_start).slice(0, 10));
+      const asOf = asOfDate
+        ? parseISO(String(asOfDate).slice(0, 10))
+        : new Date();
+      const fyStartMonth = start.getMonth();
+      const fyStartDay = start.getDate();
+      let fyYear = asOf.getFullYear();
+      const fyStartThisYear = new Date(fyYear, fyStartMonth, fyStartDay);
+      if (asOf < fyStartThisYear) fyYear -= 1;
+      return `FY ${fyYear}`;
+    } catch {
+      /* fall through */
+    }
+  }
+  if (!asOfDate) return null;
+  try {
+    return `FY ${format(parseISO(String(asOfDate).slice(0, 10)), "yyyy")}`;
+  } catch {
+    return null;
+  }
+}
 
 function csvCell(value) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -33,8 +60,7 @@ export function CategoryTradingReportPage() {
   const user = useAuthStore((s) => s.user);
   const [period, setPeriod] = useState(defaultReportPeriod());
   const [draft, setDraft] = useState(defaultReportPeriod());
-  const [includeExpenses, setIncludeExpenses] = useState(true);
-  const [draftIncludeExpenses, setDraftIncludeExpenses] = useState(true);
+  const [includeExpenses, setIncludeExpenses] = useState(false);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const sheetRef = useRef(null);
@@ -45,7 +71,7 @@ export function CategoryTradingReportPage() {
       .categoryTrading({
         from: period.from,
         to: period.to,
-        include_expenses: includeExpenses ? 1 : 0,
+        include_expenses: 1,
       })
       .then((res) => setData(res.data?.data || null))
       .catch((err) => {
@@ -56,7 +82,7 @@ export function CategoryTradingReportPage() {
         setData(null);
       })
       .finally(() => setLoading(false));
-  }, [period, includeExpenses]);
+  }, [period]);
 
   useEffect(() => {
     load();
@@ -65,8 +91,6 @@ export function CategoryTradingReportPage() {
   const currency = data?.base_currency || "PKR";
   const company = data?.company || {};
   const companyName = company.name || "Company";
-  // Same resolution order the financial summary uses, so one company cannot
-  // show its logo on one statement and initials on another.
   const companyLogoUrl =
     company.logo_url ||
     company.logo ||
@@ -76,14 +100,27 @@ export function CategoryTradingReportPage() {
   const printedAt = format(new Date(), "dd/MM/yyyy 'at' hh:mm a");
   const generatedBy = user?.name || user?.full_name || null;
   const asOf = data?.period?.to || period.to;
+  const fiscalYear = resolveFiscalYear(asOf, company);
   const rows = data?.rows || [];
   const totals = data?.totals || {};
   const expenses = data?.expenses || null;
   const showReport = Boolean(data);
 
+  const grossProfit = Number(totals.gross_profit ?? totals.net_profit ?? 0);
+  const expenseTotal = Number(totals.operating_expenses ?? expenses?.total ?? 0);
+  const netAfterExpenses = Number(
+    totals.net_profit_after_expenses ?? grossProfit - expenseTotal,
+  );
+
   const applyFilters = () => {
     setPeriod({ ...draft });
-    setIncludeExpenses(draftIncludeExpenses);
+  };
+
+  const resetFilters = () => {
+    const next = defaultReportPeriod();
+    setDraft(next);
+    setPeriod(next);
+    setIncludeExpenses(false);
   };
 
   const filename = useMemo(
@@ -104,38 +141,53 @@ export function CategoryTradingReportPage() {
 
   const handleExport = () => {
     if (!data) return;
-    const gross = totals.gross_profit ?? totals.net_profit ?? 0;
+    const sale = Number(totals.sale || 0);
+    const cogs = Number(totals.cogs || 0);
+    const purchase = Number(totals.purchase || 0);
     const out = [];
     out.push(["Category Sales & Purchases"]);
     out.push([companyName]);
     out.push([`Period: ${period.from} to ${period.to}`]);
     out.push([`Currency: ${currency}`]);
     out.push([]);
-    out.push(["Category", "Purchase", "Sale", "Gross profit"]);
+    out.push([
+      "Category",
+      "Sales",
+      "COGS",
+      "Gross profit",
+      "Margin %",
+      "Stock purchased",
+    ]);
     for (const row of rows) {
       out.push([
         row.category_name || "",
-        formatAmountCsv(row.purchase),
         formatAmountCsv(row.sale),
+        formatAmountCsv(row.cogs),
         formatAmountCsv(row.net_profit),
+        row.margin_percent == null ? "" : Number(row.margin_percent).toFixed(2),
+        formatAmountCsv(row.purchase),
       ]);
     }
     out.push([
       "TOTAL",
-      formatAmountCsv(totals.purchase),
-      formatAmountCsv(totals.sale),
-      formatAmountCsv(gross),
+      formatAmountCsv(sale),
+      formatAmountCsv(cogs),
+      formatAmountCsv(grossProfit),
+      totals.margin_percent == null
+        ? ""
+        : Number(totals.margin_percent).toFixed(2),
+      formatAmountCsv(purchase),
     ]);
-    if (includeExpenses && expenses?.rows?.length) {
+    if (includeExpenses) {
       out.push([]);
-      out.push(["Operational expenses"]);
-      for (const row of expenses.rows) {
+      out.push(["Operating expenses"]);
+      for (const row of expenses?.rows || []) {
         out.push([row.label, formatAmountCsv(row.amount)]);
       }
-      out.push(["Total expenses", formatAmountCsv(expenses.total)]);
+      out.push(["Total expenses", formatAmountCsv(expenseTotal)]);
       out.push([
         "Net profit after expenses",
-        formatAmountCsv(totals.net_profit_after_expenses),
+        formatAmountCsv(netAfterExpenses),
       ]);
     }
 
@@ -157,7 +209,7 @@ export function CategoryTradingReportPage() {
     <ReportPageShell
       workspaceId={workspaceId}
       title="Category Sales & Purchases"
-      showFavorite={false}
+      subtitle="Sales, cost of goods sold, and stock purchased by product category."
       actions={
         <ReportActionBar
           onExport={handleExport}
@@ -168,37 +220,57 @@ export function CategoryTradingReportPage() {
           printDisabled={!showReport || loading}
         />
       }
-      contentClassName="mx-auto w-full max-w-[1120px] space-y-4 category-trading-report-root"
+      contentClassName="mx-auto w-full max-w-[1024px] space-y-4 category-trading-report-root"
     >
-      <CategoryTradingToolbar
-        from={draft.from}
-        to={draft.to}
-        onRangeChange={({ from, to }) => setDraft({ from, to })}
-        onApply={applyFilters}
-        loading={loading}
-        includeExpenses={draftIncludeExpenses}
-        onIncludeExpensesChange={setDraftIncludeExpenses}
-      />
+      <div className="no-print">
+        <ReportDateFilter
+          compact
+          from={draft.from}
+          to={draft.to}
+          onFromChange={(v) => setDraft((p) => ({ ...p, from: v }))}
+          onToChange={(v) => setDraft((p) => ({ ...p, to: v }))}
+          onApply={applyFilters}
+          onReset={resetFilters}
+          loading={loading}
+          currency={currency}
+          hint="Gross profit = sales − COGS. Stock purchased is inventory, not a P&L deduction."
+        >
+          <div className="flex h-8 items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5">
+            <Switch
+              id="ct-include-expenses"
+              checked={includeExpenses}
+              onCheckedChange={setIncludeExpenses}
+            />
+            <Label
+              htmlFor="ct-include-expenses"
+              className="cursor-pointer whitespace-nowrap text-xs font-normal text-foreground"
+            >
+              Include expenses
+            </Label>
+          </div>
+        </ReportDateFilter>
+      </div>
 
       {loading && !showReport ? (
-        <Skeleton className="h-[640px] w-full rounded-xl" />
+        <Skeleton className="h-[480px] w-full rounded-lg" />
       ) : showReport ? (
         <div
           ref={sheetRef}
           className="report-print-sheet category-trading-print overflow-visible rounded-lg border border-slate-200 bg-white print:overflow-visible print:rounded-none print:border-0"
         >
-          <CategoryTradingReportView
+          <CategoryTradingStatement
             companyName={companyName}
             logoUrl={companyLogoUrl}
             periodFrom={data?.period?.from || period.from}
             periodTo={data?.period?.to || period.to}
             currency={currency}
+            fiscalYear={fiscalYear}
+            generatedBy={generatedBy}
+            printedAt={printedAt}
             rows={rows}
             totals={totals}
             expenses={expenses}
             includeExpenses={includeExpenses}
-            printedAt={printedAt}
-            generatedBy={generatedBy}
           />
         </div>
       ) : null}

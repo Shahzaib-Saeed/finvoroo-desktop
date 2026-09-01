@@ -1,8 +1,10 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
+  History,
   Loader2,
   PackageSearch,
+  Pencil,
   Plus,
   X,
 } from "lucide-react";
@@ -22,38 +24,25 @@ import { buildMedicineLookupFields } from "../lib/medicine-catalog-cache";
 import { formatPackStock } from "../lib/pharmacy-pricing";
 import { PharmacyShortcutHint } from "./PharmacyKbd";
 import { MedicineThumb } from "./MedicineThumb";
+import "../pharmacy-density.css";
 
 const LOOKUP_COLS_SALE = [
-  { key: "image", className: "w-[56px]" },
-  { key: "medicine", className: "w-[28%]" },
-  { key: "form", className: "w-[4.75rem]" },
-  { key: "stock", className: "w-[4.5rem]" },
-  { key: "packStock", className: "w-[4.25rem]" },
-  { key: "purchase", className: "w-[4.75rem]" },
-  { key: "sale", className: "w-[4.75rem]" },
-  { key: "unitSale", className: "w-[4.5rem]" },
-  { key: "manufacturer", className: "w-[8rem]" },
-  { key: "pack", className: "w-[3.25rem]" },
+  { key: "image", className: "w-[7%]" },
+  { key: "medicine", className: "w-[22%]" },
+  { key: "form", className: "w-[9%]" },
+  { key: "stock", className: "w-[8%]" },
+  { key: "packStock", className: "w-[8%]" },
+  { key: "purchase", className: "w-[9%]" },
+  { key: "sale", className: "w-[9%]" },
+  { key: "unitSale", className: "w-[8%]" },
+  { key: "manufacturer", className: "w-[13%]" },
+  { key: "pack", className: "w-[7%]" },
 ];
 
-/** POS sale lookup — essential columns for laptops / small Windows screens. */
-const LOOKUP_COLS_SALE_NARROW = [
-  { key: "image", className: "w-[52px]" },
-  { key: "medicine", className: "w-[40%]" },
-  { key: "stock", className: "w-[4.75rem]" },
-  { key: "sale", className: "w-[5.25rem]" },
-  { key: "unitSale", className: "w-[4.75rem]" },
-  { key: "pack", className: "w-[3.5rem]" },
-];
+const LOOKUP_SHEET_WIDTH = 900;
 
-const NARROW_LOOKUP_MQ = "(max-width: 1536px)";
-
-const LOOKUP_SHEET_WIDTH_FULL = 720;
-const LOOKUP_SHEET_WIDTH_NARROW = 520;
-
-function useLookupSheetWidth(open, narrowViewport) {
-  const fallback = narrowViewport ? LOOKUP_SHEET_WIDTH_NARROW : LOOKUP_SHEET_WIDTH_FULL;
-  const [widthPx, setWidthPx] = useState(() => (open ? fallback : null));
+function useLookupSheetWidth(open) {
+  const [widthPx, setWidthPx] = useState(() => (open ? LOOKUP_SHEET_WIDTH : null));
 
   useLayoutEffect(() => {
     if (!open) {
@@ -63,20 +52,10 @@ function useLookupSheetWidth(open, narrowViewport) {
 
     const measure = () => {
       const vw = window.innerWidth;
-      const dispenseQty = document.querySelector("[data-dispense-qty]");
-      if (dispenseQty) {
-        const qtyRight = dispenseQty.getBoundingClientRect().right;
-        const fromQty = Math.round(vw - qtyRight);
-        const minGridPx = Math.max(560, Math.round(vw * 0.5));
-        const maxAllowed = Math.max(420, vw - minGridPx);
-        const cap = Math.min(fromQty, maxAllowed, Math.round(vw * 0.42), LOOKUP_SHEET_WIDTH_NARROW);
-        setWidthPx(Math.max(420, cap));
-        return;
-      }
-      setWidthPx(fallback);
+      const share = vw < 1280 ? 0.5 : vw < 1440 ? 0.52 : 0.48;
+      setWidthPx(Math.min(LOOKUP_SHEET_WIDTH, Math.max(640, Math.round(vw * share))));
     };
 
-    setWidthPx(fallback);
     measure();
     const frame = requestAnimationFrame(measure);
     window.addEventListener("resize", measure);
@@ -84,26 +63,9 @@ function useLookupSheetWidth(open, narrowViewport) {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", measure);
     };
-  }, [open, narrowViewport, fallback]);
+  }, [open]);
 
-  return open ? (widthPx ?? fallback) : null;
-}
-
-function useNarrowLookupViewport() {
-  const [narrow, setNarrow] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.matchMedia(NARROW_LOOKUP_MQ).matches;
-  });
-
-  useEffect(() => {
-    const mq = window.matchMedia(NARROW_LOOKUP_MQ);
-    const sync = () => setNarrow(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-
-  return narrow;
+  return open ? (widthPx ?? LOOKUP_SHEET_WIDTH) : null;
 }
 
 /** Shared grid — emerald header only; body uses neutral lines. */
@@ -248,6 +210,7 @@ const LookupRow = memo(function LookupRow({
   suggested = false,
   priceMode = "sale",
   layout = "compact",
+  onEdit = null,
 }) {
   const lookup = resolveLookup(row);
   const generic = lookup.generic || "";
@@ -255,9 +218,9 @@ const LookupRow = memo(function LookupRow({
   const outOfStock =
     blockZeroStock && (lookup.outOfStock || Number(lookup.stock) <= 0);
   const sub = [generic, strength].filter(Boolean).join(" · ");
-  const isSaleLayout = layout === "sale" || layout === "sale-narrow";
-  const isSaleNarrow = layout === "sale-narrow";
-  const cellCompact = !isSaleLayout || isSaleNarrow;
+  const isSaleLayout = layout === "sale";
+  const isSaleNarrow = false;
+  const cellCompact = false;
   const cellTone = { selected, suggested, compact: cellCompact };
   const makerLabel = formatMakerLabel(lookup.manufacturer);
 
@@ -317,6 +280,23 @@ const LookupRow = memo(function LookupRow({
               <AlertTriangle className="size-2.5" />
               Verify
             </span>
+          ) : null}
+          {onEdit ? (
+            <button
+              type="button"
+              data-lookup-edit
+              className={cn(
+                "mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition-opacity hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800",
+                selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(row);
+              }}
+              title="Edit medicine"
+            >
+              <Pencil className="size-3.5" />
+            </button>
           ) : null}
         </div>
       </Td>
@@ -397,27 +377,83 @@ export function MedicinePickSheet({
   priceMode: _priceMode = "sale",
   onCreateNew = null,
   createNameHint = "",
+  onEditProduct = null,
+  onViewHistory = null,
+  posSale = false,
 }) {
   const bodyRef = useRef(null);
   const onPickRef = useRef(onPick);
   const rowsRef = useRef(rows);
   const onCreateNewRef = useRef(onCreateNew);
-  const narrowViewport = useNarrowLookupViewport();
-  const sheetWidthPx = useLookupSheetWidth(open, narrowViewport);
+  const onEditProductRef = useRef(onEditProduct);
+  const onViewHistoryRef = useRef(onViewHistory);
+  const focusIdxRef = useRef(focusIdx);
+  const sheetWidthPx = useLookupSheetWidth(open);
   const linkedId = invoiceLinkedProductId ? String(invoiceLinkedProductId) : "";
-  const lookupLayout = narrowViewport ? "sale-narrow" : "sale";
-  const lookupCols = narrowViewport ? LOOKUP_COLS_SALE_NARROW : LOOKUP_COLS_SALE;
+  const lookupLayout = "sale";
+  const lookupCols = LOOKUP_COLS_SALE;
   const colCount = lookupCols.length;
   const createLabel = String(createNameHint || query || "").trim();
   const showCreate = Boolean(onCreateNew);
+  const showEdit = Boolean(onEditProduct);
+  const showHistory = Boolean(onViewHistory);
+  const focusedRow = rows[focusIdx] || null;
 
   const handleCreate = () => {
     onCreateNewRef.current?.({ typedName: createLabel });
   };
 
+  const handleEdit = (row) => {
+    if (row?.id) onEditProductRef.current?.(row);
+  };
+
+  const handleHistory = (row) => {
+    if (row?.id) onViewHistoryRef.current?.(row);
+  };
+
   useEffect(() => {
     onCreateNewRef.current = onCreateNew;
   }, [onCreateNew]);
+
+  useEffect(() => {
+    onEditProductRef.current = onEditProduct;
+  }, [onEditProduct]);
+
+  useEffect(() => {
+    onViewHistoryRef.current = onViewHistory;
+  }, [onViewHistory]);
+
+  useEffect(() => {
+    focusIdxRef.current = focusIdx;
+  }, [focusIdx]);
+
+  useEffect(() => {
+    if (!open || !showEdit) return;
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "e") return;
+      const row = rowsRef.current?.[focusIdxRef.current];
+      if (!row?.id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onEditProductRef.current?.(row);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open, showEdit]);
+
+  useEffect(() => {
+    if (!open || !showHistory) return;
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "h") return;
+      const row = rowsRef.current?.[focusIdxRef.current];
+      if (!row?.id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onViewHistoryRef.current?.(row);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open, showHistory]);
 
   useEffect(() => {
     if (!open || !showCreate) return;
@@ -459,7 +495,7 @@ export function MedicinePickSheet({
         style={
           panelWidth
             ? {
-                '--pick-sheet-w': `${panelWidth}px`,
+                "--pick-sheet-w": `${panelWidth}px`,
                 width: panelWidth,
                 maxWidth: panelWidth,
                 minWidth: panelWidth,
@@ -506,6 +542,30 @@ export function MedicinePickSheet({
               </SheetDescription>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              {showHistory && focusedRow ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1 border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 shadow-none hover:bg-slate-50"
+                  onClick={() => handleHistory(focusedRow)}
+                >
+                  <History className="size-3.5" />
+                  History
+                </Button>
+              ) : null}
+              {showEdit && focusedRow ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1 border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 shadow-none hover:bg-slate-50"
+                  onClick={() => handleEdit(focusedRow)}
+                >
+                  <Pencil className="size-3.5" />
+                  Edit
+                </Button>
+              ) : null}
               {showCreate ? (
                 <Button
                   type="button"
@@ -553,11 +613,13 @@ export function MedicinePickSheet({
         <SheetBody className="min-h-0 flex-1 overflow-hidden bg-slate-50/60 p-3">
           <div
             ref={bodyRef}
-            className="h-full overflow-x-auto overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100"
+            className="h-full overflow-x-hidden overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100"
             onMouseDown={(e) => {
               if (e.target.closest?.("[data-lookup-idx]")) e.preventDefault();
             }}
             onClick={(e) => {
+              if (e.target.closest?.("[data-lookup-edit]")) return;
+              if (e.target.closest?.("[data-lookup-history]")) return;
               const tr = e.target.closest?.("[data-lookup-idx]");
               if (!tr) return;
               if (tr.getAttribute("data-out-of-stock") === "1") return;
@@ -577,38 +639,28 @@ export function MedicinePickSheet({
                   <Th align="center" title="Product photo">
                     Photo
                   </Th>
-                  <Th align="left">
-                    Medicine
+                  <Th align="left">Medicine</Th>
+                  <Th align="center" title="Tablet, syrup, injection…">
+                    Form
                   </Th>
-                  {!narrowViewport ? (
-                    <Th align="center" title="Tablet, syrup, injection…">
-                      Form
-                    </Th>
-                  ) : null}
                   <Th align="center" title="Units in stock">
                     Stock
                   </Th>
-                  {!narrowViewport ? (
-                    <Th align="center" title="How many full packs are in stock">
-                      Packs
-                    </Th>
-                  ) : null}
-                  {!narrowViewport ? (
-                    <Th align="right" title="Purchase cost of one pack">
-                      Cost
-                    </Th>
-                  ) : null}
+                  <Th align="center" title="How many full packs are in stock">
+                    Packs
+                  </Th>
+                  <Th align="right" title="Purchase cost of one pack">
+                    Cost
+                  </Th>
                   <Th align="right" title="Selling price of one pack">
                     Sale
                   </Th>
                   <Th align="right" title="Selling price per tablet / unit">
                     /Unit
                   </Th>
-                  {!narrowViewport ? (
-                    <Th align="left" title="Manufacturer">
-                      Maker
-                    </Th>
-                  ) : null}
+                  <Th align="left" title="Manufacturer">
+                    Maker
+                  </Th>
                   <Th align="center" title="Pieces in one pack">
                     Size
                   </Th>
@@ -622,9 +674,7 @@ export function MedicinePickSheet({
                       className="border-b border-slate-200 px-6 py-24 text-center text-slate-600"
                     >
                       <Loader2 className="mx-auto size-6 animate-spin text-emerald-600" />
-                      <p className="mt-3 text-sm font-semibold">
-                        Loading medicines…
-                      </p>
+                      <p className="mt-3 text-sm font-semibold">Loading medicines…</p>
                     </td>
                   </tr>
                 ) : rows.length === 0 ? (
@@ -636,9 +686,7 @@ export function MedicinePickSheet({
                       <div className="mx-auto flex size-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
                         <PackageSearch className="size-6 text-slate-400" />
                       </div>
-                      <p className="mt-3 text-sm font-bold">
-                        No medicines match
-                      </p>
+                      <p className="mt-3 text-sm font-bold">No medicines match</p>
                       <p className="mt-1 text-xs font-medium text-slate-600">
                         Try generic name, strength, or supplier code
                       </p>
@@ -672,6 +720,7 @@ export function MedicinePickSheet({
                       }
                       priceMode={_priceMode}
                       layout={lookupLayout}
+                      onEdit={showEdit ? handleEdit : null}
                     />
                   ))
                 )}
@@ -680,8 +729,8 @@ export function MedicinePickSheet({
           </div>
         </SheetBody>
 
-        <SheetFooter className="shrink-0 !flex-row items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-3">
-          <p className="min-w-0 truncate text-[12px] text-slate-500">
+        <SheetFooter className="shrink-0 !flex-row flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-t border-slate-200 bg-slate-50/80 px-4 py-3">
+          <p className="text-[12px] text-slate-500">
             {blockZeroStock ? (
               <>
                 <span className="font-medium text-red-600">Out of stock</span> rows cannot be added
@@ -690,8 +739,14 @@ export function MedicinePickSheet({
               "Press Enter to add the highlighted medicine"
             )}
           </p>
-          <span className="hidden shrink-0 items-center gap-2.5 sm:inline-flex">
+          <span className="inline-flex shrink-0 flex-wrap items-center gap-2.5">
             <PharmacyShortcutHint keys={["↑↓"]} label="Move" className="text-slate-500" />
+            {showEdit ? (
+              <PharmacyShortcutHint keys={["⌘E"]} label="Edit" className="text-slate-500" />
+            ) : null}
+            {showHistory ? (
+              <PharmacyShortcutHint keys={["⌘H"]} label="History" className="text-slate-500" />
+            ) : null}
             <PharmacyShortcutHint keys={["Enter"]} label="Add" className="text-slate-500" />
             <PharmacyShortcutHint keys={["Esc"]} label="Close" className="text-slate-500" />
           </span>

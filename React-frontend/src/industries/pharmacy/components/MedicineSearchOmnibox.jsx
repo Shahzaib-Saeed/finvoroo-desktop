@@ -369,6 +369,7 @@ export const MedicineSearchOmnibox = forwardRef(function MedicineSearchOmnibox(
         focusIdx={focusIdx}
         onFocusIdx={setFocusIdx}
         onPick={pick}
+        posSale
       />
     </>
   );

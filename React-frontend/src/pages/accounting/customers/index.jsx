@@ -679,8 +679,9 @@ export function CustomersPage() {
 
       <Card>
         <CardHeader className="py-3 border-b flex-col items-stretch gap-3">
-          <div className="flex items-center justify-between gap-2 w-full">
-            <CardTitle className="text-base font-semibold">All customers</CardTitle>
+          <div className="flex flex-col items-stretch justify-between gap-3 w-full sm:flex-row sm:items-center">
+            <CardTitle className="text-base font-semibold shrink-0">All customers</CardTitle>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
             <DataGridColumnVisibility
               table={table}
               trigger={
@@ -690,6 +691,7 @@ export function CustomersPage() {
                 </Button>
               }
             />
+            </div>
           </div>
           <CardToolbar className="w-full flex-col sm:flex-row gap-3 p-0 border-0 min-h-0">
             <div className="relative flex-1 min-w-0 sm:max-w-md">

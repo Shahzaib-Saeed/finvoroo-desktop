@@ -57,8 +57,8 @@ export function ReportSummaryStrip({
           <div
             key={item.key || item.label}
             className={cn(
-              'min-w-[8rem] px-3 first:pl-0',
-              index < visibleItems.length - 1 && 'border-r border-border',
+              'min-w-[calc(50%-0.75rem)] flex-1 sm:min-w-[8rem] sm:flex-none px-3 first:pl-0',
+              index < visibleItems.length - 1 && 'sm:border-r sm:border-border',
             )}
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">

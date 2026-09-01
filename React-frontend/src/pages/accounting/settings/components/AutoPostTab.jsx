@@ -234,7 +234,9 @@ export function AutoPostTab({
           </div>
         </SettingsFormSection>
 
+      </form>
         <SettingsStickyActionBar
+        placement="bottom"
           dirty={dirty}
           saving={saving}
           justSaved={justSaved}
@@ -243,7 +245,6 @@ export function AutoPostTab({
           onCancel={handleReset}
           saveLabel="Save changes"
         />
-      </form>
     </SettingsCard>
   );
 }

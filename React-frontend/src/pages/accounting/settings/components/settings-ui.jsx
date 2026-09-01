@@ -10,10 +10,13 @@ import {
   PanelBottom,
   Settings2,
   Sparkles,
+  Pill,
+  ShoppingCart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
-import { SETTINGS_TABS } from '../constants';
+import { Switch } from '@/components/ui/switch';
+import { PHARMACY_SETTINGS_TABS, SETTINGS_TABS } from '../constants';
 
 export const SETTINGS_INPUT_CLASS = 'h-9 text-sm';
 export const SETTINGS_COMBO_CLASS = 'h-9 text-sm';
@@ -27,17 +30,24 @@ export const SETTINGS_ICONS = {
   palette: Palette,
   layout: LayoutTemplate,
   fields: ListTree,
+  cart: ShoppingCart,
+  pill: Pill,
 };
 
 export const SETTINGS_SECTION_ICONS = {
   Company: Building2,
+  Pharmacy: Pill,
   Accounting: Zap,
   Appearance: Sparkles,
   System: Settings2,
 };
 
 export function getSettingsTabMeta(tabId) {
-  return SETTINGS_TABS.find((t) => t.id === tabId) ?? SETTINGS_TABS[0];
+  return (
+    SETTINGS_TABS.find((t) => t.id === tabId) ||
+    PHARMACY_SETTINGS_TABS.find((t) => t.id === tabId) ||
+    SETTINGS_TABS[0]
+  );
 }
 
 export function SettingsIconBox({ icon = 'building', active = false, className, size = 'md' }) {
@@ -76,6 +86,35 @@ export function SettingsTabHeader({ tabId }) {
   );
 }
 
+/** Label left, control right — Stripe/Linear style, no nested cards. */
+export function SettingsToggleRow({
+  id,
+  label,
+  hint,
+  checked,
+  disabled,
+  onCheckedChange,
+  control,
+}) {
+  return (
+    <div className="flex items-start justify-between gap-6 py-3.5 first:pt-0 last:pb-0">
+      <div className="min-w-0">
+        <Label htmlFor={id} className="text-sm font-medium text-foreground cursor-pointer leading-snug">
+          {label}
+        </Label>
+        {hint ? (
+          <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{hint}</p>
+        ) : null}
+      </div>
+      <div className="shrink-0 pt-0.5">
+        {control ?? (
+          <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Flat section — title + fields, no nested card box. */
 export function SettingsFormSection({
   icon: Icon,
@@ -86,14 +125,14 @@ export function SettingsFormSection({
   contentClassName,
 }) {
   return (
-    <section className={cn('space-y-3 pb-5 border-b border-border/40 last:border-0 last:pb-0', className)}>
+    <section className={cn('space-y-4 pb-8 border-b border-border/50 last:border-0 last:pb-0', className)}>
       {title || description ? (
         <div className="flex items-center gap-2">
           {Icon ? <Icon className="size-3.5 text-muted-foreground shrink-0" aria-hidden /> : null}
           <div className="min-w-0">
             {title ? <h3 className="text-sm font-medium text-foreground">{title}</h3> : null}
             {description ? (
-              <p className="text-[11px] text-muted-foreground mt-0.5">{description}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
             ) : null}
           </div>
         </div>

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 export function PosManagerDialog({ open, onOpenChange, onUnlock }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [posPin, setPosPin] = useState('');
   const [busy, setBusy] = useState(false);
 
   return (
@@ -31,8 +32,10 @@ export function PosManagerDialog({ open, onOpenChange, onUnlock }) {
             e.preventDefault();
             setBusy(true);
             try {
-              await onUnlock({ email, password });
+              const pin = posPin.replace(/\D/g, '');
+              await onUnlock(pin.length >= 2 ? { pos_pin: pin } : { email, password });
               setPassword('');
+              setPosPin('');
             } catch (err) {
               toast.error(err?.response?.data?.message || 'Unlock failed');
             } finally {
@@ -41,11 +44,25 @@ export function PosManagerDialog({ open, onOpenChange, onUnlock }) {
           }}
         >
           <div>
+            <Label>Manager POS PIN</Label>
+            <Input
+              data-pos-typing
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              className="mt-1 h-11 rounded-xl tracking-[0.25em]"
+              value={posPin}
+              onChange={(e) => setPosPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              placeholder="2–8 digits"
+            />
+          </div>
+          <p className="text-center text-xs text-muted-foreground">or email and password</p>
+          <div>
             <Label>Manager email</Label>
             <Input
               data-pos-typing
               type="email"
-              required
+              required={posPin.replace(/\D/g, '').length < 2}
               className="mt-1 h-11 rounded-xl"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -56,7 +73,7 @@ export function PosManagerDialog({ open, onOpenChange, onUnlock }) {
             <Input
               data-pos-typing
               type="password"
-              required
+              required={posPin.replace(/\D/g, '').length < 2}
               className="mt-1 h-11 rounded-xl"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

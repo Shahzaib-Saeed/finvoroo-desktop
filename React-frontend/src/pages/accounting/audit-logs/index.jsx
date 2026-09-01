@@ -701,8 +701,8 @@ export function AuditLogsPage() {
 
       <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
         <CardHeader className="flex-col items-stretch gap-4 border-b border-slate-200 bg-white px-5 py-4">
-          <div className="flex items-center justify-between gap-2 w-full">
-            <div>
+          <div className="flex flex-col items-stretch justify-between gap-3 w-full sm:flex-row sm:items-start">
+            <div className="min-w-0">
               <CardTitle className="text-base font-semibold text-slate-950">
                 Security log
               </CardTitle>
@@ -711,7 +711,7 @@ export function AuditLogsPage() {
                 {hasActiveFilters ? ' matching your filters' : ' recorded'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
                 <Button
                   type="button"

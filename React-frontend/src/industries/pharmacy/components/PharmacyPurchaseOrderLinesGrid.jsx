@@ -261,6 +261,19 @@ export function PharmacyPurchaseOrderLinesGrid({
                           }
                         : undefined
                     }
+                    onEditProduct={
+                      canCreateProduct && !readOnly
+                        ? (rowIndex, product) => {
+                            productDialog?.openEdit?.(product, {
+                              onSuccess: (saved) => {
+                                if (saved?.id) {
+                                  onSelectProduct(rowIndex, String(saved.id), saved);
+                                }
+                              },
+                            });
+                          }
+                        : undefined
+                    }
                     placeholder="Type item name…"
                   />
                 </GrnTd>

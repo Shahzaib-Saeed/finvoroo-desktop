@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, Globe2, ImageIcon, Mail, MapPin } from 'lucide-react';
+import { Building2, Globe2, ImageIcon, Mail, MapPin, MonitorSmartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { settingsApi } from '../api/settings.api';
 import {
@@ -29,7 +29,7 @@ import { getTimezoneOptions, timezoneLabel } from '@/lib/timezone-options';
 const TIMEZONE_OPTIONS = getTimezoneOptions();
 const FORM_ID = 'settings-profile-form';
 
-export function ProfileTab({ company, logoUrl, onSaved }) {
+export function ProfileTab({ company, logoUrl, onSaved, onPosMenuSaved }) {
   const baseline = useMemo(() => mapCompanyToProfileForm(company), [company]);
   const [form, setForm] = useState(() => mapCompanyToProfileForm(company));
   const [preview, setPreview] = useState(logoUrl || '');
@@ -37,6 +37,35 @@ export function ProfileTab({ company, logoUrl, onSaved }) {
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+
+  // POS visibility used to live on the Navigation tab. It saves on toggle
+  // rather than joining this form's Save, because it is a single switch with an
+  // immediate, visible effect on the sidebar — batching it behind a form save
+  // would make the menu change for no apparent reason later.
+  const [showPosMenu, setShowPosMenu] = useState(!!company?.show_pos_menu);
+  const [posSaving, setPosSaving] = useState(false);
+
+  useEffect(() => {
+    setShowPosMenu(!!company?.show_pos_menu);
+  }, [company?.show_pos_menu]);
+
+  const handlePosMenuChange = async (next) => {
+    const previous = showPosMenu;
+    setShowPosMenu(next);
+    setPosSaving(true);
+    try {
+      const res = await settingsApi.updatePosMenu({ show_pos_menu: next });
+      const saved = !!res.data?.data?.show_pos_menu;
+      setShowPosMenu(saved);
+      onPosMenuSaved?.(saved);
+      toast.success(saved ? 'POS added to the Sales menu.' : 'POS hidden from the Sales menu.');
+    } catch (err) {
+      setShowPosMenu(previous);
+      toast.error(err?.response?.data?.message || 'Could not update the POS menu setting.');
+    } finally {
+      setPosSaving(false);
+    }
+  };
 
   useEffect(() => {
     setForm(mapCompanyToProfileForm(company));
@@ -121,16 +150,6 @@ export function ProfileTab({ company, logoUrl, onSaved }) {
       formId={FORM_ID}
       onSubmit={handleSubmit}
     >
-      <SettingsStickyActionBar
-        placement="top"
-        dirty={dirty}
-        saving={saving}
-        justSaved={justSaved}
-        formId={FORM_ID}
-        onReset={handleReset}
-        onCancel={handleReset}
-        saveLabel="Save changes"
-      />
 
       <SettingsFormSection icon={ImageIcon} title="Branding">
         <SettingsLogoUpload
@@ -288,6 +307,37 @@ export function ProfileTab({ company, logoUrl, onSaved }) {
           </SettingsField>
         </SettingsFieldGrid>
       </SettingsFormSection>
+
+      <SettingsFormSection icon={MonitorSmartphone} title="Workspace">
+        <label className="flex cursor-pointer items-start justify-between gap-6 rounded-lg border border-border/70 px-4 py-3.5 transition-colors hover:bg-muted/40">
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-foreground">
+              Point of Sale in the Sales menu
+            </span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Shows the POS counter screen in the sidebar under Sales. Turning it off hides the
+              menu item only — it does not disable POS or affect existing sales.
+            </span>
+          </span>
+          <Switch
+            checked={showPosMenu}
+            onCheckedChange={handlePosMenuChange}
+            disabled={posSaving}
+            aria-label="Show Point of Sale in the Sales menu"
+            className="mt-0.5 shrink-0"
+          />
+        </label>
+      </SettingsFormSection>
+      <SettingsStickyActionBar
+        placement="bottom"
+        dirty={dirty}
+        saving={saving}
+        justSaved={justSaved}
+        formId={FORM_ID}
+        onReset={handleReset}
+        onCancel={handleReset}
+        saveLabel="Save changes"
+      />
     </SettingsFormShell>
   );
 }

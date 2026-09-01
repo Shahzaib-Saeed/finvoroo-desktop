@@ -17,10 +17,13 @@ export function SettingsStickyActionBar({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center justify-between gap-2 py-2',
+        'flex flex-wrap items-center justify-between gap-2',
         placement === 'top'
-          ? 'border-b border-border/60 mb-4'
-          : 'border-t border-border/60 mt-4 pt-3',
+          ? 'border-b border-border/60 mb-4 py-2'
+          // Pinned to the bottom of the viewport: a settings form is long, and
+          // a Save button that scrolls out of reach is the reason people lose
+          // edits. The blur keeps content legible as it passes underneath.
+          : 'sticky bottom-0 z-20 -mx-1 mt-6 border-t border-border/60 bg-background/85 px-1 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/70',
         className,
       )}
       role="status"

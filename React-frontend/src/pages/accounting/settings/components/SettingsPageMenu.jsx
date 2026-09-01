@@ -7,6 +7,7 @@ import {
   LayoutTemplate,
   ListTree,
   PanelBottom,
+  ShoppingCart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SETTINGS_TABS } from '../constants';
@@ -20,16 +21,17 @@ const ICONS = {
   palette: Palette,
   layout: LayoutTemplate,
   fields: ListTree,
+  cart: ShoppingCart,
 };
 
 /**
  * Profile-default style tab menu (underline active state, like demo PageMenu / NavbarMenu).
  */
-export function SettingsPageMenu({ activeTab, onChange }) {
+export function SettingsPageMenu({ activeTab, onChange, tabs = SETTINGS_TABS }) {
   return (
     <div className="overflow-x-auto kt-scrollable-x-auto -mb-px">
       <div className="flex items-stretch gap-1 min-w-max">
-        {SETTINGS_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const Icon = ICONS[tab.icon] || Building2;
           const isActive = activeTab === tab.id;
 

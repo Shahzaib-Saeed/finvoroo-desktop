@@ -189,7 +189,9 @@ export function FooterTab({ company, onSaved, title, description, icon = 'footer
           </div>
         </SettingsFormSection>
 
+      </form>
         <SettingsStickyActionBar
+        placement="bottom"
           dirty={dirty}
           saving={saving}
           justSaved={justSaved}
@@ -198,7 +200,6 @@ export function FooterTab({ company, onSaved, title, description, icon = 'footer
           onCancel={() => setForm(baseline)}
           saveLabel="Save changes"
         />
-      </form>
     </SettingsCard>
   );
 }

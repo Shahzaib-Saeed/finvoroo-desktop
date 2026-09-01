@@ -151,8 +151,8 @@ export function PosItemSalesReportPage() {
         formatAmountCsv(row.rate),
         formatAmountCsv(row.discount),
         formatAmountCsv(row.sale),
-        formatAmountCsv(row.cost),
-        formatAmountCsv(row.profit),
+        formatAmountCsv(row.cost_available === false ? 'UNAVAILABLE' : row.cost),
+        formatAmountCsv(row.profit_available === false ? 'UNAVAILABLE' : row.profit),
       ]);
     }
     out.push([
@@ -203,7 +203,7 @@ export function PosItemSalesReportPage() {
           printDisabled={!showReport || loading}
         />
       }
-      contentClassName="w-full max-w-[1280px] mx-auto space-y-4 pos-item-sales-report-root"
+      contentClassName="w-full min-w-0 max-w-full mx-auto space-y-4 pos-item-sales-report-root lg:max-w-[1280px]"
     >
       <div className="no-print">
         <ReportDateFilter
@@ -226,7 +226,7 @@ export function PosItemSalesReportPage() {
             }}
             placeholder="Search item, SKU, or invoice"
             aria-label="Search item, SKU, or invoice"
-            className="h-8 w-[220px] text-xs"
+            className="h-8 w-full min-w-0 text-xs sm:w-[220px]"
           />
         </ReportDateFilter>
       </div>
@@ -263,6 +263,14 @@ export function PosItemSalesReportPage() {
           ]}
           context={currency}
         />
+      ) : null}
+
+      {showReport && totals?.profit_complete === false && Number(totals.missing_ledger_cogs_lines || 0) > 0 ? (
+        <p className="no-print rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {totals.missing_ledger_cogs_lines} sale line
+          {totals.missing_ledger_cogs_lines === 1 ? "" : "s"} missing ledger COGS — profit totals
+          exclude those lines.
+        </p>
       ) : null}
 
       {truncated ? (

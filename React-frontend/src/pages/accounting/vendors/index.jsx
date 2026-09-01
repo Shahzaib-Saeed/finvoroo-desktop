@@ -638,8 +638,8 @@ export function VendorsPage() {
 
       <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
         <CardHeader className="flex-col items-stretch gap-4 border-b border-slate-200 bg-white px-5 py-4">
-          <div className="flex items-center justify-between gap-2 w-full">
-            <div>
+          <div className="flex flex-col items-stretch justify-between gap-3 w-full sm:flex-row sm:items-center">
+            <div className="min-w-0">
               <CardTitle className="text-base font-semibold text-slate-950">
                 All vendors
               </CardTitle>
@@ -647,6 +647,7 @@ export function VendorsPage() {
                 {pagination.total} {pagination.total === 1 ? 'vendor' : 'vendors'} in this workspace
               </p>
             </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
             <DataGridColumnVisibility
               table={table}
               trigger={
@@ -656,6 +657,7 @@ export function VendorsPage() {
                 </Button>
               }
             />
+            </div>
           </div>
           <CardToolbar className="min-h-0 w-full flex-col gap-3 border-0 p-0 sm:flex-row">
             <div className="relative min-w-0 flex-1 sm:max-w-lg">

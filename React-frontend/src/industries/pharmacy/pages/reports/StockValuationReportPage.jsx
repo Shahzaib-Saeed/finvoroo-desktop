@@ -204,7 +204,7 @@ export function StockValuationReportPage() {
           printDisabled={!showReport || loading}
         />
       }
-      contentClassName="w-full max-w-[1200px] mx-auto space-y-4 stock-valuation-report-root"
+      contentClassName="w-full min-w-0 max-w-full mx-auto space-y-4 stock-valuation-report-root lg:max-w-[1200px]"
     >
       <div className="no-print">
         <ReportCompactFilterBar
@@ -239,7 +239,7 @@ export function StockValuationReportPage() {
             }}
             placeholder="Search item or SKU"
             aria-label="Search item or SKU"
-            className="h-8 w-[200px] text-xs"
+            className="h-8 w-full min-w-0 text-xs sm:w-[200px]"
           />
           <label className="flex items-center gap-1.5 text-xs text-slate-600">
             <input

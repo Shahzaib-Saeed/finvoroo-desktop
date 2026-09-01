@@ -1,0 +1,106 @@
+/**
+ * One lookup + one grid density everywhere.
+ * Small screens shrink type — they do not drop columns or change layout.
+ */
+:root {
+  --pharm-text: 13px;
+  --pharm-text-sm: 12px;
+  --pharm-text-xs: 11px;
+  --pharm-text-xxs: 10px;
+  --pharm-text-lg: 15px;
+  --pharm-text-xl: 16px;
+  --pharm-th: 10px;
+  --pharm-cell-pad-x: 0.625rem;
+  --pharm-cell-pad-y: 0.5rem;
+}
+
+@media (max-width: 1440px) {
+  :root {
+    --pharm-text: 12px;
+    --pharm-text-sm: 11px;
+    --pharm-text-xs: 10px;
+    --pharm-text-xxs: 9px;
+    --pharm-text-lg: 14px;
+    --pharm-text-xl: 15px;
+    --pharm-th: 9px;
+    --pharm-cell-pad-x: 0.5rem;
+    --pharm-cell-pad-y: 0.4rem;
+  }
+}
+
+@media (max-width: 1280px) {
+  :root {
+    --pharm-text: 11px;
+    --pharm-text-sm: 10px;
+    --pharm-text-xs: 9px;
+    --pharm-text-xxs: 8px;
+    --pharm-text-lg: 13px;
+    --pharm-text-xl: 14px;
+    --pharm-th: 8px;
+    --pharm-cell-pad-x: 0.4rem;
+    --pharm-cell-pad-y: 0.3rem;
+  }
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --pharm-text: 10.5px;
+    --pharm-text-sm: 9.5px;
+    --pharm-text-xs: 8.5px;
+    --pharm-text-xxs: 8px;
+    --pharm-text-lg: 12px;
+    --pharm-text-xl: 13px;
+    --pharm-th: 8px;
+    --pharm-cell-pad-x: 0.35rem;
+    --pharm-cell-pad-y: 0.25rem;
+  }
+}
+
+[data-pharmacy-pick-sheet] .text-\[16px\],
+[data-pharmacy-density] .text-\[16px\] {
+  font-size: var(--pharm-text-xl) !important;
+}
+
+[data-pharmacy-pick-sheet] .text-\[15px\],
+[data-pharmacy-density] .text-\[15px\] {
+  font-size: var(--pharm-text-lg) !important;
+}
+
+[data-pharmacy-pick-sheet] .text-\[14px\],
+[data-pharmacy-density] .text-\[14px\] {
+  font-size: var(--pharm-text-lg) !important;
+}
+
+[data-pharmacy-pick-sheet] .text-\[13px\],
+[data-pharmacy-density] .text-\[13px\] {
+  font-size: var(--pharm-text) !important;
+}
+
+[data-pharmacy-pick-sheet] .text-\[12px\],
+[data-pharmacy-density] .text-\[12px\] {
+  font-size: var(--pharm-text-sm) !important;
+}
+
+[data-pharmacy-pick-sheet] .text-\[11px\],
+[data-pharmacy-density] .text-\[11px\] {
+  font-size: var(--pharm-text-xs) !important;
+}
+
+[data-pharmacy-pick-sheet] .text-\[10px\],
+[data-pharmacy-pick-sheet] .text-\[9px\],
+[data-pharmacy-density] .text-\[10px\],
+[data-pharmacy-density] .text-\[9px\] {
+  font-size: var(--pharm-text-xxs) !important;
+}
+
+[data-pharmacy-pick-sheet] th,
+[data-pharmacy-density] table thead th {
+  font-size: var(--pharm-th) !important;
+  padding-inline: var(--pharm-cell-pad-x) !important;
+  padding-block: var(--pharm-cell-pad-y) !important;
+}
+
+[data-pharmacy-pick-sheet] td {
+  padding-inline: var(--pharm-cell-pad-x) !important;
+  padding-block: var(--pharm-cell-pad-y) !important;
+}

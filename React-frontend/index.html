@@ -7,7 +7,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
     <meta name="description" content="Finvoroo workspace" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,400,500,600,700" />
+    <!-- Fonts: preconnect so the handshake overlaps HTML parsing, display=swap so
+         text paints immediately in a fallback instead of staying invisible, and
+         weight 800 included because font-extrabold is used (the login headline
+         among others) and was previously being synthesised by the browser.
+         Weight 300 dropped - one use in the whole app. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    />
     <style>
         .dark body {
             background-color: hsl(240 10% 4%);

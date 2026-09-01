@@ -107,6 +107,20 @@ export function useProductForm({
     }
   }, [product, initialType, isEdit]);
 
+  // New pharmacy medicines default to the "Medicine(s)" category until the user changes it.
+  useEffect(() => {
+    if (isEdit || product) return;
+    if (!requirePackSize) return;
+    const cats = lookups.categories || [];
+    if (!cats.length) return;
+    setForm((f) => {
+      if (f.category_id) return f;
+      const match = cats.find((c) => /^medicines?$/i.test(String(c.name || '').trim()));
+      if (!match) return f;
+      return { ...f, category_id: String(match.id) };
+    });
+  }, [lookups.categories, isEdit, product, requirePackSize]);
+
   // The product's alternate units (Pair, Dozen, Box, Carton, ...) aren't part of
   // ProductResource — fetched separately and merged in once we know the product id.
   useEffect(() => {

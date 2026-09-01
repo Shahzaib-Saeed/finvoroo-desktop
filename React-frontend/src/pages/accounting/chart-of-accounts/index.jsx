@@ -1141,13 +1141,14 @@ export function ChartOfAccountsPage() {
 
       <Card>
         <CardHeader className="py-3 border-b flex-col items-stretch gap-3">
-          <div className="flex items-center justify-between gap-2 w-full">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <div className="flex flex-col items-stretch justify-between gap-3 w-full sm:flex-row sm:items-center">
+            <CardTitle className="text-base font-semibold flex flex-wrap items-center gap-2 shrink-0">
               All accounts
               <span className="text-xs font-normal text-muted-foreground">
                 Balances in {companyCurrency}
               </span>
             </CardTitle>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
             <DataGridColumnVisibility
               table={table}
               trigger={
@@ -1157,6 +1158,7 @@ export function ChartOfAccountsPage() {
                 </Button>
               }
             />
+            </div>
           </div>
           <CardToolbar className="w-full flex-col sm:flex-row gap-3 p-0 border-0 min-h-0">
             <div className="relative flex-1 min-w-0 sm:max-w-md">

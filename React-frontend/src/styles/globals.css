@@ -224,3 +224,23 @@ html {
 @import './report-print.css';
 @import './pos-receipt-print.css';
 @import './industry-theme.css';
+
+/* Mobile: keep workspace pages from horizontal page scroll; tables scroll inside wrappers */
+@media (max-width: 1023px) {
+  .financial-summary-statement,
+  .report-print-root {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .report-print-root .overflow-x-auto,
+  .report-print-root [data-report-table-scroll] {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  [data-slot="card-table"] [data-slot="scroll-area"],
+  [data-slot="card-table"] [data-slot="scroll-area-viewport"] {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+}

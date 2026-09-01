@@ -420,16 +420,66 @@ export function InvoiceShowPage() {
       ) : null}
 
       <div className="min-w-0 space-y-4">
-        <div className="max-w-[800px] mx-auto w-full">
-          {isPharmacy && thermalReceiptProps ? (
-            <div className="print:hidden">
-              <div className="mx-auto w-full max-w-[340px] rounded-lg border border-border/70 bg-white p-2 shadow-sm">
-                <ThermalReceiptBody {...thermalReceiptProps} preview />
+        {isPharmacy && thermalReceiptProps ? (
+          <div className="print:hidden mx-auto w-fit max-w-full">
+            <ThermalReceiptBody {...thermalReceiptProps} preview />
+            {payments.length > 0 ? (
+              <div className="mt-6 border-t border-slate-200 pt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Payments applied
+                </p>
+                <div className="space-y-2">
+                  {payments.map((p) => {
+                    const cash = Number(p.amount_applied) || 0;
+                    const discount = Number(p.settlement_discount) || 0;
+                    const hasDiscount = discount > 0.0001;
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex items-start justify-between gap-3 border-b border-slate-100 py-2 text-sm last:border-0"
+                      >
+                        <span className="flex min-w-0 flex-col gap-0.5">
+                          <span className="flex items-center gap-2">
+                            <CheckCircle className="size-4 shrink-0 text-emerald-600" />
+                            {p.payment_id ? (
+                              <Link
+                                to={`/workspace/${workspaceId}/accounting/payments/${p.payment_id}`}
+                                className="font-medium hover:underline"
+                              >
+                                {documentNumberLabel(p.receipt_number)}
+                              </Link>
+                            ) : (
+                              <span>{documentNumberLabel(p.receipt_number)}</span>
+                            )}
+                          </span>
+                          {hasDiscount ? (
+                            <span className="pl-6 text-[11px] text-muted-foreground">
+                              Cash {formatCurrency(cash, currency)}
+                              {' · '}
+                              Settlement discount {formatCurrency(discount, currency)}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="shrink-0 font-medium tabular-nums">
+                          {formatCurrency(hasDiscount ? cash + discount : cash, currency)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {Number(invoice.settlement_discount_total) > 0.0001 ? (
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Settlement discount on this receipt:{' '}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {formatCurrency(invoice.settlement_discount_total, currency)}
+                    </span>
+                  </p>
+                ) : null}
               </div>
-            </div>
-          ) : null}
-
-          <div className={cn(isPharmacy && 'hidden print:block')}>
+            ) : null}
+          </div>
+        ) : (
+          <div className="max-w-[800px] mx-auto w-full">
             <InvoiceDocument
               invoice={invoice}
               display={display}
@@ -437,16 +487,35 @@ export function InvoiceShowPage() {
               workspaceId={workspaceId}
             />
           </div>
+        )}
 
-          <InvoicePrintDocument invoice={invoice} display={display} />
-          {thermalReceiptProps ? (
-            <div id="invoice-thermal-print" className="hidden" aria-hidden="true">
-              <ThermalReceiptBody {...thermalReceiptProps} />
-            </div>
-          ) : null}
+        <div className={cn(isPharmacy && 'hidden print:block max-w-[800px] mx-auto w-full')}>
+          {!isPharmacy ? null : (
+            <InvoiceDocument
+              invoice={invoice}
+              display={display}
+              sectionOrder={sectionOrder}
+              workspaceId={workspaceId}
+            />
+          )}
         </div>
 
-        {payments.length > 0 ? (
+        {!isPharmacy ? (
+          <div className="max-w-[800px] mx-auto w-full">
+            <InvoicePrintDocument invoice={invoice} display={display} />
+          </div>
+        ) : (
+          <div className="hidden">
+            <InvoicePrintDocument invoice={invoice} display={display} />
+          </div>
+        )}
+        {thermalReceiptProps ? (
+          <div id="invoice-thermal-print" className="hidden" aria-hidden="true">
+            <ThermalReceiptBody {...thermalReceiptProps} />
+          </div>
+        ) : null}
+
+        {!isPharmacy && payments.length > 0 ? (
           <div className="max-w-[800px] mx-auto w-full border-t pt-4 print:hidden">
             <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
               Payments applied
@@ -502,7 +571,12 @@ export function InvoiceShowPage() {
           </div>
         ) : null}
 
-        <div className="max-w-[800px] mx-auto w-full print:hidden mt-4">
+        <div
+          className={cn(
+            'mx-auto w-full print:hidden mt-4',
+            isPharmacy ? 'max-w-full w-fit' : 'max-w-[800px]',
+          )}
+        >
           <DocumentAttachmentsReadOnly
             documentType="invoice"
             documentId={invoice.id}

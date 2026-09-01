@@ -4,30 +4,38 @@ import { formatBsDate } from "@/pages/accounting/reports/components/BalanceSheet
 
 const FINVOROO_LOGO = "/media/app/finvoroo.svg";
 
-function CompanyLogo({ logoUrl, companyName }) {
+function CompanyLogo({ logoUrl, companyName, compact = false }) {
   if (logoUrl) {
     return (
       <img
         src={logoUrl}
         alt=""
-        className="mb-3 h-12 w-auto max-w-[160px] object-contain print:mb-1 print:h-8 print:max-w-[120px]"
+        className={cn(
+          'w-auto shrink-0 object-contain',
+          compact
+            ? 'h-8 max-w-[96px] print:h-7 print:max-w-[80px]'
+            : 'mb-3 h-12 max-w-[160px] print:mb-1 print:h-8 print:max-w-[120px]',
+        )}
       />
     );
   }
 
-  const words = String(companyName || "")
+  const words = String(companyName || '')
     .trim()
     .split(/\s+/)
     .filter(Boolean);
   const initials =
     words.length >= 2
-      ? `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase()
-      : (words[0] ?? "C").slice(0, 2).toUpperCase();
+      ? `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase()
+      : (words[0] ?? 'C').slice(0, 2).toUpperCase();
 
   return (
     <div
       aria-hidden
-      className="mb-3 flex size-10 items-center justify-center border border-slate-300 text-xs font-semibold tracking-wide text-slate-600"
+      className={cn(
+        'flex shrink-0 items-center justify-center border border-slate-300 text-xs font-semibold tracking-wide text-slate-600',
+        compact ? 'size-8' : 'mb-3 size-10',
+      )}
     >
       {initials}
     </div>
@@ -43,11 +51,53 @@ export function PharmacyReportHeader({
   fiscalYear,
   generatedBy,
   printedAt,
+  compact = false,
 }) {
+  const metaParts = [
+    currency ? `${currency}` : null,
+    fiscalYear ? fiscalYear : null,
+    generatedBy ? `By ${generatedBy}` : null,
+    printedAt || null,
+  ].filter(Boolean);
+
+  if (compact) {
+    return (
+      <header
+        className={cn(
+          'balance-sheet-header border-b border-slate-200 px-5 py-3 print:px-4 print:py-2 sm:px-6',
+          reportStickySheetHeaderClass,
+        )}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <CompanyLogo logoUrl={logoUrl} companyName={companyName} compact />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold leading-tight text-slate-900">
+                {companyName || 'Company'}
+              </p>
+              {subtitle ? (
+                <p className="mt-0.5 truncate text-xs text-slate-500">{subtitle}</p>
+              ) : title ? (
+                <p className="mt-0.5 truncate text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {title}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          {metaParts.length ? (
+            <p className="shrink-0 text-[11px] leading-snug text-slate-400 sm:text-right">
+              {metaParts.join(' · ')}
+            </p>
+          ) : null}
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header
       className={cn(
-        "balance-sheet-header border-b border-slate-200 px-6 py-6 print:py-3 sm:px-8 print:px-4",
+        'balance-sheet-header border-b border-slate-200 px-6 py-6 print:py-3 sm:px-8 print:px-4',
         reportStickySheetHeaderClass,
       )}
     >
@@ -57,11 +107,13 @@ export function PharmacyReportHeader({
             <CompanyLogo logoUrl={logoUrl} companyName={companyName} />
           </div>
           <h1 className="text-lg font-semibold leading-tight tracking-tight text-slate-900 sm:text-xl">
-            {companyName || "Company"}
+            {companyName || 'Company'}
           </h1>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
-            {title}
-          </p>
+          {title ? (
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
+              {title}
+            </p>
+          ) : null}
           {subtitle ? (
             <p className="mt-1.5 text-sm text-slate-800">{subtitle}</p>
           ) : null}

@@ -244,7 +244,9 @@ export function PrintAgentSetupPanel({ disabled = false, embedded = false }) {
           'rounded-lg border px-3 py-2.5 text-xs',
           updateAvailable
             ? 'border-amber-200 bg-amber-50/80 text-amber-950'
-            : 'border-sky-200/80 bg-white/80 text-slate-800',
+            : embedded
+              ? 'border-border bg-muted/20 text-foreground'
+              : 'border-sky-200/80 bg-white/80 text-slate-800',
         )}
       >
         <div className="flex flex-wrap items-start justify-between gap-2">

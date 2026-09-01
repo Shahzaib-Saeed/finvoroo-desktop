@@ -24,7 +24,7 @@ import {
   normalizeExpiry,
   isoToExpiryMask,
 } from '../lib/expiry-mask';
-import { prefetchMedicineCatalog } from '../lib/medicine-catalog-cache';
+import { loadMedicineCatalog, prefetchMedicineCatalog } from '../lib/medicine-catalog-cache';
 import { onPharmacyCatalogChange, reloadPharmacyCatalog } from '../lib/pharmacy-catalog-store';
 import {
   computeReceiveLineAmounts,
@@ -47,7 +47,18 @@ import { useProductDialog } from '@/components/workspace/product/product-dialog-
 import { useVendorDialog } from '@/components/workspace/vendor/vendor-dialog-provider';
 import { NO_NUMBER_SPINNER } from '@/pages/accounting/invoices/constants';
 import { cn } from '@/lib/utils';
+import '../pharmacy-density.css';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { pharmacyApi } from '../api/pharmacy.api';
 import {
   applyPurchaseLineDefaults,
@@ -617,6 +628,26 @@ export function PurchaseReceiveWorkspace({
   const [draftSavedAt, setDraftSavedAt] = useState(null);
   const [payOpen, setPayOpen] = useState(false);
   const [payAndNext, setPayAndNext] = useState(false);
+  const [inventoryReplayOpen, setInventoryReplayOpen] = useState(false);
+  const [inventoryReplayMessage, setInventoryReplayMessage] = useState('');
+  const inventoryReplayResolverRef = useRef(null);
+
+  const confirmInventoryReplay = useCallback((message) => {
+    setInventoryReplayMessage(
+      message ||
+        'Changing this posted bill may recalculate inventory costs and COGS for subsequent sales. This can change reported profit. Do you want to continue?',
+    );
+    setInventoryReplayOpen(true);
+    return new Promise((resolve) => {
+      inventoryReplayResolverRef.current = resolve;
+    });
+  }, []);
+
+  const closeInventoryReplayPrompt = useCallback((confirmed) => {
+    setInventoryReplayOpen(false);
+    inventoryReplayResolverRef.current?.(confirmed);
+    inventoryReplayResolverRef.current = null;
+  }, []);
 
   useEffect(() => {
     prefetchMedicineCatalog();
@@ -1357,7 +1388,42 @@ export function PurchaseReceiveWorkspace({
       let billId = editBillId ? Number(editBillId) : null;
       let saved = null;
       if (isEdit && editBillId) {
-        const updateRes = await billsApi.update(editBillId, payload);
+        if (billMeta?.isPosted) {
+          try {
+            const impactRes = await billsApi.editImpact(editBillId, payload);
+            const impact = impactRes.data?.data?.impact;
+            if (impact?.requires_inventory_cogs_replay_confirmation) {
+              const ok = await confirmInventoryReplay(impact.message);
+              if (!ok) {
+                setSaving(false);
+                return;
+              }
+              payload.confirm_inventory_cogs_replay = true;
+            }
+          } catch {
+            /* fall through — update may return confirmation error */
+          }
+        }
+
+        let updateRes;
+        try {
+          updateRes = await billsApi.update(editBillId, payload);
+        } catch (err) {
+          const errors = err?.response?.data?.errors || {};
+          if (errors.requires_inventory_cogs_replay_confirmation) {
+            const ok = await confirmInventoryReplay(err?.response?.data?.message);
+            if (!ok) {
+              setSaving(false);
+              return;
+            }
+            updateRes = await billsApi.update(editBillId, {
+              ...payload,
+              confirm_inventory_cogs_replay: true,
+            });
+          } else {
+            throw err;
+          }
+        }
         saved = updateRes.data?.data;
       } else {
         const createRes = await billsApi.create(payload);
@@ -1557,7 +1623,7 @@ export function PurchaseReceiveWorkspace({
       const payDialogOpen = document.querySelector('[data-purchase-pay-dialog][data-state="open"]');
 
       if (payDialogOpen) {
-        if (e.key === 'F5' || (mod && (key === 'p' || key === 's'))) {
+        if (mod && (key === 'p' || key === 's')) {
           e.preventDefault();
         }
         return;
@@ -1619,11 +1685,6 @@ export function PurchaseReceiveWorkspace({
         openMedicineSheetForRow(selectedIdx);
         return;
       }
-      if (e.key === 'F5') {
-        e.preventDefault();
-        openPostConfirm(true);
-        return;
-      }
       if (mod && key === 's') {
         e.preventDefault();
         persistReceive({ post: false, andNext: false });
@@ -1631,7 +1692,7 @@ export function PurchaseReceiveWorkspace({
       }
       if (mod && key === 'p') {
         e.preventDefault();
-        openPostConfirm(false);
+        openPostConfirm(true);
         return;
       }
       if (mod && key === 'd') {
@@ -1706,6 +1767,7 @@ export function PurchaseReceiveWorkspace({
 
   return (
     <div
+      data-pharmacy-density
       className={cn(
         'relative flex w-full flex-col bg-white print:bg-white',
         embedded ? 'min-h-0 flex-1' : 'h-[100dvh]',
@@ -2085,6 +2147,16 @@ export function PurchaseReceiveWorkspace({
                               onSuccess: (saved) => applyProductToLine(rowIndex, saved),
                             });
                           }}
+                          onEditProduct={(rowIndex, product) => {
+                            productDialog?.openEdit?.(product, {
+                              onSuccess: (saved) => {
+                                void loadMedicineCatalog({ force: true });
+                                if (saved?.id) {
+                                  applyProductToLine(rowIndex, saved, { focusBatch: false });
+                                }
+                              },
+                            });
+                          }}
                           placeholder={
                             billLabel ? billLabel : 'Type item name…'
                           }
@@ -2395,7 +2467,7 @@ export function PurchaseReceiveWorkspace({
                 {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 Post &amp; next
                 <PharmacyKbd className="ms-2 border-emerald-500/30 bg-emerald-600/20 text-white">
-                  F5
+                  Ctrl+P
                 </PharmacyKbd>
               </Button>
             </div>
@@ -2463,6 +2535,23 @@ export function PurchaseReceiveWorkspace({
           </Card>
         </div>
       ) : null}
+
+      <AlertDialog open={inventoryReplayOpen} onOpenChange={(open) => !open && closeInventoryReplayPrompt(false)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recalculate inventory costs?</AlertDialogTitle>
+            <AlertDialogDescription>{inventoryReplayMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" onClick={() => closeInventoryReplayPrompt(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction type="button" onClick={() => closeInventoryReplayPrompt(true)}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -45,7 +45,7 @@ export function ReportDateFilter({
         <div
           className={cn(
             isInline
-              ? "w-[160px] shrink-0"
+              ? "w-full min-w-0 sm:w-[160px] sm:shrink-0"
               : "flex w-full flex-col gap-1.5 lg:w-[200px] lg:shrink-0",
           )}
         >

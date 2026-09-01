@@ -128,7 +128,9 @@ export function ApprovalWorkflowTab({
           ) : null}
         </div>
 
+      </form>
         <SettingsStickyActionBar
+        placement="bottom"
           dirty={dirty}
           saving={saving}
           justSaved={justSaved}
@@ -137,7 +139,6 @@ export function ApprovalWorkflowTab({
           onCancel={() => setModules(baseline)}
           saveLabel="Save changes"
         />
-      </form>
     </SettingsCard>
   );
 }

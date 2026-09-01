@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { releaseModalPointerLockSoon } from '@/lib/modal-lock';
 import { customersApi } from '@/pages/accounting/customers/api/customers.api';
 import { posApi } from '../api/pos.api';
 import {
@@ -867,6 +868,7 @@ export function usePosSession() {
         );
         setBootstrap((b) => (b ? { ...b, shift: data } : b));
         setShiftOpen(false);
+        releaseModalPointerLockSoon();
         toast.success('Shift opened');
         focusBarcode(true);
       } catch (e) {

@@ -182,6 +182,15 @@ export function LoosePurchasePage() {
     });
   };
 
+  const openEditProduct = (index, product) => {
+    productDialog?.openEdit?.(product, {
+      onSuccess: (saved) => {
+        void loadMedicineCatalog({ force: true });
+        pickProduct(index, saved);
+      },
+    });
+  };
+
   const validate = () => {
     const active = lines.filter((l) => l.product_id);
     if (!active.length) {
@@ -423,6 +432,7 @@ export function LoosePurchasePage() {
                             blockZeroStock={false}
                             onSelect={(product) => pickProduct(index, product)}
                             onCreateNew={() => openCreateProduct(index)}
+                            onEditProduct={(rowIndex, product) => openEditProduct(rowIndex, product)}
                           />
                         </PurchaseGridTd>
                         <PurchaseGridTd align="right" selected={selected}>
@@ -550,10 +560,10 @@ export function LoosePurchasePage() {
             <p className="text-[11px] leading-relaxed text-slate-500">
               Change defaults in{' '}
               <Link
-                to={`/workspace/${companyId}/pharmacy/settings`}
+                to={`/workspace/${companyId}/accounting/settings?tab=pharmacy`}
                 className="font-semibold text-emerald-800 hover:underline"
               >
-                Pharmacy settings
+                Settings
               </Link>
             </p>
           </div>

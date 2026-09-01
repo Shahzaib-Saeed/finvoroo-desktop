@@ -1,14 +1,14 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from '@/components/ui/navigation-menu';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/store/authStore';
 import { getWorkspaceNav, resolveIndustryFeatures } from '@/industries';
 import { shouldHidePharmacySectionNav } from '@/industries/pharmacy/report-context';
@@ -37,82 +37,117 @@ function filterLinks(links, canFn, features) {
   });
 }
 
+function ReportsHoverMenu({ title, active, children }) {
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen(false), 160);
+  };
+
+  useEffect(() => () => cancelClose(), []);
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+      <DropdownMenuTrigger
+        onMouseEnter={() => {
+          cancelClose();
+          setOpen(true);
+        }}
+        onMouseLeave={scheduleClose}
+        className={cn(
+          'section-nav-link inline-flex h-10 shrink-0 items-center gap-1 border-b-2 bg-transparent px-3 text-[13px] outline-none',
+          'hover:bg-transparent data-[state=open]:bg-transparent',
+          active
+            ? 'is-active'
+            : 'border-transparent text-muted-foreground hover:text-foreground',
+        )}
+      >
+        {title}
+        <ChevronDown className="size-3.5 opacity-60" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={0}
+        onMouseEnter={cancelClose}
+        onMouseLeave={scheduleClose}
+        className="min-w-52"
+      >
+        {children}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function ReportsSectionNav({ section, base, pathname }) {
-  const allLinks = [
-    ...(section.links || []),
-    ...(section.groups || []).flatMap((g) => g.links),
-  ];
+  const groups = section.groups || [];
+  const topLinks = section.links || [];
+  const allLinks = [...topLinks, ...groups.flatMap((g) => g.links)];
   const bestFull = getBestMatch(pathname, base, allLinks);
 
-  const isGroupActive = (group) => group.links.some((l) => base + l.path === bestFull);
+  const isGroupActive = (group) =>
+    group.links.some((l) => {
+      const full = base + l.path;
+      return full === bestFull || pathname === full || pathname.startsWith(`${full}/`);
+    });
+  const activeGroupTitle = groups.find((group) => isGroupActive(group))?.title;
 
   return (
     <nav
-      className="no-print sticky top-[70px] z-40 -mx-5 mb-4 overflow-visible border-b border-border/70 bg-background/95 px-5 backdrop-blur lg:-mx-8 lg:px-8"
-      aria-label="Section navigation"
+      className="no-print sticky top-[70px] z-40 -mx-5 mb-4 border-b border-border/70 bg-background/95 px-5 backdrop-blur lg:-mx-8 lg:px-8"
+      aria-label="Reports"
     >
-      <div className="flex h-11 items-center gap-2 overflow-visible whitespace-nowrap">
-        {section.links.map((link) => {
+      <div className="flex h-10 items-center gap-0.5 overflow-x-auto whitespace-nowrap scrollbar-none">
+        {topLinks.map((link) => {
           const full = base + link.path;
           const active = full === bestFull;
           return (
-            <div key={link.path} className="flex shrink-0 items-center gap-2">
-              <Link
-                to={full}
-                className={cn(
-                  'section-nav-link inline-flex h-8 items-center border-b-2 px-2.5 text-sm transition-colors',
-                  active ? 'is-active' : 'border-transparent text-foreground/80',
-                )}
-              >
-                {link.title}
-              </Link>
-              {section.groups?.length > 0 ? (
-                <Separator orientation="vertical" className="h-4!" />
-              ) : null}
-            </div>
+            <Link
+              key={link.path}
+              to={full}
+              className={cn(
+                'section-nav-link inline-flex h-10 shrink-0 items-center border-b-2 px-3 text-[13px] transition-colors',
+                active ? 'is-active' : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {link.title}
+            </Link>
           );
         })}
 
-        <NavigationMenu viewport={false} className="overflow-visible">
-          <NavigationMenuList className="justify-start gap-0">
-            {(section.groups || []).map((group) => {
-              const groupActive = isGroupActive(group);
+        {groups.map((group) => (
+          <ReportsHoverMenu
+            key={group.title}
+            title={group.title}
+            active={group.title === activeGroupTitle}
+          >
+            {group.links.map((link) => {
+              const full = base + link.path;
+              const active = pathname === full || pathname.startsWith(`${full}/`);
               return (
-                <NavigationMenuItem key={group.title}>
-                  <NavigationMenuTrigger
+                <DropdownMenuItem key={`${group.title}-${link.path}`} asChild>
+                  <Link
+                    to={full}
                     className={cn(
-                      'section-nav-link h-8 rounded-none border-b-2 bg-transparent px-2.5 text-sm hover:bg-transparent data-[state=open]:bg-transparent',
-                      groupActive ? 'is-active' : 'border-transparent text-foreground/80',
+                      'section-nav-dropdown-item cursor-pointer',
+                      active && 'is-active',
                     )}
                   >
-                    {group.title}
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent className="z-[60] min-w-[13rem] rounded-md border border-border bg-popover p-0 shadow-lg">
-                    <ul className="flex flex-col gap-0.5 p-1.5">
-                      {group.links.map((link) => {
-                        const full = base + link.path;
-                        const active = full === bestFull;
-                        return (
-                          <li key={link.path}>
-                            <Link
-                              to={full}
-                              className={cn(
-                                'section-nav-dropdown-item block rounded-md px-3 py-2 text-sm no-underline transition-colors',
-                                active ? 'is-active' : 'text-foreground hover:bg-muted/60',
-                              )}
-                            >
-                              {link.title}
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
+                    {link.title}
+                  </Link>
+                </DropdownMenuItem>
               );
             })}
-          </NavigationMenuList>
-        </NavigationMenu>
+          </ReportsHoverMenu>
+        ))}
       </div>
     </nav>
   );
@@ -152,7 +187,6 @@ export function WorkspaceSectionNav() {
 
   if (!companyId) return null;
 
-  // Pharmacy workspaces use sidebar navigation — no sticky section bar on report surfaces.
   if (shouldHidePharmacySectionNav(pathname, companyId, features)) return null;
 
   const base = `/workspace/${companyId}`;

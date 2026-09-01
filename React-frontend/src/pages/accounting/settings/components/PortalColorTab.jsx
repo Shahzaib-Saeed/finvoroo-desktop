@@ -82,7 +82,9 @@ export function PortalColorTab({ title, description, icon = 'palette' }) {
           </SettingsField>
         </SettingsFormSection>
 
+      </form>
         <SettingsStickyActionBar
+        placement="bottom"
           dirty={dirty}
           saving={saving}
           justSaved={justSaved}
@@ -91,7 +93,6 @@ export function PortalColorTab({ title, description, icon = 'palette' }) {
           onCancel={handleReset}
           saveLabel="Save changes"
         />
-      </form>
     </SettingsCard>
   );
 }

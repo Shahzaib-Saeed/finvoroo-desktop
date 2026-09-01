@@ -153,27 +153,29 @@ export function PharmacyProductSection({
             </Field>
           </>
         ) : null}
-        <Field label="Manufacturer">
-          <Select
-            value={p.manufacturer_id || '_none'}
-            onValueChange={(v) =>
-              setPharmacyField(setField, 'manufacturer_id', v === '_none' ? '' : v)
-            }
-            disabled={disabled}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select manufacturer" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none">None</SelectItem>
-              {manufacturers.map((m) => (
-                <SelectItem key={m.id} value={String(m.id)}>
-                  {m.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+        {!advancedOnly ? (
+          <Field label="Manufacturer">
+            <Select
+              value={p.manufacturer_id || '_none'}
+              onValueChange={(v) =>
+                setPharmacyField(setField, 'manufacturer_id', v === '_none' ? '' : v)
+              }
+              disabled={disabled}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select manufacturer" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">None</SelectItem>
+                {manufacturers.map((m) => (
+                  <SelectItem key={m.id} value={String(m.id)}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
         <Field label="HSN / SAC">
           <Input
             value={p.hsn_sac || ''}

@@ -33,6 +33,7 @@ const emptyForm = {
   role: 'employee',
   is_active: '1',
   company_id: '',
+  pos_pin: '',
 };
 
 export function EmployeeFormDialog({
@@ -84,6 +85,7 @@ export function EmployeeFormDialog({
             password: '',
             password_confirmation: '',
             company_id: String(activeCompany?.id || workspaceId || ''),
+            pos_pin: '',
           });
         })
         .catch((err) => toast.error(err?.response?.data?.message || 'Failed to load roles'))
@@ -152,6 +154,10 @@ export function EmployeeFormDialog({
         role: form.role,
         is_active: form.is_active === '1',
       };
+      const pin = String(form.pos_pin || '').replace(/\D/g, '');
+      if (pin) {
+        payload.pos_pin = pin;
+      }
 
       if (isEdit) {
         if (form.password) {
@@ -337,6 +343,30 @@ export function EmployeeFormDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="emp-pos-pin">POS PIN {isEdit ? '(optional)' : '(optional)'}</Label>
+              <Input
+                id="emp-pos-pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                value={form.pos_pin}
+                onChange={(e) => setField('pos_pin', e.target.value.replace(/\D/g, '').slice(0, 8))}
+                disabled={loadingMeta || submitting}
+                placeholder={employee?.has_pos_pin ? 'PIN is set — enter a new one to replace' : '2–8 digits'}
+                aria-invalid={!!errors.pos_pin}
+              />
+              {errors.pos_pin ? (
+                <p className="text-xs text-destructive">{errors.pos_pin}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {employee?.has_pos_pin
+                    ? 'A POS PIN is already set. Leave blank to keep it.'
+                    : 'Used at the pharmacy counter to identify who completed the sale.'}
+                </p>
+              )}
             </div>
 
             {!isEdit && (

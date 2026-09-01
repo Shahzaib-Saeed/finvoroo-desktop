@@ -13,15 +13,19 @@ import { PosCustomerDialog } from '@/pages/accounting/pos/components/PosCustomer
 import { PosShiftDialog } from '@/pages/accounting/pos/components/PosShiftDialog';
 import { PharmacyReturnDialog } from '../components/PharmacyReturnDialog';
 import { PosManagerDialog } from '@/pages/accounting/pos/components/PosManagerDialog';
+import { EmployeePinDialog } from '../components/EmployeePinDialog';
 import { getStatus as getPrintAgentStatus } from '@/lib/print-agent';
 import { DispensePayDialog } from '../components/DispensePayDialog';
 import { DispenseTopShell } from '../components/DispenseTopShell';
 import { MedicinePickSheet } from '../components/MedicinePickSheet';
+import { ProductSaleHistorySheet } from '../components/ProductSaleHistorySheet';
 import { DispenseCartGrid } from '../components/DispenseCartGrid';
 import { DispenseSaleRail } from '../components/DispenseSaleRail';
 import { prefetchMedicineCatalog } from '../lib/medicine-catalog-cache';
 import { usePharmacyDispense } from '../hooks/usePharmacyDispense';
 import { useAuthStore } from '@/store/authStore';
+import { releaseModalPointerLockSoon } from '@/lib/modal-lock';
+import '../pharmacy-density.css';
 
 export function PharmacyPosPage() {
   const navigate = useNavigate();
@@ -63,7 +67,10 @@ export function PharmacyPosPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white text-slate-900 antialiased">
+    <div
+      data-pharmacy-density
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white text-slate-900 antialiased"
+    >
       <DispenseTopShell
         headerProps={{
           companyId: pos.companyId,
@@ -87,7 +94,7 @@ export function PharmacyPosPage() {
             onReturn: () => pos.setReturnOpen(true),
             onSearch: pos.openMedicineList,
             onPrintSetup: () => {
-              navigate(`/workspace/${pos.companyId}/pharmacy/settings?tab=printing`);
+              navigate(`/workspace/${pos.companyId}/accounting/settings?tab=print`);
             },
             onClear: pos.clearCart,
             checkingOut: pos.checkingOut,
@@ -120,6 +127,7 @@ export function PharmacyPosPage() {
             onSubmitRaw={pos.scanOrSearch}
             getAvailableStock={pos.getAvailableStock}
             warehouseId={pos.warehouseId}
+            onViewHistory={pos.openSaleHistory}
           />
         </div>
 
@@ -149,6 +157,17 @@ export function PharmacyPosPage() {
         focusIdx={0}
         onFocusIdx={() => {}}
         onPick={pos.pickProduct}
+        onViewHistory={pos.openSaleHistory}
+        posSale
+      />
+
+      <ProductSaleHistorySheet
+        open={pos.saleHistoryOpen}
+        onOpenChange={pos.setSaleHistoryOpen}
+        productId={pos.saleHistoryProduct?.id}
+        productName={pos.saleHistoryProduct?.name}
+        companyId={pos.companyId}
+        formatMoney={pos.formatMoney}
       />
 
       <DispensePayDialog
@@ -188,7 +207,10 @@ export function PharmacyPosPage() {
 
       <PosShiftDialog
         open={pos.shiftOpen}
-        onOpenChange={pos.setShiftOpen}
+        onOpenChange={(next) => {
+          pos.setShiftOpen(next);
+          if (!next) releaseModalPointerLockSoon();
+        }}
         shift={pos.shift}
         currency={pos.currency}
         onOpenShift={pos.openShift}
@@ -221,6 +243,14 @@ export function PharmacyPosPage() {
         open={pos.managerOpen}
         onOpenChange={pos.setManagerOpen}
         onUnlock={pos.unlockManager}
+      />
+
+      <EmployeePinDialog
+        open={pos.pinOpen}
+        error={pos.pinError}
+        submitting={pos.checkingOut}
+        onSubmit={(pin) => pos.resolveEmployeePin(pin)}
+        onCancel={() => pos.resolveEmployeePin(null)}
       />
 
       <Dialog open={pos.holdPanelOpen} onOpenChange={pos.setHoldPanelOpen}>

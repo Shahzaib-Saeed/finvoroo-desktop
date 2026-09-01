@@ -217,6 +217,7 @@ export function DispenseMoreMenu({
           <ShortcutRow keys="↑ ↓" label="Move between rows" />
           <ShortcutRow keys="Esc" label="Close medicine list" />
           <ShortcutRow keys="Ctrl+D" label="Delete row" />
+          <ShortcutRow keys="Ctrl+H" label="Sale history (lookup row)" />
           <ShortcutRow keys="Ctrl+S" label="Custom tender / change" />
           <ShortcutRow keys="Ctrl+P" label="Complete & print now" />
           <ShortcutRow keys="F9" label="Custom tender" />

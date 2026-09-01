@@ -5,6 +5,7 @@ export const billsApi = {
   show: (id) => api.get(`/workspace/bills/${id}`),
   create: (data) => api.post('/workspace/bills', data),
   update: (id, data) => api.put(`/workspace/bills/${id}`, data),
+  editImpact: (id, data) => api.post(`/workspace/bills/${id}/edit-impact`, data),
   post: (id) => api.post(`/workspace/bills/${id}/post`),
   cancel: (id) => api.post(`/workspace/bills/${id}/cancel`),
   destroy: (id) => api.delete(`/workspace/bills/${id}`),

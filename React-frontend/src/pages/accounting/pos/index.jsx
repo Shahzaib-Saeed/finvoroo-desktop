@@ -20,6 +20,7 @@ import { PosShiftDialog } from './components/PosShiftDialog';
 import { PosReturnDialog } from './components/PosReturnDialog';
 import { PosManagerDialog } from './components/PosManagerDialog';
 import { usePosSession } from './hooks/usePosSession';
+import { releaseModalPointerLockSoon } from '@/lib/modal-lock';
 import { formatMoney } from './lib/cart-math';
 import { resolveUiPack } from '@/industries';
 import { useAuthStore } from '@/store/authStore';
@@ -225,7 +226,10 @@ function UniversalPosPage({ workspaceId }) {
 
       <PosShiftDialog
         open={pos.shiftOpen}
-        onOpenChange={pos.setShiftOpen}
+        onOpenChange={(next) => {
+          pos.setShiftOpen(next);
+          if (!next) releaseModalPointerLockSoon();
+        }}
         shift={pos.shift}
         currency={pos.currency}
         onOpenShift={pos.openShift}

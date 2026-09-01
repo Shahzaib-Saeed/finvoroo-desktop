@@ -94,6 +94,7 @@ function getAccountingReportsBreadcrumb(pathname, companyId) {
 
 const PHARMACY_REPORT_LABELS = {
   'item-sales': 'Item-wise POS Sales',
+  'employee-sales': 'Employee POS Sales',
   'manufacturer-expiry': 'Manufacturer-wise Expiry',
   'stock-valuation': 'Stock Valuation',
 };

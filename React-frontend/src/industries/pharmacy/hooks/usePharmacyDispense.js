@@ -34,8 +34,14 @@ import { getMeta, setMeta } from '@/offline/db';
 import { runSyncCycle } from '@/offline/sync-manager';
 import { syncApi } from '@/offline/sync.api';
 import { PosOfflineStore } from '@/pages/accounting/pos/lib/offline-store';
+import { releaseModalPointerLockSoon } from '@/lib/modal-lock';
 import { isWalkInCustomer } from '../lib/pharmacy-open-return';
 import { formatPharmacyPosMoney, roundWholeRupee } from '../lib/cash-tender-suggestions';
+import {
+  pharmacyBootstrapTerminalParams,
+  readStoredPosTerminalId,
+  writeStoredPosTerminalId,
+} from '../lib/pos-terminal';
 
 function unwrap(res) {
   return res?.data?.data ?? res?.data ?? null;
@@ -122,6 +128,8 @@ export function usePharmacyDispense() {
   const [pickSheetOpen, setPickSheetOpen] = useState(false);
   const [pickSheetRows, setPickSheetRows] = useState([]);
   const [pickSearchTerm, setPickSearchTerm] = useState('');
+  const [saleHistoryOpen, setSaleHistoryOpen] = useState(false);
+  const [saleHistoryProduct, setSaleHistoryProduct] = useState(null);
   const [customerOpen, setCustomerOpen] = useState(false);
   const [rxNote, setRxNote] = useState('');
   const [payDialogOpen, setPayDialogOpen] = useState(false);
@@ -129,6 +137,9 @@ export function usePharmacyDispense() {
   const [returnOpen, setReturnOpen] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
   const [managerUnlock, setManagerUnlock] = useState(null);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState('');
+  const pinWaiter = useRef(null);
   const scanRef = useRef(null);
   const tenderRef = useRef(null);
   const invoiceDiscRef = useRef(null);
@@ -340,9 +351,32 @@ export function usePharmacyDispense() {
     requestAnimationFrame(() => tenderRef.current?.focus?.());
   }, []);
 
+  const requestEmployeePin = useCallback(() => {
+    return new Promise((resolve) => {
+      if (pinWaiter.current) {
+        pinWaiter.current(null);
+      }
+      pinWaiter.current = resolve;
+      setPinError('');
+      setPinOpen(true);
+    });
+  }, []);
+
+  const resolveEmployeePin = useCallback((value) => {
+    const waiter = pinWaiter.current;
+    pinWaiter.current = null;
+    setPinOpen(false);
+    setPinError('');
+    waiter?.(value);
+  }, []);
+
   const reloadBootstrap = useCallback(async () => {
     try {
-      const data = unwrap(await posApi.bootstrap());
+      const params = pharmacyBootstrapTerminalParams(companyId);
+      const data = unwrap(await posApi.bootstrap(params));
+      if (data?.terminal?.id && companyId) {
+        writeStoredPosTerminalId(companyId, data.terminal.id);
+      }
       setBootstrap(data);
       void PosOfflineStore.savePharmacyBootstrap(data);
       return data;
@@ -354,7 +388,7 @@ export function usePharmacyDispense() {
       }
       throw e;
     }
-  }, []);
+  }, [companyId]);
 
   const refreshHolds = useCallback(async () => {
     try {
@@ -442,7 +476,7 @@ export function usePharmacyDispense() {
         return;
       }
       try {
-        await posApi.bootstrap();
+        await posApi.bootstrap(pharmacyBootstrapTerminalParams(companyId));
         setOnline(true);
       } catch {
         setOnline(false);
@@ -930,6 +964,7 @@ export function usePharmacyDispense() {
         );
         setBootstrap((b) => (b ? { ...b, shift: data } : b));
         setShiftOpen(false);
+        releaseModalPointerLockSoon();
         toast.success('Shift opened');
         focusScan();
       } catch (e) {
@@ -938,6 +973,7 @@ export function usePharmacyDispense() {
           const data = await reloadBootstrap();
           if (data?.shift?.id) {
             setShiftOpen(false);
+            releaseModalPointerLockSoon();
             toast.info('Shift is already open on this register');
             focusScan();
             return;
@@ -1110,6 +1146,15 @@ export function usePharmacyDispense() {
         return false;
       }
 
+      const requirePin = bootstrap?.settings?.require_pos_employee_pin !== false;
+      let pin = '';
+      if (requirePin) {
+        pin = await requestEmployeePin();
+        if (!pin) {
+          return false;
+        }
+      }
+
       checkoutLock.current = true;
       setCheckingOut(true);
       try {
@@ -1129,7 +1174,17 @@ export function usePharmacyDispense() {
           rx_note: needsRxNote ? String(rxNote).trim() : undefined,
           payments: resolvedPayments,
           warehouse_id: warehouseId || undefined,
+          terminal_id:
+            readStoredPosTerminalId(companyId) || bootstrap?.terminal?.id || undefined,
         };
+        if (pin) {
+          payload.pos_employee_pin = pin;
+        }
+
+        const unlockToken = managerUnlock?.unlock_token || managerUnlock?.token || null;
+        if (unlockToken && managerActive) {
+          payload.manager_unlock_token = unlockToken;
+        }
 
         if (!allowCredit) {
           const tender = roundWholeRupee(
@@ -1206,7 +1261,11 @@ export function usePharmacyDispense() {
           );
           void reloadPharmacyCatalog({ warehouseId });
         } else {
-          toast.error(errMsg(e, allowCredit ? 'Credit sale failed' : 'Checkout failed'));
+          const message = errMsg(e, allowCredit ? 'Credit sale failed' : 'Checkout failed');
+          toast.error(message);
+          if (/manager approval/i.test(message)) {
+            setManagerOpen(true);
+          }
         }
         focusScan();
         return false;
@@ -1229,10 +1288,13 @@ export function usePharmacyDispense() {
       invoiceDiscountNum,
       lines,
       loadCustomerInvoices,
+      managerActive,
+      managerUnlock,
       needsRxNote,
       offlineSyncEnabled,
       online,
       permissions.can_credit_sale,
+      requestEmployeePin,
       rxNote,
       shift,
       totals.total,
@@ -1367,6 +1429,15 @@ export function usePharmacyDispense() {
     [lines.length, openMedicineSheetForRow, resolveRowIndex, showEntryRow],
   );
 
+  const openSaleHistory = useCallback((product) => {
+    if (!product?.id) return;
+    setSaleHistoryProduct({
+      id: product.id,
+      name: product.name || product.label || '',
+    });
+    setSaleHistoryOpen(true);
+  }, []);
+
   const searchCustomers = useCallback(async (q) => {
     const res = await customersApi.list({ search: q || undefined, per_page: 20 });
     const data = res?.data?.data ?? res?.data;
@@ -1397,8 +1468,11 @@ export function usePharmacyDispense() {
     [applyCustomerSelection, loadCustomerInvoices],
   );
 
-  const unlockManager = useCallback(async ({ email, password }) => {
-    const data = unwrap(await posApi.managerUnlock({ email, password }));
+  const unlockManager = useCallback(async ({ email, password, pos_pin }) => {
+    const body = pos_pin
+      ? { pos_pin }
+      : { email, password };
+    const data = unwrap(await posApi.managerUnlock(body));
     setManagerUnlock(data);
     setManagerOpen(false);
     toast.success(`Unlocked by ${data.manager_name}`);
@@ -1420,9 +1494,11 @@ export function usePharmacyDispense() {
     payDialogOpen,
     returnOpen,
     managerOpen,
+    pinOpen,
     openPayDialog,
     completeAndPrint,
     openMedicineList,
+    openSaleHistory,
     refreshHolds,
     deleteRowAt,
     saveSale,
@@ -1445,9 +1521,11 @@ export function usePharmacyDispense() {
         payDialogOpen,
         returnOpen,
         managerOpen,
+        pinOpen,
         openPayDialog,
         completeAndPrint,
         openMedicineList,
+        openSaleHistory,
         refreshHolds,
         deleteRowAt,
         saveSale,
@@ -1456,7 +1534,7 @@ export function usePharmacyDispense() {
       if (e.key === 'F7') {
         e.preventDefault();
         e.stopPropagation();
-        if (managerOpen || payDialogOpen || pickSheetOpen) return;
+        if (managerOpen || payDialogOpen || pickSheetOpen || pinOpen) return;
         setReturnOpen((open) => !open);
         return;
       }
@@ -1479,7 +1557,7 @@ export function usePharmacyDispense() {
         return;
       }
 
-      if (managerOpen) return;
+      if (managerOpen || pinOpen) return;
 
       const mod = e.ctrlKey || e.metaKey;
       const key = String(e.key || '').toLowerCase();
@@ -1554,9 +1632,20 @@ export function usePharmacyDispense() {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
+        if (document.querySelector('[data-product-sale-history][data-state="open"]')) return;
+        if (document.querySelector('[data-pharmacy-pick-sheet][data-state="open"]')) return;
+        const line = linesRef.current[cartFocus];
+        if (line?.product_id) {
+          e.preventDefault();
+          openSaleHistory({ id: line.product_id, name: line.name });
+        }
+        return;
+      }
+
       if (isTypingTarget(e.target)) return;
 
-      if (pickSheetOpen || customerOpen || payDialogOpen || returnOpen || managerOpen) return;
+      if (pickSheetOpen || customerOpen || payDialogOpen || returnOpen || managerOpen || pinOpen) return;
 
       if (e.key === 'F1') {
         e.preventDefault();
@@ -1736,6 +1825,10 @@ export function usePharmacyDispense() {
     setPayDialogOpen,
     payDialogPrint,
     openMedicineList,
+    openSaleHistory,
+    saleHistoryOpen,
+    setSaleHistoryOpen,
+    saleHistoryProduct,
     walkIn: walkInRef.current,
     formatMoney: (v) => formatPharmacyPosMoney((n) => formatMoney(n, currency), v),
     returnOpen,
@@ -1744,5 +1837,8 @@ export function usePharmacyDispense() {
     setManagerOpen,
     managerActive,
     unlockManager,
+    pinOpen,
+    pinError,
+    resolveEmployeePin,
   };
 }

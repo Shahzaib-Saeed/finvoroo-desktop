@@ -10,6 +10,42 @@ export {
   companyDocumentFooterFor,
 };
 
+export const PHARMACY_SETTINGS_TABS = [
+  {
+    id: 'pharmacy',
+    label: 'Pharmacy',
+    title: 'Pharmacy',
+    description:
+      'Dispensing rules, purchase defaults, and POS compliance for this pharmacy.',
+    section: 'Company',
+    icon: 'pill',
+  },
+];
+
+/** Old pharmacy settings URLs (?tab=sales|purchase|printing|pharmacy-sales…). */
+export const SETTINGS_TAB_ALIASES = {
+  'portal-color': 'profile',
+  navigation: 'profile',
+  sales: 'pharmacy',
+  purchase: 'pharmacy',
+  'pharmacy-sales': 'pharmacy',
+  'pharmacy-purchase': 'pharmacy',
+  printing: 'print',
+};
+
+export function getSettingsTabs(isPharmacy = false) {
+  if (!isPharmacy) return SETTINGS_TABS;
+  const insertAt = SETTINGS_TABS.findIndex((t) => t.id === 'print') + 1;
+  const at = insertAt > 0 ? insertAt : SETTINGS_TABS.length;
+  return [...SETTINGS_TABS.slice(0, at), ...PHARMACY_SETTINGS_TABS, ...SETTINGS_TABS.slice(at)];
+}
+
+export function resolveSettingsTab(tabFromUrl, isPharmacy = false) {
+  const tabs = getSettingsTabs(isPharmacy);
+  const aliased = SETTINGS_TAB_ALIASES[tabFromUrl] || tabFromUrl;
+  return tabs.some((t) => t.id === aliased) ? aliased : 'profile';
+}
+
 export const SETTINGS_TABS = [
   {
     id: 'profile',
@@ -60,22 +96,12 @@ export const SETTINGS_TABS = [
     section: 'Accounting',
     icon: 'zap',
   },
-  {
-    id: 'portal-color',
-    label: 'Portal color',
-    title: 'Portal appearance',
-    description: 'Accent color for buttons and highlights across this workspace.',
-    section: 'Appearance',
-    icon: 'palette',
-  },
-  {
-    id: 'navigation',
-    label: 'Navigation',
-    title: 'Navigation layout',
-    description: 'Sidebar layout and which modules appear in navigation (including POS).',
-    section: 'Appearance',
-    icon: 'layout',
-  },
+  // 'portal-color' and 'navigation' were removed: neither applied its setting to
+  // the running workspace, so they offered controls that did nothing. The one
+  // switch in Navigation that did work — showing POS in the Sales menu — now
+  // lives on the Company profile tab under Workspace. Old links to
+  // ?tab=portal-color / ?tab=navigation fall back to Profile via
+  // resolveSettingsTab(), so no bookmark 404s.
   {
     id: 'custom-fields',
     label: 'Custom fields',

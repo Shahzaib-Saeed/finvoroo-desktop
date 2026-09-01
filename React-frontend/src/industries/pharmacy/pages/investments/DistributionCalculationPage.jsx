@@ -4,6 +4,7 @@ import { AlertTriangle, Calculator, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Container } from '@/components/common/container';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -16,7 +17,11 @@ import {
 import { cn } from '@/lib/utils';
 import { investmentsApi } from '../../api/investments.api';
 
-function money(value, { signed = false } = {}) {
+/**
+ * Display only. Every figure on this screen is computed server-side with
+ * BCMath; React never decides an amount, it only renders one.
+ */
+function money(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return '—';
   const formatted = new Intl.NumberFormat('en-US', {
@@ -24,7 +29,7 @@ function money(value, { signed = false } = {}) {
     maximumFractionDigits: 2,
   }).format(Math.abs(n));
 
-  return n < -0.004 ? `−${formatted}` : signed && n > 0.004 ? formatted : formatted;
+  return n < -0.004 ? `−${formatted}` : formatted;
 }
 
 function isNegative(value) {
@@ -96,6 +101,7 @@ export function DistributionCalculationPage() {
   const [loading, setLoading] = useState(false);
   const [posting, setPosting] = useState(false);
   const [distributionId, setDistributionId] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!investmentId) return;
@@ -131,6 +137,10 @@ export function DistributionCalculationPage() {
   }, [calc]);
 
   const post = async () => {
+    // Guard the double-click as well as the dialog: the server refuses a second
+    // post, but there is no reason to send one.
+    if (posting) return;
+    setConfirmOpen(false);
     setPosting(true);
     try {
       // Two deliberate steps: record the calculation, then commit it. The
@@ -292,7 +302,7 @@ export function DistributionCalculationPage() {
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 px-4 py-3 sm:px-5">
           <Button
-            onClick={post}
+            onClick={() => setConfirmOpen(true)}
             disabled={posting || loading || blocked || !calc}
             className="bg-emerald-600 hover:bg-emerald-700"
           >
@@ -300,6 +310,25 @@ export function DistributionCalculationPage() {
           </Button>
         </div>
       </section>
+
+      {/* Posting writes to the ledger and creates money owed to a person, so it
+          asks first and names the amount it is about to commit. */}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Post this distribution?"
+        description={
+          calc
+            ? `${money(calc.distribution_amount)} will be recorded as owed to ${
+                investment?.investor?.name || 'the investor'
+              } for ${calc.period?.from} – ${calc.period?.to}. This writes a journal entry and cannot be edited afterwards, only reversed.`
+            : ''
+        }
+        confirmLabel="Post distribution"
+        confirmVariant="default"
+        isLoading={posting}
+        onConfirm={post}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </Container>
   );
 }

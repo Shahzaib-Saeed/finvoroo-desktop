@@ -23,13 +23,15 @@ export function SettingsCard({
       )}
     >
       {!hideHeader && (title || description || headerExtra) ? (
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3 shrink-0">
-          <div className="min-w-0">
+        <div className="mb-7 flex flex-wrap items-start justify-between gap-3 shrink-0">
+          <div className="min-w-0 max-w-2xl">
             {title ? (
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+              <h2 className="text-[22px] font-semibold tracking-tight text-foreground leading-tight">
+                {title}
+              </h2>
             ) : null}
             {description ? (
-              <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-3xl">
+              <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
                 {description}
               </p>
             ) : null}

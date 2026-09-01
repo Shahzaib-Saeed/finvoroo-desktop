@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { ReportTableScroll } from "@/pages/accounting/reports/components/ReportTableScroll";
 import { STATEMENT_AMOUNT_COL } from "@/pages/accounting/reports/components/report-typography";
 import {
   PharmacyReportFooter,
@@ -7,7 +8,18 @@ import {
   formatReportMoney,
 } from "./PharmacyReportChrome";
 
-function Amount({ value, signed = false, emphasize = false }) {
+function Amount({ value, signed = false, emphasize = false, unavailable = false }) {
+  if (unavailable) {
+    return (
+      <span
+        className={cn(STATEMENT_AMOUNT_COL, "w-auto max-w-none text-amber-700")}
+        title="Inventory cost unavailable — profit cannot be calculated"
+      >
+        —
+      </span>
+    );
+  }
+
   const n = Number(value);
   const negative = Number.isFinite(n) && n < -0.004;
   const positive = signed && Number.isFinite(n) && n > 0.004;
@@ -71,11 +83,18 @@ export function PosItemSalesStatement({
             Counter sales register
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            Who sold, when, qty, rate, discount, and profit
+            Who sold, when, qty, rate, discount, and profit (ledger COGS only)
           </p>
+          {!totals.profit_complete && Number(totals.missing_ledger_cogs_lines || 0) > 0 ? (
+            <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {totals.missing_ledger_cogs_lines} sale line
+              {totals.missing_ledger_cogs_lines === 1 ? "" : "s"} missing inventory cost in the
+              ledger. Profit excludes those lines — catalog purchase price is never substituted.
+            </p>
+          ) : null}
         </div>
 
-        <div className="overflow-x-auto">
+        <ReportTableScroll>
           <table className="w-full min-w-[860px] border-collapse">
             <thead>
               <tr className="border-b border-slate-300 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
@@ -141,7 +160,11 @@ export function PosItemSalesStatement({
                       <Amount value={row.sale} />
                     </td>
                     <td className="py-1.5 pl-3 align-top">
-                      <Amount value={row.profit} signed />
+                      <Amount
+                        value={row.profit}
+                        signed
+                        unavailable={row.profit_available === false}
+                      />
                     </td>
                   </tr>
                 ))
@@ -169,15 +192,20 @@ export function PosItemSalesStatement({
                   <Amount value={totals.sale} emphasize />
                 </td>
                 <td className="py-2.5 pl-3">
-                  <Amount value={totals.profit} emphasize signed />
+                  <Amount
+                    value={totals.profit}
+                    emphasize
+                    signed
+                    unavailable={totals.profit_complete === false}
+                  />
                 </td>
               </tr>
             </tfoot>
           </table>
-        </div>
+        </ReportTableScroll>
       </div>
 
-      <PharmacyReportFooter note="Posted counter sales only. Profit is sale (after discount, before tax) minus inventory cost. Draft, cancelled, and void receipts are excluded." />
+      <PharmacyReportFooter note="Posted counter sales only. Profit uses inventory-ledger COGS (FIFO/FEFO), not catalog purchase price. Lines without a ledger cost show unavailable profit. Draft, cancelled, and void receipts are excluded." />
     </div>
   );
 }

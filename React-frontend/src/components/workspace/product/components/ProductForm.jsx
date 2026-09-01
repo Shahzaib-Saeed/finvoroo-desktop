@@ -40,12 +40,12 @@ import { CreateAccountDialog } from '@/components/workspace/create-account-dialo
 import { productTracksStock, PRODUCT_NAME_MAX_LENGTH, PRODUCT_TYPE_HINTS, PRODUCT_TYPE_SHORT } from '../constants';
 import { ProductMetadataFields } from './ProductMetadataFields';
 import { ProductUnitsSection } from './ProductUnitsSection';
-import { ProductBasicsStep } from './ProductBasicsStep';
 import { ProductTypePickerDialog } from './ProductTypePickerDialog';
 import { ProductVariantsSection } from './ProductVariantsSection';
 import { ProductVariantsSummary } from './ProductVariantsSummary';
 import { PharmacyProductSection } from './PharmacyProductSection';
 import { MedicineFormEssentials } from './MedicineFormEssentials';
+import { UniversalFormEssentials } from './UniversalFormEssentials';
 import { PharmacyMedicineAdvanced } from './PharmacyMedicineAdvanced';
 import { QuickBrandDialog, QuickCategoryDialog, QuickUnitDialog } from './QuickCreateDialogs';
 import { useAuthStore } from '@/store/authStore';
@@ -63,17 +63,6 @@ const TYPE_ICONS = {
   service: Factory,
 };
 
-function SheetSection({ title, children, className }) {
-  return (
-    <section className={cn('space-y-3', className)}>
-      <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
-
 /** Collapsed-by-default advanced block for the product sheet. */
 function AccordionBlock({
   id,
@@ -82,28 +71,29 @@ function AccordionBlock({
   open,
   onToggle,
   children,
+  compact = false,
 }) {
   return (
-    <div className="border-b border-border/60 last:border-b-0">
+    <div className={cn('border-b border-slate-100 last:border-b-0', compact && 'first:pt-0')}>
       <button
         type="button"
         onClick={() => onToggle(id)}
-        className="flex w-full items-center gap-3 py-3 text-left transition-colors hover:bg-muted/20 -mx-1 px-1 rounded-md"
+        className="flex w-full items-center gap-3 rounded-lg py-3 text-left transition-colors hover:bg-slate-50"
       >
         <span className="min-w-0 flex-1">
-          <span className="block text-[13px] font-medium text-slate-800">{title}</span>
+          <span className="block text-[13px] font-semibold text-slate-800">{title}</span>
           {summary && !open ? (
-            <span className="mt-0.5 block text-xs text-slate-500 truncate">{summary}</span>
+            <span className="mt-0.5 block text-xs leading-snug text-slate-500">{summary}</span>
           ) : null}
         </span>
         <ChevronDown
           className={cn(
-            'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+            'size-4 shrink-0 text-slate-400 transition-transform duration-200',
             open && 'rotate-180',
           )}
         />
       </button>
-      {open ? <div className="pb-4 pt-0.5 space-y-3">{children}</div> : null}
+      {open ? <div className="space-y-3 pb-4 pt-0.5">{children}</div> : null}
     </div>
   );
 }
@@ -124,7 +114,7 @@ function FormSection({ title, description, children, className, flush = false })
   );
 }
 
-function ProductTypeSelect({ value, onChange, typeOptions = {}, disabled = false }) {
+function ProductTypeSelect({ value, onChange, typeOptions = {}, disabled = false, compact = false }) {
   const entries = Object.keys(typeOptions).length
     ? Object.entries(typeOptions)
     : Object.entries({
@@ -139,7 +129,16 @@ function ProductTypeSelect({ value, onChange, typeOptions = {}, disabled = false
 
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger className="h-auto min-h-[2.75rem] py-2 px-3">
+      <SelectTrigger
+        className={cn(
+          compact
+            ? 'h-9 border-slate-200 bg-white shadow-sm'
+            : 'h-auto min-h-[2.75rem] py-2 px-3',
+        )}
+      >
+        {compact ? (
+          <SelectValue placeholder="Product type" />
+        ) : (
         <div className="flex w-full items-center gap-3 text-left">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
             <Icon className="size-4" />
@@ -151,6 +150,7 @@ function ProductTypeSelect({ value, onChange, typeOptions = {}, disabled = false
             ) : null}
           </span>
         </div>
+        )}
       </SelectTrigger>
       <SelectContent align="start" className="max-h-[min(320px,70vh)]">
         {entries.map(([key, label]) => {
@@ -531,7 +531,7 @@ export function ProductForm({
         )}
       >
         {isSheet ? (
-          <SheetBody className="min-h-0 flex-1 overflow-y-auto bg-background px-6 py-0">
+          <SheetBody className="min-h-0 flex-1 overflow-y-auto bg-slate-50/40 px-4 py-0 sm:px-5">
             {/* Essentials — first viewport */}
             <div className="py-4 space-y-4">
               {showPharmacy ? (
@@ -541,83 +541,47 @@ export function ProductForm({
                   setField={setField}
                   saving={saving}
                   isEdit={isEdit}
-                  taxRates={lookups.tax_rates || []}
+                  categories={lookups.categories || []}
+                  onNewCategory={() => setQuickCat(true)}
+                  categoryFallbackLabel={lastCreatedLabels.category}
+                  categorySelectKey={`cat-${selectRevision}`}
                   barcodeAutoFocus={!isEdit}
-                  onTaxCreated={refreshTax}
                   imagePreview={imagePreview}
                   setImageFile={setImageFile}
                   clearImage={clearImage}
                 />
               ) : (
-                <SheetSection title="Basics">
-                  <ProductBasicsStep
-                    variant="sheet"
-                    form={form}
-                    errors={errors}
-                    isEdit={isEdit}
-                    tracks={tracks}
-                    saving={saving}
-                    imagePreview={imagePreview}
-                    setImageFile={setImageFile}
-                    clearImage={clearImage}
-                    inputId="product-sheet-image-upload"
-                    setField={setField}
-                    categorySelect={categorySelect}
-                    brandSelect={brandSelect}
-                    typeField={
-                      isEdit ? (
-                        <Field label="Product type" required error={errors.type}>
-                          <ProductTypeSelect
-                            value={form.type}
-                            onChange={(v) => setField('type', v)}
-                            typeOptions={lookups.type_options}
-                            disabled={saving}
-                          />
-                        </Field>
-                      ) : null
-                    }
-                    afterIdentity={
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-0.5">
-                        <Field label="Sell price" required error={errors.unit_price}>
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={form.unit_price}
-                            onChange={(e) => setField('unit_price', e.target.value)}
-                          />
-                        </Field>
-                        <Field label="Cost">
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={form.purchase_price}
-                            onChange={(e) => setField('purchase_price', e.target.value)}
-                          />
-                        </Field>
-                        <Field label="Tax" className="sm:col-span-2 lg:col-span-1">
-                          <Select
-                            value={form.tax_rate_id || '_none'}
-                            onValueChange={(v) => setField('tax_rate_id', v === '_none' ? '' : v)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="None" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="_none">No tax</SelectItem>
-                              {lookups.tax_rates?.map((t) => (
-                                <SelectItem key={t.id} value={String(t.id)}>
-                                  {t.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </Field>
-                      </div>
-                    }
-                  />
-                </SheetSection>
+                <UniversalFormEssentials
+                  form={form}
+                  errors={errors}
+                  setField={setField}
+                  saving={saving}
+                  isEdit={isEdit}
+                  tracks={tracks}
+                  categories={lookups.categories || []}
+                  brands={lookups.brands || []}
+                  taxRates={lookups.tax_rates || []}
+                  onNewCategory={() => setQuickCat(true)}
+                  onNewBrand={() => setQuickBrand(true)}
+                  categoryFallbackLabel={lastCreatedLabels.category}
+                  brandFallbackLabel={lastCreatedLabels.brand}
+                  categorySelectKey={`cat-${selectRevision}`}
+                  brandSelectKey={`brand-${selectRevision}`}
+                  imagePreview={imagePreview}
+                  setImageFile={setImageFile}
+                  clearImage={clearImage}
+                  typeSelect={
+                    isEdit ? (
+                      <ProductTypeSelect
+                        value={form.type}
+                        onChange={(v) => setField('type', v)}
+                        typeOptions={lookups.type_options}
+                        disabled={saving}
+                        compact
+                      />
+                    ) : null
+                  }
+                />
               )}
 
               {!showPharmacy && tracks ? (
@@ -641,16 +605,22 @@ export function ProductForm({
             </div>
 
             {/* Advanced — collapsed by default */}
-            <div className="border-t border-border/70 pb-6">
-              <p className="pt-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-600">
-                {showPharmacy ? 'Advanced' : 'More details'}
-              </p>
+            <div className="pb-6">
+              <div
+                className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm"
+              >
+                <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-2.5">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">
+                    Advanced
+                  </h3>
+                </div>
 
+                <div className={cn('px-3 sm:px-4', showPharmacy ? 'pb-1' : '')}>
               {showPharmacy ? (
                 <AccordionBlock
                   id="medicineAdvanced"
                   title="More details"
-                  summary="Brand, manufacturer, Rx, barcodes"
+                  summary="Tax, MRP, brand, Rx, barcodes"
                   open={openSections.medicineAdvanced}
                   onToggle={toggleSection}
                 >
@@ -659,6 +629,8 @@ export function ProductForm({
                     setField={setField}
                     disabled={saving}
                     brandSelect={brandSelect}
+                    taxRates={lookups.tax_rates || []}
+                    onTaxCreated={refreshTax}
                   />
                 </AccordionBlock>
               ) : null}
@@ -885,6 +857,8 @@ export function ProductForm({
                   />
                 </AccordionBlock>
               ) : null}
+                </div>
+              </div>
             </div>
           </SheetBody>
         ) : (
@@ -1153,11 +1127,13 @@ export function ProductForm({
         )}
 
         {isSheet ? (
-          <SheetFooter className="shrink-0 border-t bg-background px-6 py-3.5 flex-row justify-end gap-2">
+          <SheetFooter
+            className="shrink-0 flex-row justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3.5 shadow-[0_-4px_24px_-8px_rgba(15,23,42,0.08)] sm:px-6"
+          >
             <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit" variant={showPharmacy ? 'primary' : 'mono'} disabled={saving}>
+            <Button type="submit" variant="primary" disabled={saving}>
               {saving ? (
                 <>
                   <Loader2 className="size-4 mr-1 animate-spin" />
@@ -1271,15 +1247,15 @@ export function ProductForm({
             className={[
               'flex flex-col gap-0 overflow-hidden p-0',
               'w-full sm:max-w-none',
-              'lg:w-[min(820px,calc(100vw-2rem))]',
+              'lg:w-[min(720px,calc(100vw-1.5rem))]',
               'inset-y-0 end-0 h-full max-h-none rounded-none border-l shadow-lg',
               'data-[state=open]:duration-200 data-[state=closed]:duration-200',
               '[&_[data-slot=sheet-close]]:top-4 [&_[data-slot=sheet-close]]:end-5',
             ].join(' ')}
           >
-            <SheetHeader className="shrink-0 space-y-0 border-b px-6 py-4 text-start">
+            <SheetHeader className="shrink-0 space-y-0 border-b border-slate-200 bg-white px-4 py-3.5 text-start sm:px-5">
               <SheetTitle className="flex items-center gap-3 pe-8">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-muted/30 text-slate-600">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 shadow-sm">
                   <TypeIcon className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">

@@ -1,7 +1,7 @@
 import api from '@/lib/api';
 
 export const posApi = {
-  bootstrap: () => api.get('/workspace/pos/bootstrap'),
+  bootstrap: (params) => api.get('/workspace/pos/bootstrap', { params }),
   catalog: (params) => api.get('/workspace/pos/catalog', { params }),
   recentProducts: (params) => api.get('/workspace/pos/recent-products', { params }),
   recentSales: (params) => api.get('/workspace/pos/recent-sales', { params }),

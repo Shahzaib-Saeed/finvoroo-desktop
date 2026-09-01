@@ -241,6 +241,7 @@ export function DispenseCartGrid({
   onSubmitRaw,
   getAvailableStock,
   warehouseId = null,
+  onViewHistory,
 }) {
   const navMaxIndex = maxCartRowIndex ?? (entryRowVisible ? lines.length : Math.max(0, lines.length - 1));
   const contentRowCount = lines.length + (entryRowVisible ? 1 : 0);
@@ -340,6 +341,7 @@ export function DispenseCartGrid({
                           (onSetLineProduct || onPickProduct)?.(index, product)
                         }
                         onSubmitRaw={(term) => onSubmitRaw?.(term, index)}
+                        onViewHistory={onViewHistory ? (_, product) => onViewHistory(product) : undefined}
                         placeholder=""
                       />
                     </Td>
@@ -550,6 +552,7 @@ export function DispenseCartGrid({
                           (onSetLineProduct || onPickProduct)?.(index, product)
                         }
                         onSubmitRaw={(term) => onSubmitRaw?.(term)}
+                        onViewHistory={onViewHistory ? (_, product) => onViewHistory(product) : undefined}
                         placeholder="Type or scan next medicine…"
                       />
                     </Td>

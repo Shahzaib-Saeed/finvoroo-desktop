@@ -176,7 +176,9 @@ export function WorkspaceNavigationTab({
           </div>
         </SettingsFormSection>
 
+      </form>
         <SettingsStickyActionBar
+        placement="bottom"
           dirty={dirty}
           saving={saving}
           justSaved={justSaved}
@@ -185,7 +187,6 @@ export function WorkspaceNavigationTab({
           onCancel={handleReset}
           saveLabel="Save changes"
         />
-      </form>
     </SettingsCard>
   );
 }

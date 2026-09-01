@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { ReportTableScroll } from "@/pages/accounting/reports/components/ReportTableScroll";
 import { STATEMENT_AMOUNT_COL } from "@/pages/accounting/reports/components/report-typography";
 import {
   PharmacyReportFooter,
@@ -80,7 +81,8 @@ export function ManufacturerExpiryStatement({
                   {group.near ? ` · ${group.near} near` : ""}
                 </p>
               </div>
-              <table className="w-full border-collapse">
+              <ReportTableScroll>
+              <table className="w-full min-w-[680px] border-collapse">
                 <thead>
                   <tr className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                     <th className="py-1.5 pr-3 text-left font-semibold">Item</th>
@@ -139,6 +141,7 @@ export function ManufacturerExpiryStatement({
                   ))}
                 </tbody>
               </table>
+              </ReportTableScroll>
             </section>
           ))
         )}

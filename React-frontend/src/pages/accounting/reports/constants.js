@@ -55,7 +55,7 @@ export function getReportHubSections(workspaceId) {
         {
           title: "Category Sales & Purchases",
           description:
-            "Category-wise purchase, sale, net profit, and margin",
+            "Sales, cost of goods sold, and stock purchased by category",
           path: `${r}/category-trading`,
           icon: LayoutGrid,
           iconClass: ICON,
@@ -229,7 +229,7 @@ export function getReportHubSections(workspaceId) {
         },
         {
           title: "Category Sales & Purchases",
-          description: "Purchase, sale, and net profit by product category",
+          description: "Sales, cost of goods sold, and stock purchased by category",
           path: `${r}/category-trading`,
           icon: LayoutGrid,
           iconClass: ICON,

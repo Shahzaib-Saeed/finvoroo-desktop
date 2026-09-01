@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Loader2, Plus, RefreshCw, Users } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import { Calculator, Loader2, Plus, RefreshCw, Scale, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Container } from '@/components/common/container';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { investmentsApi } from '../../api/investments.api';
 import { InvestorFormDialog } from './InvestorFormDialog';
+import { InvestmentFormDialog } from './InvestmentFormDialog';
 
 function money(value) {
   const n = Number(value);
@@ -43,16 +44,20 @@ export function InvestorsListPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [investmentDialogOpen, setInvestmentDialogOpen] = useState(false);
+  const [investments, setInvestments] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, totals] = await Promise.all([
+      const [list, totals, contracts] = await Promise.all([
         investmentsApi.listInvestors(search ? { q: search } : undefined),
         investmentsApi.summary(),
+        investmentsApi.listInvestments(),
       ]);
       setInvestors(list?.data?.data?.data ?? list?.data?.data ?? []);
       setSummary(totals?.data?.data ?? null);
+      setInvestments(contracts?.data?.data?.data ?? contracts?.data?.data ?? []);
     } catch {
       toast.error('Could not load investors.');
     } finally {
@@ -82,8 +87,22 @@ export function InvestorsListPage() {
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             {loading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
           </Button>
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setDialogOpen(true)}>
-            <Plus className="size-4" /> New investor
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/workspace/${companyId}/pharmacy/expense-allocation`}>
+              <Scale className="size-4" /> Expense split
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
+            <Plus className="size-4" /> Investor
+          </Button>
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => setInvestmentDialogOpen(true)}
+            disabled={investors.length === 0}
+            title={investors.length === 0 ? 'Add an investor first' : undefined}
+          >
+            <Plus className="size-4" /> New investment
           </Button>
         </div>
       </div>
@@ -186,10 +205,80 @@ export function InvestorsListPage() {
         </div>
       </section>
 
+      <section className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <h2 className="border-b border-slate-900 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-900 sm:px-5">
+          Investment contracts
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] border-collapse">
+            <thead>
+              <tr className="border-b border-slate-300 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+                <th className="py-2 pl-4 pr-3 text-left font-semibold sm:pl-5">Investor</th>
+                <th className="px-3 py-2 text-right font-semibold">Capital</th>
+                <th className="px-3 py-2 text-right font-semibold">Share</th>
+                <th className="px-3 py-2 text-left font-semibold">Scope</th>
+                <th className="px-3 py-2 text-left font-semibold">Period</th>
+                <th className="py-2 pl-3 pr-4 text-right font-semibold sm:pr-5">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {investments.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-sm text-slate-400">
+                    No investments yet. Add an investor, then create their contract.
+                  </td>
+                </tr>
+              ) : (
+                investments.map((investment) => (
+                  <tr key={investment.id} className="border-b border-slate-100 hover:bg-slate-50/70">
+                    <td className="py-2.5 pl-4 pr-3 text-sm text-slate-800 sm:pl-5">
+                      {investment.investor?.name || `Investor #${investment.investor_id}`}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-sm tabular-nums text-slate-800">
+                      {money(investment.investment_amount)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-sm font-semibold tabular-nums text-slate-900">
+                      {Number(investment.profit_share_percentage)}%
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-slate-600">
+                      {investment.scope_type === 'all'
+                        ? 'Entire business'
+                        : (investment.scopes || [])
+                            .map((s) => s.category?.name)
+                            .filter(Boolean)
+                            .join(', ') || 'Categories'}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs tabular-nums text-slate-600">
+                      {String(investment.start_date).slice(0, 10)}
+                      {investment.end_date ? ` – ${String(investment.end_date).slice(0, 10)}` : ' – open'}
+                    </td>
+                    <td className="py-2.5 pl-3 pr-4 text-right sm:pr-5">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          to={`/workspace/${companyId}/pharmacy/investors/${investment.id}/distribution`}
+                        >
+                          <Calculator className="size-3.5" /> Calculate
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <InvestorFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         companyId={companyId}
+        onSaved={load}
+      />
+      <InvestmentFormDialog
+        open={investmentDialogOpen}
+        onOpenChange={setInvestmentDialogOpen}
+        investors={investors}
         onSaved={load}
       />
     </Container>

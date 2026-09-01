@@ -48,6 +48,13 @@ const REPORTS = [
     icon: BarChart3,
   },
   {
+    title: 'Employee POS sales',
+    description: 'Sales, returns, discounts, and net by the employee who entered the PIN.',
+    path: '/pharmacy/reports/employee-sales',
+    group: 'sales',
+    icon: Receipt,
+  },
+  {
     title: 'Dispense / shifts',
     description: 'Counter sales and open shifts.',
     path: '/pharmacy/pos',
@@ -91,7 +98,7 @@ const REPORTS = [
   },
   {
     title: 'Category sales & purchases',
-    description: 'Purchase, sale, and net profit by category.',
+    description: 'Sales, cost of goods sold, and stock purchased by category.',
     path: '/accounting/reports/category-trading',
     group: 'purchases',
     icon: PieChart,

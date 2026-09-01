@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router';
 import { History, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { settingsApi } from './api/settings.api';
-import { applyPortalColor, readPortalColor } from './constants';
+import { applyPortalColor, getSettingsTabs, readPortalColor, resolveSettingsTab } from './constants';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -17,37 +17,26 @@ import { PrintPreferencesTab } from './components/PrintPreferencesTab';
 import { InventoryTab } from './components/InventoryTab';
 import { ApprovalWorkflowTab } from './components/ApprovalWorkflowTab';
 import { AutoPostTab } from './components/AutoPostTab';
-import { WorkspaceNavigationTab } from './components/WorkspaceNavigationTab';
-import { PortalColorTab } from './components/PortalColorTab';
 import { CustomFieldsTab } from './components/CustomFieldsTab';
+import { PharmacyTab, usePharmacyWorkspaceSettings } from './components/PharmacySettingsTabs';
 import { getSettingsTabMeta } from './components/settings-ui';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card } from '@/components/ui/card';
 import { useAuthStore } from '@/store/authStore';
+import { resolveUiPack } from '@/industries';
 import { setWorkspaceDefaultCurrency, resolveCurrencyCode } from '@/lib/currency';
-
-const VALID_TABS = new Set([
-  'profile',
-  'footer',
-  'print',
-  'inventory',
-  'approval',
-  'posting',
-  'portal-color',
-  'navigation',
-  'custom-fields',
-]);
 
 export function AccountingSettingsPage() {
   const { id: workspaceId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') || 'profile';
+  const activeCompany = useAuthStore((s) => s.activeCompany);
+  const isPharmacy = resolveUiPack(activeCompany) === 'pharmacy';
+  const settingsTabs = useMemo(() => getSettingsTabs(isPharmacy), [isPharmacy]);
+  const pharmacy = usePharmacyWorkspaceSettings(isPharmacy);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState(
-    VALID_TABS.has(tabFromUrl) ? tabFromUrl : 'profile',
-  );
+  const [activeTab, setActiveTab] = useState(() => resolveSettingsTab(tabFromUrl, isPharmacy));
   const [company, setCompany] = useState(null);
   const [logoUrl, setLogoUrl] = useState('');
   const [approvalModules, setApprovalModules] = useState({});
@@ -77,10 +66,8 @@ export function AccountingSettingsPage() {
   }, [load]);
 
   useEffect(() => {
-    if (VALID_TABS.has(tabFromUrl)) {
-      setActiveTab(tabFromUrl);
-    }
-  }, [tabFromUrl]);
+    setActiveTab(resolveSettingsTab(tabFromUrl, isPharmacy));
+  }, [tabFromUrl, isPharmacy]);
 
   const changeTab = useCallback(
     (tabId) => {
@@ -143,39 +130,24 @@ export function AccountingSettingsPage() {
     );
   };
 
-  const onNavigationSaved = (prefs) => {
-    const nextNav =
-      typeof prefs === 'string' ? prefs : prefs?.workspace_navigation;
-    const nextPos =
-      typeof prefs === 'object' && prefs != null
-        ? prefs.show_pos_menu
-        : undefined;
-    setCompany((c) =>
-      c
-        ? {
-            ...c,
-            ...(nextNav != null ? { workspace_navigation: nextNav } : {}),
-            ...(nextPos !== undefined ? { show_pos_menu: !!nextPos } : {}),
-          }
-        : c,
-    );
+  /**
+   * POS menu visibility, saved from the Company profile tab.
+   *
+   * The sidebar reads show_pos_menu from the auth store, not from this page's
+   * local company state, so both have to move together — updating only the
+   * local copy would leave the menu stale until a reload.
+   */
+  const onPosMenuSaved = (showPos) => {
+    const next = !!showPos;
+    setCompany((c) => (c ? { ...c, show_pos_menu: next } : c));
+
     const store = useAuthStore.getState();
     const active = store.activeCompany;
     if (active && String(active.id) === String(workspaceId)) {
-      store.setActiveCompany({
-        ...active,
-        ...(nextNav != null ? { workspace_navigation: nextNav } : {}),
-        ...(nextPos !== undefined ? { show_pos_menu: !!nextPos } : {}),
-      });
+      store.setActiveCompany({ ...active, show_pos_menu: next });
       store.setCompanies(
         store.companies.map((c) =>
-          String(c.id) === String(workspaceId)
-            ? {
-                ...c,
-                ...(nextNav != null ? { workspace_navigation: nextNav } : {}),
-                ...(nextPos !== undefined ? { show_pos_menu: !!nextPos } : {}),
-              }
-            : c,
+          String(c.id) === String(workspaceId) ? { ...c, show_pos_menu: next } : c,
         ),
       );
     }
@@ -206,50 +178,45 @@ export function AccountingSettingsPage() {
   const accountingBase = workspaceId ? `/workspace/${workspaceId}/accounting` : '#';
 
   const pageSubtitle = useMemo(() => {
-    const parts = [
-      company?.name,
-      company?.country,
-      company?.currency,
-      autoPost ? 'Auto-posting on' : 'Manual posting',
-    ].filter(Boolean);
-    return parts.length
-      ? parts.join(' · ')
-      : 'Company profile, documents, accounting rules, and workspace preferences.';
-  }, [company?.name, company?.country, company?.currency, autoPost]);
+    const parts = [company?.name, company?.currency].filter(Boolean);
+    return parts.length ? parts.join(' · ') : 'Workspace preferences';
+  }, [company?.name, company?.currency]);
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-14 w-full max-w-md rounded-lg" />
-        <Card className="overflow-hidden">
-          <div className="flex min-h-[520px]">
-            <Skeleton className="hidden lg:block h-full w-56 shrink-0 rounded-none" />
-            <Skeleton className="h-full flex-1 rounded-none" />
-          </div>
-        </Card>
+      <div>
+        <Skeleton className="h-10 w-48 rounded-md" />
+        <div className="mt-8 flex gap-12">
+          <Skeleton className="hidden lg:block h-[420px] w-52 shrink-0 rounded-md" />
+          <Skeleton className="h-[420px] flex-1 max-w-3xl rounded-md" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader
         title="Settings"
         subtitle={pageSubtitle}
+        className="mb-0"
         actions={
           <>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="h-8 gap-1.5"
-              onClick={() => load(true)}
-              disabled={refreshing}
+              className="h-8 gap-1.5 text-muted-foreground"
+              onClick={() => {
+                load(true);
+                if (isPharmacy) pharmacy.load();
+              }}
+              disabled={refreshing || pharmacy.saving}
             >
               <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} />
               Refresh
             </Button>
             {workspaceId ? (
-              <Button variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground" asChild>
                 <Link to={`${accountingBase}/audit-logs`}>
                   <History className="size-3.5" />
                   Audit history
@@ -260,23 +227,32 @@ export function AccountingSettingsPage() {
         }
       />
 
-      <Card className="overflow-hidden">
-        <div className="flex flex-col lg:flex-row">
-          <aside className="hidden lg:flex lg:w-48 shrink-0 flex-col border-r border-border bg-muted/10 p-2">
-            <SettingsEnterpriseNav embedded activeTab={activeTab} onChange={changeTab} />
-          </aside>
+      <div className="mx-auto mt-8 flex w-full max-w-[1180px] flex-col gap-8 lg:flex-row lg:items-start lg:gap-14">
+        <aside className="hidden lg:block lg:w-56 shrink-0 lg:sticky lg:top-24">
+          <SettingsEnterpriseNav
+            embedded
+            tabs={settingsTabs}
+            activeTab={activeTab}
+            onChange={changeTab}
+          />
+        </aside>
 
-          <div className="flex-1 min-w-0">
-            <div className="lg:hidden border-b border-border bg-muted/10 px-3 py-2">
-              <SettingsEnterpriseNavMobile activeTab={activeTab} onChange={changeTab} />
-            </div>
+        <div className="min-w-0 flex-1">
+          <div className="lg:hidden mb-6">
+            <SettingsEnterpriseNavMobile
+              tabs={settingsTabs}
+              activeTab={activeTab}
+              onChange={changeTab}
+            />
+          </div>
 
-            <div className="p-4 lg:p-5">
+          <div className="max-w-4xl pb-20">
               {activeTab === 'profile' && (
                 <ProfileTab
                   company={company}
                   logoUrl={logoUrl}
                   onSaved={onProfileSaved}
+                  onPosMenuSaved={onPosMenuSaved}
                 />
               )}
               {activeTab === 'print' && (
@@ -284,6 +260,21 @@ export function AccountingSettingsPage() {
                   title={tabMeta.title}
                   description={tabMeta.description}
                   icon={tabMeta.icon}
+                  isPharmacy={isPharmacy}
+                  pharmacySettings={pharmacy.settings}
+                  pharmacyLoading={pharmacy.loading}
+                  pharmacySaving={pharmacy.saving}
+                  onSavePharmacy={pharmacy.save}
+                />
+              )}
+              {isPharmacy && activeTab === 'pharmacy' && (
+                <PharmacyTab
+                  title={tabMeta.title}
+                  description={tabMeta.description}
+                  settings={pharmacy.settings}
+                  loading={pharmacy.loading}
+                  saving={pharmacy.saving}
+                  save={pharmacy.save}
                 />
               )}
               {activeTab === 'footer' && (
@@ -326,23 +317,6 @@ export function AccountingSettingsPage() {
                   icon={tabMeta.icon}
                 />
               )}
-              {activeTab === 'portal-color' && (
-                <PortalColorTab
-                  title={tabMeta.title}
-                  description={tabMeta.description}
-                  icon={tabMeta.icon}
-                />
-              )}
-              {activeTab === 'navigation' && (
-                <WorkspaceNavigationTab
-                  workspaceNavigation={company?.workspace_navigation}
-                  showPosMenu={!!company?.show_pos_menu}
-                  onSaved={onNavigationSaved}
-                  title={tabMeta.title}
-                  description={tabMeta.description}
-                  icon={tabMeta.icon}
-                />
-              )}
               {activeTab === 'custom-fields' && (
                 <CustomFieldsTab
                   title={tabMeta.title}
@@ -350,10 +324,9 @@ export function AccountingSettingsPage() {
                   icon={tabMeta.icon}
                 />
               )}
-            </div>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

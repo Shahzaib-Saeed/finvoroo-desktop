@@ -204,7 +204,7 @@ export function ManufacturerExpiryReportPage() {
           printDisabled={!showReport || loading}
         />
       }
-      contentClassName="w-full max-w-[1200px] mx-auto space-y-4 manufacturer-expiry-report-root"
+      contentClassName="w-full min-w-0 max-w-full mx-auto space-y-4 manufacturer-expiry-report-root lg:max-w-[1200px]"
     >
       <div className="no-print">
         <ReportCompactFilterBar
@@ -241,7 +241,7 @@ export function ManufacturerExpiryReportPage() {
                 if (e.key === "Enter") applyFilters();
               }}
               aria-label="Near-expiry window in days"
-              className="h-8 w-[110px] text-xs"
+              className="h-8 w-full min-w-0 text-xs sm:w-[110px]"
             />
           ) : null}
           {draft.mode !== "expired" ? (

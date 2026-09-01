@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 const reports = [
   {
     title: 'Category sales & purchases',
-    description: 'Purchase, sale, net profit, and margin by product category for the period.',
+    description: 'Sales, cost of goods sold, and stock purchased by product category.',
     href: 'category-trading',
     to: (workspaceId) => `/workspace/${workspaceId}/accounting/reports/category-trading`,
     icon: LayoutGrid,

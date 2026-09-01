@@ -40,7 +40,7 @@ export function DataGridLayout({
       <div className={cn('w-full space-y-2.5', className)}>
         {children}
         <DataGridContainer>
-          <ScrollArea className={cn('w-full', scrollClassName)}>
+          <ScrollArea className={cn('w-full min-w-0 max-w-full', scrollClassName)}>
             <DataGridTable />
             <ScrollBar orientation="horizontal" />
           </ScrollArea>

@@ -27,10 +27,13 @@ export function isPharmacyReportSurface(pathname, companyId, features) {
   return /^\/pharmacy(\/|$)/.test(rel) || isPharmacyLinkedReportPath(rel);
 }
 
-/** Hide the sticky workspace section bar on native pharmacy routes only. */
+/** Hide the sticky bar on pharmacy tills and purchase screens — keep it on reports. */
 export function shouldHidePharmacySectionNav(pathname, companyId, features) {
   if (!features?.pharmacy_shell || !companyId) return false;
   const rel = relativeWorkspacePath(pathname, companyId);
+  if (rel.startsWith('/pharmacy/reports') || rel.startsWith('/pharmacy/medicine-reports')) {
+    return false;
+  }
   if (/^\/pharmacy(\/|$)/.test(rel)) return true;
   return false;
 }

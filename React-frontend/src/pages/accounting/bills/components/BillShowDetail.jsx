@@ -240,8 +240,8 @@ export function BillShowDetail({ bill, workspaceId }) {
               No line items on this bill.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-slate-200">
-              <table className="w-full border-collapse text-sm">
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full min-w-[480px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-t border-slate-200 bg-[#F8FAFC]">
                     <th className="border-r border-slate-100 px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">

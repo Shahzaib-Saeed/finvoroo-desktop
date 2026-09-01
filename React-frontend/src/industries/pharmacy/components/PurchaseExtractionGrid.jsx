@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { applyPurchaseLineDefaults } from '../lib/pharmacy-purchase-defaults';
 import { rememberOcrProductMapping } from '../lib/remember-ocr-product-mapping';
+import { loadMedicineCatalog } from '../lib/medicine-catalog-cache';
 import {
   emptyExtractionRow,
   extractionRowToProductPrefill,
@@ -108,6 +109,37 @@ export function PurchaseExtractionGrid({
       });
     },
     [pharmacySettings, productDialog, rows, update, vendorId],
+  );
+
+  const openEditProduct = useCallback(
+    (index, product) => {
+      productDialog?.openEdit?.(product, {
+        onSuccess: (saved) => {
+          void loadMedicineCatalog({ force: true });
+          const opt = productToPickerOption(saved);
+          if (!opt) return;
+          const row = rows[index];
+          if (!row) return;
+          const patch = applyPurchaseLineDefaults(
+            {
+              matched_product_id: Number(opt.value),
+              matched_product_name: opt.label || '',
+              matched_product_image: opt.image_url || '',
+              match_status: 'matched',
+              match_confidence: 1,
+              match_user_confirmed: true,
+              product_description: row.product_description || opt.label || '',
+              batch_no: row.batch_no,
+              expiry_date: row.expiry_date,
+            },
+            pharmacySettings,
+          );
+          update(index, patch);
+          toast.success(`Updated · ${opt.label}`);
+        },
+      });
+    },
+    [pharmacySettings, productDialog, rows, update],
   );
 
   useEffect(() => {
@@ -272,6 +304,7 @@ export function PurchaseExtractionGrid({
                       onEnterNext={() => focusPurchaseField(index, 'code')}
                       onSelect={(product) => applyProduct(product)}
                       onCreateNew={openCreateProduct}
+                      onEditProduct={openEditProduct}
                       keyboardBrowseMode
                     />
                   </PurchaseGridTd>

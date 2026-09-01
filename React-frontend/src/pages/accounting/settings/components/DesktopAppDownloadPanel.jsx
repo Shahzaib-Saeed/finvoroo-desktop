@@ -50,7 +50,7 @@ export function DesktopAppDownloadPanel({ embedded = false }) {
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-sky-200/80 bg-white/80 px-3 py-2.5 text-xs text-slate-800">
+      <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-xs text-foreground">
         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Latest Windows release
         </p>

@@ -105,6 +105,12 @@ const PHARMACY_SECTION = {
       feature: 'pharmacy_shell',
     },
     {
+      title: 'Employee POS sales',
+      path: '/workspace/:id/pharmacy/reports/employee-sales',
+      permission: 'reports.view',
+      feature: 'pharmacy_shell',
+    },
+    {
       title: 'Manufacturer-wise expiry',
       path: '/workspace/:id/pharmacy/reports/manufacturer-expiry',
       permission: 'reports.view',
@@ -122,12 +128,6 @@ const PHARMACY_SECTION = {
       title: 'Investors',
       path: '/workspace/:id/pharmacy/investors',
       permission: 'investors.view',
-      feature: 'pharmacy_shell',
-    },
-    {
-      title: 'Pharmacy settings',
-      path: '/workspace/:id/pharmacy/settings',
-      permission: 'accounting_settings.view',
       feature: 'pharmacy_shell',
     },
   ],
@@ -264,6 +264,33 @@ export function getPharmacyMegaMenuColumns(companyId) {
         }
         return link;
       });
+
+      if (section.id === 'setup') {
+        const settingsPath = p('/workspace/:id/accounting/settings');
+        const alreadyHasPharmacy = links.some((l) =>
+          l.path?.includes('tab=pharmacy'),
+        );
+        if (!alreadyHasPharmacy) {
+          const settingsIdx = links.findIndex((l) => l.path === settingsPath);
+          const pharmacyLinks = [
+            {
+              title: 'Pharmacy',
+              path: `${settingsPath}?tab=pharmacy`,
+              permission: 'accounting_settings.view',
+              feature: 'pharmacy_shell',
+            },
+          ];
+          if (settingsIdx >= 0) {
+            links = [
+              ...links.slice(0, settingsIdx + 1),
+              ...pharmacyLinks,
+              ...links.slice(settingsIdx + 1),
+            ];
+          } else {
+            links = [...pharmacyLinks, ...links];
+          }
+        }
+      }
 
       if (section.id === 'sales') {
         const unique = links.filter(
@@ -423,32 +450,50 @@ export function getPharmacySectionNav() {
           '/pharmacy/reports',
           '/pharmacy/medicine-reports',
         ],
-        links: [
+        links: [],
+        groups: [
           {
-            title: 'Pharmacy reports',
-            path: '/pharmacy/reports',
-            permission: 'reports.view',
-            feature: 'pharmacy_shell',
+            title: 'Pharmacy',
+            links: [
+              {
+                title: 'Pharmacy reports',
+                path: '/pharmacy/reports',
+                permission: 'reports.view',
+                feature: 'pharmacy_shell',
+              },
+              {
+                title: 'Category Sales & Purchases',
+                path: '/accounting/reports/category-trading',
+                permission: 'reports.view',
+                feature: 'pharmacy_shell',
+              },
+              {
+                title: 'Item-wise POS sales',
+                path: '/pharmacy/reports/item-sales',
+                permission: 'reports.view',
+                feature: 'pharmacy_shell',
+              },
+              {
+                title: 'Employee POS sales',
+                path: '/pharmacy/reports/employee-sales',
+                permission: 'reports.view',
+                feature: 'pharmacy_shell',
+              },
+              {
+                title: 'Manufacturer-wise expiry',
+                path: '/pharmacy/reports/manufacturer-expiry',
+                permission: 'reports.view',
+                feature: 'batch_expiry',
+              },
+              {
+                title: 'Stock valuation',
+                path: '/pharmacy/reports/stock-valuation',
+                permission: 'reports.view',
+                feature: 'pharmacy_shell',
+              },
+            ],
           },
-          {
-            title: 'Item-wise POS sales',
-            path: '/pharmacy/reports/item-sales',
-            permission: 'reports.view',
-            feature: 'pharmacy_shell',
-          },
-          {
-            title: 'Manufacturer-wise expiry',
-            path: '/pharmacy/reports/manufacturer-expiry',
-            permission: 'reports.view',
-            feature: 'batch_expiry',
-          },
-          {
-            title: 'Stock valuation',
-            path: '/pharmacy/reports/stock-valuation',
-            permission: 'reports.view',
-            feature: 'pharmacy_shell',
-          },
-          ...(section.links || []),
+          ...(section.groups || []),
         ],
       };
     }

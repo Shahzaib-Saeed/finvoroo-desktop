@@ -138,6 +138,8 @@ export function ItemNameSearchCell({
   onFocusRow,
   onNavigateRow,
   onCreateNew,
+  onEditProduct,
+  onViewHistory,
   getAvailableStock,
   blockZeroStock = true,
   warehouseId = null,
@@ -221,12 +223,24 @@ export function ItemNameSearchCell({
   const createNameHint =
     q.trim() || billLabel || selectedLabel || catalogLabel || '';
 
-  const sheetCreateProps = onCreateNew
-    ? {
-        onCreateNew: (ctx) => fireCreateNew(ctx),
-        createNameHint,
-      }
-    : {};
+  const sheetActionProps = {
+    ...(onCreateNew
+      ? {
+          onCreateNew: (ctx) => fireCreateNew(ctx),
+          createNameHint,
+        }
+      : {}),
+    ...(onEditProduct
+      ? {
+          onEditProduct: (product) => onEditProduct(rowIndex, product),
+        }
+      : {}),
+    ...(onViewHistory
+      ? {
+          onViewHistory: (product) => onViewHistory(rowIndex, product),
+        }
+      : {}),
+  };
 
   const rows = useMemo(() => {
     const effectiveQ =
@@ -824,7 +838,8 @@ export function ItemNameSearchCell({
       invoiceLinkedProductId={selectedProductId}
       priceMode={priceModeResolved}
       anchorSelector="[data-pharmacy-item-search],[data-grn-field],[data-dispense-qty],[data-dispense-price],[data-dispense-disc],[data-open-return-qty],[data-open-return-price],[data-open-return-disc-pct],[data-open-return-disc-amt],[data-open-return-batch],[data-open-return-expiry]"
-      {...sheetCreateProps}
+      posSale
+      {...sheetActionProps}
     />
   ) : null;
 

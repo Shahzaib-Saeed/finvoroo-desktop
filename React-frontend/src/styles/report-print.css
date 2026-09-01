@@ -263,6 +263,16 @@ table .balance-sheet-amount {
     color: #047857 !important;
   }
 
+  .report-print-sheet .bg-emerald-50,
+  .report-print-sheet .bg-emerald-50\/40,
+  .report-print-sheet .bg-emerald-50\/60 {
+    background-color: #ecfdf5 !important;
+  }
+
+  .report-print-sheet .bg-red-50 {
+    background-color: #fef2f2 !important;
+  }
+
   .report-print-sheet .bg-amber-50\/60,
   .report-print-sheet .bg-amber-50\/40 {
     background-color: #fffbeb !important;
@@ -685,12 +695,39 @@ table .balance-sheet-amount {
     page-break-after: avoid;
   }
 
+  .category-trading-print .category-trading-table {
+    width: 100% !important;
+    font-size: 10px !important;
+  }
+
+  .category-trading-print .category-trading-table th,
+  .category-trading-print .category-trading-table td {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
   .category-trading-print table {
     width: 100% !important;
   }
 
   .category-trading-print .balance-sheet-amount {
     font-size: 10px !important;
+  }
+
+  .category-trading-print .balance-sheet-footer {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  .category-trading-print h1 {
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .category-trading-print .balance-sheet-header p,
+  .category-trading-print .balance-sheet-header span {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
   }
 
   /* Item-wise POS sales — landscape counter register. */

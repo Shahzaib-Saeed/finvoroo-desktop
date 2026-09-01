@@ -9,6 +9,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { releaseModalPointerLockSoon } from '@/lib/modal-lock';
 import { formatMoney } from '../lib/cart-math';
 
 export function PosShiftDialog({
@@ -36,13 +37,20 @@ export function PosShiftDialog({
       onLoadHistory?.();
       if (shift?.id) onLoadXReport?.();
       setZResult(null);
+      return;
     }
+    releaseModalPointerLockSoon();
   }, [open, shift?.id, onLoadHistory, onLoadXReport]);
+
+  const handleOpenChange = (next) => {
+    onOpenChange?.(next);
+    if (!next) releaseModalPointerLockSoon();
+  };
 
   const report = zResult?.z_report || xReport?.x_report;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent data-pos-no-scan className="max-w-lg gap-0 overflow-hidden rounded-2xl p-0">
         <DialogHeader className="border-b border-foreground/10 px-5 py-4">
           <DialogTitle className="text-lg font-semibold">Cash register</DialogTitle>
@@ -84,6 +92,7 @@ export function PosShiftDialog({
                       opening_notes: notes,
                     });
                     setNotes('');
+                    handleOpenChange(false);
                   } finally {
                     setBusy(false);
                   }

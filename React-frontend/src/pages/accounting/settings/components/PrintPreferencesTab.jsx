@@ -19,13 +19,23 @@ import {
 } from '@/pages/accounting/document-output/api/document-output.api';
 import { PrintAgentSetupPanel } from '@/industries/pharmacy/components/PrintAgentSetupPanel';
 import { DesktopAppDownloadPanel } from './DesktopAppDownloadPanel';
+import { PharmacyPrintExtras } from './PharmacySettingsTabs';
 
 const DOC_TYPES = [
   { id: 'invoice', label: 'Sales Invoice' },
   { id: 'pos_receipt', label: 'POS Receipt' },
 ];
 
-export function PrintPreferencesTab({ title, description, icon = 'layout' }) {
+export function PrintPreferencesTab({
+  title,
+  description,
+  icon = 'layout',
+  isPharmacy = false,
+  pharmacySettings,
+  pharmacyLoading,
+  pharmacySaving,
+  onSavePharmacy,
+}) {
   const navigate = useNavigate();
   const { id: workspaceId } = useParams();
   const canManage = useCan(['document_layouts.manage', 'document_layouts.edit', 'accounting_settings.edit']);
@@ -111,93 +121,98 @@ export function PrintPreferencesTab({ title, description, icon = 'layout' }) {
       }
       icon={icon}
     >
-      <div className="mb-4 rounded-lg border bg-muted/30 p-3">
-        <p className="text-sm font-medium">Print &amp; PDF Designer</p>
-        <p className="text-xs text-muted-foreground">
-          Visually design where each field, the items table, and totals appear on the printed invoice or receipt —
-          separate from the invoice entry form fields below.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        {DOC_TYPES.map((t) => (
-          <SettingsFormSection key={t.id} icon={Printer} title={t.label} description="Default layout and output adapter.">
-            <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Layout</p>
-                <Select
-                  value={selected[t.id] || undefined}
-                  onValueChange={(v) => setSelected((s) => ({ ...s, [t.id]: v }))}
-                  disabled={!canManage}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select layout" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(layoutsByType[t.id] || []).map((l) => (
-                      <SelectItem key={l.id} value={String(l.id)}>
-                        {l.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Default adapter</p>
-                <Select
-                  value={adapters[t.id] || 'browser'}
-                  onValueChange={(v) => setAdapters((s) => ({ ...s, [t.id]: v }))}
-                  disabled={!canManage}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="browser">Browser print</SelectItem>
-                    <SelectItem value="pdf">PDF</SelectItem>
-                    <SelectItem value="escpos">ESC/POS thermal</SelectItem>
-                    <SelectItem value="html">HTML</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="gap-1.5 h-10"
+      {DOC_TYPES.map((t) => (
+        <SettingsFormSection key={t.id} icon={Printer} title={t.label} description="Default layout and output adapter.">
+          <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Layout</p>
+              <Select
+                value={selected[t.id] || undefined}
+                onValueChange={(v) => setSelected((s) => ({ ...s, [t.id]: v }))}
                 disabled={!canManage}
-                onClick={() =>
-                  navigate(
-                    `/workspace/${workspaceId}/accounting/document-output/designer${t.id === 'pos_receipt' ? '?type=pos_receipt' : ''}`,
-                  )
-                }
               >
-                <PenSquare className="size-3.5" />
-                Design
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="mono"
-                className="gap-1.5 h-10"
-                disabled={!canManage || saving}
-                onClick={() => save(t.id)}
-              >
-                {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                Save
-              </Button>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select layout" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(layoutsByType[t.id] || []).map((l) => (
+                    <SelectItem key={l.id} value={String(l.id)}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </SettingsFormSection>
-        ))}
-      </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Default adapter</p>
+              <Select
+                value={adapters[t.id] || 'browser'}
+                onValueChange={(v) => setAdapters((s) => ({ ...s, [t.id]: v }))}
+                disabled={!canManage}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="browser">Browser print</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="escpos">ESC/POS thermal</SelectItem>
+                  <SelectItem value="html">HTML</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5 h-9"
+              disabled={!canManage}
+              onClick={() =>
+                navigate(
+                  `/workspace/${workspaceId}/accounting/document-output/designer${t.id === 'pos_receipt' ? '?type=pos_receipt' : ''}`,
+                )
+              }
+            >
+              <PenSquare className="size-3.5" />
+              Design
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5 h-9"
+              disabled={!canManage || saving}
+              onClick={() => save(t.id)}
+            >
+              {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              Save
+            </Button>
+          </div>
+        </SettingsFormSection>
+      ))}
 
-      <div className="mt-6">
-        <PrintAgentSetupPanel disabled={!canManage || saving} />
-      </div>
+      <SettingsFormSection
+        title="Print Agent"
+        description="Install once on this PC, pair, and choose the receipt printer."
+      >
+        <PrintAgentSetupPanel disabled={!canManage || saving} embedded />
+      </SettingsFormSection>
 
-      <div className="mt-4">
-        <DesktopAppDownloadPanel />
-      </div>
+      <SettingsFormSection
+        title="Finvoroo Desktop"
+        description="Native Windows app for this PC. Works through brief disconnects and syncs when online."
+      >
+        <DesktopAppDownloadPanel embedded />
+      </SettingsFormSection>
+
+      {isPharmacy ? (
+        <PharmacyPrintExtras
+          settings={pharmacySettings}
+          loading={pharmacyLoading}
+          saving={pharmacySaving}
+          save={onSavePharmacy}
+        />
+      ) : null}
     </SettingsCard>
   );
 }

@@ -39,7 +39,10 @@ export function DispenseSaleRail({
   disabled = false,
 }) {
   return (
-    <aside className="flex h-full w-full flex-col overflow-hidden bg-white">
+    <aside
+      data-dispense-sale-rail
+      className="flex h-full w-full flex-col overflow-hidden bg-white"
+    >
       <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5">
         <p className="border-s-[3px] border-emerald-600 ps-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">
           Checkout

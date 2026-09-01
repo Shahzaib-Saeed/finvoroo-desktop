@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { ReportTableScroll } from "@/pages/accounting/reports/components/ReportTableScroll";
 import { STATEMENT_AMOUNT_COL } from "@/pages/accounting/reports/components/report-typography";
 import {
   PharmacyReportFooter,
@@ -77,7 +78,8 @@ export function StockValuationStatement({
               No on-hand stock to value.
             </p>
           ) : (
-            <table className="mt-3 w-full border-collapse">
+            <ReportTableScroll className="mt-3">
+              <table className="w-full min-w-[640px] border-collapse">
               <thead>
                 <tr className="border-b border-slate-300 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                   <th className="py-2 pr-3 text-left font-semibold">Category</th>
@@ -150,6 +152,7 @@ export function StockValuationStatement({
                 </tr>
               </tfoot>
             </table>
+            </ReportTableScroll>
           )}
         </div>
 
@@ -169,7 +172,8 @@ export function StockValuationStatement({
                   : ""}
               </p>
             </div>
-            <table className="w-full border-collapse">
+            <ReportTableScroll>
+            <table className="w-full min-w-[560px] border-collapse">
               <thead>
                 <tr className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                   <th className="py-1.5 pr-3 text-left font-semibold">Item</th>
@@ -240,6 +244,7 @@ export function StockValuationStatement({
                 </tr>
               </tfoot>
             </table>
+            </ReportTableScroll>
           </section>
         ))}
       </div>
