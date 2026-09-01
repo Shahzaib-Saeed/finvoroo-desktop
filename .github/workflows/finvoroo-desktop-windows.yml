@@ -4,6 +4,9 @@
 #   package.json, src-tauri/     ← desktop shell
 #   React-frontend/              ← bundled React source for CI build
 #   webapp/                      ← generated (gitignored), embedded in installer
+#
+# Tauri also bundles ../../Laravel-api-backend (see src-tauri/tauri.conf.json).
+# CI checks out Shahzaib-Saeed/finvoroo next to this repo as Laravel-api-backend/.
 
 name: Finvoroo Desktop Windows installer
 
@@ -93,6 +96,57 @@ jobs:
             exit 1
           }
           Write-Host "webapp bundle OK ($($assets.Count) asset file(s))."
+
+      - name: Checkout Laravel API for Tauri bundle
+        uses: actions/checkout@v4
+        with:
+          repository: Shahzaib-Saeed/finvoroo
+          path: _laravel-api-backend
+          token: ${{ secrets.LARAVEL_REPO_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Place Laravel API where Tauri expects it
+        shell: pwsh
+        run: |
+          $parent = Split-Path -Parent $env:GITHUB_WORKSPACE
+          $dest = Join-Path $parent "Laravel-api-backend"
+          $src = "_laravel-api-backend"
+
+          if (Test-Path (Join-Path $src "Laravel-api-backend/artisan")) {
+            $src = Join-Path $src "Laravel-api-backend"
+          }
+
+          if (-not (Test-Path (Join-Path $src "artisan"))) {
+            Write-Error @"
+          Checked out finvoroo repo but artisan was not found.
+          Expected either:
+            - _laravel-api-backend/artisan
+            - _laravel-api-backend/Laravel-api-backend/artisan
+          "@
+            exit 1
+          }
+
+          if (Test-Path $dest) {
+            Remove-Item -Recurse -Force $dest
+          }
+          Move-Item -Force $src $dest
+
+          $tauriExpects = (Resolve-Path (Join-Path $env:GITHUB_WORKSPACE "..\..\Laravel-api-backend")).Path
+          if ($tauriExpects -ne (Resolve-Path $dest).Path) {
+            Write-Error "Laravel path mismatch. Tauri expects $tauriExpects but placed at $dest"
+            exit 1
+          }
+
+          Write-Host "Laravel API ready at $dest"
+
+      - name: Verify Tauri Laravel resource path exists
+        shell: pwsh
+        run: |
+          $path = Join-Path $env:GITHUB_WORKSPACE "..\..\Laravel-api-backend"
+          if (-not (Test-Path (Join-Path $path "artisan"))) {
+            Write-Error "Tauri resource path missing: $path (artisan not found)"
+            exit 1
+          }
+          Write-Host "Tauri resource path OK: $path"
 
       - name: Build Windows NSIS installer (Tauri)
         run: npx tauri build --bundles nsis
