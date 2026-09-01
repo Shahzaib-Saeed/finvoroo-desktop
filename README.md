@@ -111,6 +111,11 @@ Built installers are **never committed to Git**.
 
 If the React repo is **private**, add a `REACT_REPO_PAT` secret (PAT with `repo` read).
 
+If the Laravel API repo (`Shahzaib-Saeed/finvoroo`) is **private**, add a
+`LARAVEL_REPO_PAT` secret (PAT with read access to that repo). Without it,
+CI fails at checkout with `Not Found` because `GITHUB_TOKEN` only sees
+`finvoroo-desktop`, not your other private repos.
+
 ### Publishing to app.finvoroo.com
 
 1. On your Windows PC: `npm run build` (above) — produces the installer
