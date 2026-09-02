@@ -1,8 +1,9 @@
 import api from '@/lib/api';
 import { authCookies } from '@/auth/auth-cookies';
+import { getApiBaseUrl } from '@/lib/desktop-app';
 
 export async function downloadProductionOrdersCsv(params = {}) {
-  const base = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  const base = getApiBaseUrl();
   const qs = new URLSearchParams(params).toString();
   const url = `${base}/workspace/production-orders/export/csv${qs ? `?${qs}` : ''}`;
   const token = authCookies.getToken();

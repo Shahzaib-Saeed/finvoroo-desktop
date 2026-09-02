@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from '@/lib/desktop-app';
+
 export const throttle = (func, limit) => {
   let lastFunc = null;
   let lastRan = null;
@@ -78,7 +80,7 @@ export function getSystemBrandTagline() {
 
 /** API origin from VITE_API_BASE_URL (e.g. https://api.finvoroo.com). */
 export function apiOrigin() {
-  const base = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+  const base = String(getApiBaseUrl() || '').replace(/\/$/, '');
   if (!base) return '';
   try {
     return new URL(base).origin;

@@ -15,6 +15,7 @@
 
 pub mod php_sidecar;
 pub mod server;
+pub mod updater;
 
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -108,6 +109,8 @@ pub fn run() {
                 let _ = win.set_focus();
             }
         }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![updater::install_pending_update])
         .setup(|app| {
             let log_path = log_file_path(app.handle());
             log_line(&log_path, &format!("Finvoroo Desktop {} starting", VERSION));
@@ -159,17 +162,22 @@ pub fn run() {
                 Err(err) => {
                     log_line(
                         &log_path,
-                        &format!("WARN: PHP sidecar not started ({err:#}) — API proxy will fail until Laravel is bundled"),
+                        &format!(
+                            "PHP sidecar not bundled ({err:#}) — API requests will use {}",
+                            php_sidecar::cloud_api_base()
+                        ),
                     );
                 }
             }
 
             let server_log_path = log_path.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(err) = server::serve(std_listener, webapp_dir).await {
+                if let Err(err) = server::serve(std_listener, webapp_dir, VERSION.to_string()).await {
                     log_line(&server_log_path, &format!("local web server failed: {err:#}"));
                 }
             });
+
+            updater::spawn(app.handle().clone());
 
             let url = WebviewUrl::External(
                 format!("http://127.0.0.1:{PORT}/")

@@ -1,13 +1,13 @@
 import { toast } from 'sonner';
 import { PosHardwareBridge } from '@/pages/accounting/pos/lib/hardware-bridge';
 import { printThermalReceipt } from '@/lib/print-invoice';
+import { inlineReceiptImagesInDocument, prepareThermalPropsForPrint, warmReceiptLogoCache } from '@/lib/thermal-receipt-images';
 import {
   buildThermalHtmlFromElement,
   buildThermalHtmlFromProps,
   buildThermalReceiptInnerHtml,
   prepareDesignerHtmlForPrintAgent,
 } from '@/lib/thermal-receipt-html';
-import { inlineReceiptImagesInDocument, warmReceiptLogoCache } from '@/lib/thermal-receipt-images';
 import {
   documentOutputApi,
   unwrapDoc,
@@ -225,7 +225,7 @@ function shouldUseDesignerHtml(prefs) {
 /**
  * Print Agent — styled HTML receipt via WebView2 raster (silent thermal output).
  */
-async function printViaAgent({ elementId, paper, openDrawer, htmlDocument = null }) {
+async function printViaAgent({ elementId, paper, openDrawer, htmlDocument = null, company = null }) {
   const printerId = getReceiptPrinterId();
   if (!printerId) {
     toast.error('Select a receipt printer in Print Agent settings.');
@@ -246,7 +246,7 @@ async function printViaAgent({ elementId, paper, openDrawer, htmlDocument = null
     if (!htmlDocument && elementId) {
       await waitForReceiptImages(elementId, 120);
     }
-    doc = await inlineReceiptImagesInDocument(doc);
+    doc = await inlineReceiptImagesInDocument(doc, company);
     await printHtml(printerId, doc, { paper, openDrawer });
     return { ok: true, via: 'finvoroo-print-agent', silent: true, type: 'html' };
   } catch (err) {
@@ -318,12 +318,33 @@ export async function printPosReceipt({
 
   try {
     const driver = getPrintDriver();
+    const resolvedPaper = paper;
 
-    // Finvoroo Print Agent: designer layout (HTML) unless user explicitly chose plain ESC/POS.
-    if (invoiceId && driver === PRINT_DRIVERS.AGENT) {
-      const prefs = await loadPosReceiptPrintPrefs();
+    // POS checkout: ThermalReceiptBody — skip print-prefs API (saves ~300–800ms).
+    if (thermalProps && driver === PRINT_DRIVERS.AGENT) {
+      const readyProps = await prepareThermalPropsForPrint(thermalProps);
+      const directHtml = buildThermalHtmlFromProps(readyProps, resolvedPaper);
+      if (directHtml) {
+        const result = await printViaAgent({
+          htmlDocument: directHtml,
+          paper: resolvedPaper,
+          openDrawer,
+          company: readyProps?.company,
+        });
+        if (result?.ok) return result;
+      }
+    }
+
+    let prefs = null;
+    let paperFromPrefs = resolvedPaper;
+    if (invoiceId && driver === PRINT_DRIVERS.AGENT && !thermalProps) {
+      prefs = await loadPosReceiptPrintPrefs();
+      paperFromPrefs = resolveReceiptPaper(paper, prefs);
+    }
+
+    // Reprint from invoice (no thermalProps): server layout from Print preferences.
+    if (invoiceId && driver === PRINT_DRIVERS.AGENT && prefs) {
       const resolvedLayoutId = layoutId || prefs.layoutId;
-      const resolvedPaper = resolveReceiptPaper(paper, prefs);
 
       if (shouldUseDesignerHtml(prefs)) {
         try {
@@ -332,11 +353,11 @@ export async function printPosReceipt({
             documentType,
             layoutId: resolvedLayoutId,
           });
-          const html = prepareDesignerHtmlForPrintAgent(rawHtml, resolvedPaper);
+          const html = prepareDesignerHtmlForPrintAgent(rawHtml, paperFromPrefs);
           if (html) {
             const result = await printViaAgent({
               htmlDocument: html,
-              paper: resolvedPaper,
+              paper: paperFromPrefs,
               openDrawer,
             });
             if (result?.ok) return result;
@@ -350,7 +371,7 @@ export async function printPosReceipt({
             documentId: invoiceId,
             documentType,
             layoutId: resolvedLayoutId,
-            paper: resolvedPaper,
+            paper: paperFromPrefs,
             openDrawer,
           });
           const escResult = await printEscPosPayload(bytes);
@@ -360,13 +381,6 @@ export async function printPosReceipt({
         } catch (err) {
           console.warn('[Finvoroo print] ESC/POS print failed', err?.message || err);
         }
-      }
-    }
-
-    if (thermalProps && driver === PRINT_DRIVERS.AGENT) {
-      const directHtml = buildThermalHtmlFromProps(thermalProps, paper);
-      if (directHtml) {
-        return printViaAgent({ htmlDocument: directHtml, paper, openDrawer });
       }
     }
 
@@ -390,14 +404,14 @@ export async function printPosReceipt({
     await waitForReceiptImages(activeElementId);
 
     if (driver === PRINT_DRIVERS.AGENT) {
-      return printViaAgent({ elementId: activeElementId, paper, openDrawer });
+      return printViaAgent({ elementId: activeElementId, paper: resolvedPaper, openDrawer });
     }
 
     let result;
     if (driver === PRINT_DRIVERS.QZ) {
-      result = await printViaQz({ elementId: activeElementId, paper });
+      result = await printViaQz({ elementId: activeElementId, paper: resolvedPaper });
     } else {
-      const printed = await printThermalReceipt({ elementId: activeElementId, paper });
+      const printed = await printThermalReceipt({ elementId: activeElementId, paper: resolvedPaper });
       result = { ok: printed !== false, via: 'browser', silent: false };
     }
 

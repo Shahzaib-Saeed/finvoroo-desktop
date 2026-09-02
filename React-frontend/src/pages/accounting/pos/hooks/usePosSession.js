@@ -20,8 +20,9 @@ import {
   toCheckoutLines,
 } from '../lib/cart-math';
 import { PosHardwareBridge } from '../lib/hardware-bridge';
-import { printPosReceipt, warmPrintStack } from '@/lib/print-pos-receipt';
+import { printPosReceipt, warmPrintStack, warmReceiptLogoCache } from '@/lib/print-pos-receipt';
 import { getReceiptPaper } from '@/lib/print-agent';
+import { thermalReceiptFromPos } from '@/pages/accounting/document-output/components/ThermalReceiptBody';
 import { PosOfflineStore } from '../lib/offline-store';
 import {
   eventMatchesShortcut,
@@ -152,6 +153,7 @@ export function usePosSession() {
       const data = unwrap(await posApi.bootstrap());
       setBootstrap(data);
       warmPrintStack();
+      if (data?.company) void warmReceiptLogoCache(data.company);
       setCustomer(data?.walk_in_customer || null);
       const defaultWh =
         data?.terminal?.warehouse_id ||
@@ -809,11 +811,29 @@ export function usePosSession() {
       refreshHolds();
       if (posSettings.autoPrint) {
         const invoiceId = data?.invoice?.id || data?.receipt?.invoice_id || null;
+        // Build the receipt locally (no network) so checkout-complete printing never
+        // waits on a Laravel document-output round trip — see usePharmacyDispense.js's
+        // buildCheckoutThermalProps() for the proven pattern this mirrors.
+        const paper = getReceiptPaper();
+        let thermalProps = null;
+        try {
+          thermalProps = thermalReceiptFromPos(data, {
+            company: bootstrap?.company,
+            currency,
+            widthMm: paper === 'thermal_58' ? 58 : 80,
+            showLogo: bootstrap?.settings?.receipt_show_logo !== false,
+            showBrandingBack: !!bootstrap?.settings?.receipt_branding_back,
+            posFeeLabel: bootstrap?.settings?.pos_fee_label || 'POS Fee',
+          });
+        } catch {
+          thermalProps = null;
+        }
         void printPosReceipt({
           elementId: 'pos-receipt-print',
-          paper: getReceiptPaper(),
+          paper,
           invoiceId,
           openDrawer: false,
+          thermalProps,
         });
       }
       if (permissions.can_open_drawer) {
@@ -853,6 +873,8 @@ export function usePosSession() {
     refreshHolds,
     posSettings.autoPrint,
     focusBarcode,
+    bootstrap,
+    currency,
   ]);
 
   const openShift = useCallback(

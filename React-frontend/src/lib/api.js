@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { authCookies } from '@/auth/auth-cookies';
 import { handleSessionExpired, isAuthRoute } from '@/auth/session';
+import { getApiBaseUrl } from '@/lib/desktop-app';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -12,6 +13,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
   const token = authCookies.getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

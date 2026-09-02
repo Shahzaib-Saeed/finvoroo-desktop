@@ -1,0 +1,11 @@
+{
+  "version": "1.1.6",
+  "notes": "Finvoroo Print Agent update",
+  "pub_date": "2026-09-02T01:41:49.878Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTbzIvbzNTcE9STEc2UUZLK0tONXhRK2pVd1pRVU80ZVBwS3VRYnRSRWhyQWlYbG1oOWhhK05MbWkxY0lLb0lLbVBWMzN2WmtkeG00Tk5KeVlvVnRRMDlnSWZpRjByN2d3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4MzEzMTYyCWZpbGU6Rmludm9yb28gUHJpbnQgQWdlbnRfMS4xLjZfeDY0LXNldHVwLmV4ZQowYmNDQ2FxZmRXUHRHclRMUFBocGt0bWR6ZGcxWVUzOVNMZ0plb1FSZXpGb0VycmdmdVRXTTZRVmlYNkJaR1FJNnhHeDh6UG9qZVM5bCtjVDM4MFpDdz09Cg==",
+      "url": "https://app.finvoroo.com/downloads/FinvorooPrintAgent-Setup.exe"
+    }
+  }
+}

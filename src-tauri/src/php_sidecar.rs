@@ -3,6 +3,19 @@
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
+
+/// True only while the embedded Laravel sidecar responds to health checks.
+/// CI/release installers ship without a Laravel bundle — this stays false and
+/// the axum proxy forwards API traffic to the cloud instead of returning 502.
+static SIDECAR_READY: AtomicBool = AtomicBool::new(false);
+
+pub fn sidecar_is_ready() -> bool {
+    SIDECAR_READY.load(Ordering::SeqCst)
+}
+
+fn set_sidecar_ready(ready: bool) {
+    SIDECAR_READY.store(ready, Ordering::SeqCst);
+}
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -65,6 +78,7 @@ impl PhpSidecar {
             "PHP sidecar started (pid {}) on http://127.0.0.1:{PHP_SIDECAR_PORT}/",
             child.id()
         ));
+        set_sidecar_ready(false);
         self.child = Some(child);
         Ok(())
     }
@@ -78,6 +92,7 @@ impl PhpSidecar {
         if let Some(mut child) = self.child.take() {
             let _ = child.kill();
             let _ = child.wait();
+            set_sidecar_ready(false);
             self.log("PHP sidecar stopped");
         }
     }
@@ -108,12 +123,14 @@ impl PhpSidecar {
                 }
 
                 if !sidecar.health_check().await {
+                    set_sidecar_ready(false);
                     sidecar.log("sidecar unhealthy — restarting");
                     sidecar.kill_serve_child();
                     sleep(Duration::from_secs(2)).await;
                     continue;
                 }
 
+                set_sidecar_ready(true);
                 sleep(Duration::from_secs(5)).await;
             }
         });

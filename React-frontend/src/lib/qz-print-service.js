@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { buildThermalHtmlDocument, absolutizeReceiptImages } from '@/lib/thermal-receipt-html';
+import { getApiBaseUrl } from '@/lib/desktop-app';
 
 export { buildThermalHtmlDocument, absolutizeReceiptImages };
 
@@ -79,7 +80,7 @@ export function setQzPrintEnabled(enabled) {
 }
 
 function apiRoot() {
-  const base = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  const base = getApiBaseUrl();
   return base.replace(/\/api\/v1\/?$/, '');
 }
 

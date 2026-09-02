@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/desktop-app';
 
 export const productionOrdersApi = {
   list: (params) => api.get('/workspace/production-orders', { params }),
@@ -17,7 +18,7 @@ export const productionOrdersApi = {
   fromSalesOrder: (salesOrderId, params) =>
     api.get(`/workspace/production-orders/from-sales-order/${salesOrderId}`, { params }),
   exportCsvUrl: (params) => {
-    const base = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    const base = getApiBaseUrl();
     const qs = new URLSearchParams(params).toString();
     return `${base}/workspace/production-orders/export/csv${qs ? `?${qs}` : ''}`;
   },
