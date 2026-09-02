@@ -6,7 +6,7 @@ export const DESKTOP_APP_DOWNLOAD_URL = '/downloads/FinvorooDesktop-Setup.exe';
 /** Manifest on app.finvoroo.com — updated by finvoroo-desktop/scripts/publish-installer.mjs */
 export const DESKTOP_APP_UPDATE_MANIFEST_URL = '/downloads/desktop-latest.json';
 /** Keep in sync with finvoroo-desktop/{package.json,src-tauri/tauri.conf.json,src-tauri/Cargo.toml}. */
-export const DESKTOP_APP_LATEST_VERSION = '0.1.6';
+export const DESKTOP_APP_LATEST_VERSION = '0.1.8';
 
 const DESKTOP_SHELL_ORIGIN = 'http://127.0.0.1:47391';
 

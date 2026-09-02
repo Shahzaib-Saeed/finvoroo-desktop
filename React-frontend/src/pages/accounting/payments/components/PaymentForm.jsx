@@ -188,44 +188,36 @@ export function PaymentForm({
         </div>
       )}
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="p-4 sm:p-5 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+        <div className="space-y-3 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-foreground">
                 1. Tick invoices to pay
               </h3>
-              <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-                Checking a box fills cash for that invoice and updates Amount received. Optional
-                discount is a write-off.
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                Check invoices to apply this receipt. Cash and amount received update
+                automatically.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {loadingContext && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {loadingContext ? (
                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
-              )}
+              ) : null}
               <Button
                 type="button"
                 variant={showAdvancedAllocation ? 'default' : 'outline'}
                 size="sm"
-                className={cn(
-                  'h-8 text-xs font-medium',
-                  showAdvancedAllocation && 'shadow-sm',
-                )}
+                className={cn('h-8 text-xs font-medium', showAdvancedAllocation && 'shadow-sm')}
                 onClick={() => setShowAdvancedAllocation((v) => !v)}
                 aria-pressed={showAdvancedAllocation}
-                title={
-                  showAdvancedAllocation
-                    ? 'Hide credit note and overpayment transfer columns'
-                    : 'Show credit note and overpayment transfer columns'
-                }
               >
-                <ArrowLeftRight className="size-3.5 mr-1.5" />
+                <ArrowLeftRight className="mr-1.5 size-3.5" />
                 {showAdvancedAllocation ? 'Credits on' : 'Credits & transfers'}
               </Button>
               {showAdvancedAllocation &&
                 (creditNotes.length > 0 || overpaymentInvoices.length > 0) &&
-                form.customer_id && (
+                form.customer_id ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -234,23 +226,26 @@ export function PaymentForm({
                     onClick={onSuggestCreditsToFirstRow}
                     disabled={readOnly || !rows.length}
                   >
-                    <Wand2 className="size-3.5 mr-1.5" />
+                    <Wand2 className="mr-1.5 size-3.5" />
                     Apply credits
                   </Button>
-                )}
-              {!readOnly && rows.length > 0 && (
+                ) : null}
+              {!readOnly && rows.length > 0 ? (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 text-xs"
+                  className="h-8 gap-1.5 text-xs"
                   onClick={onDistributeCashToSelected}
                   disabled={loadingContext}
                 >
-                  <Banknote className="size-3.5 mr-1.5" />
+                  <Banknote className="size-3.5" />
                   Auto-apply
+                  <kbd className="hidden rounded border bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">
+                    Alt+A
+                  </kbd>
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -309,22 +304,39 @@ export function PaymentForm({
       </div>
 
       {!readOnly && (
-        <div className="flex justify-end gap-2 sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-3 border-t -mx-1 px-1">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving || loadingContext}>
-            {saving ? (
-              <>
-                <Loader2 className="size-4 mr-1 animate-spin" /> Saving…
-              </>
-            ) : (
-              <>
-                <Save className="size-4 mr-1" />
-                {isEdit ? 'Update payment' : 'Save payment'}
-              </>
-            )}
-          </Button>
+        <div className="sticky bottom-0 -mx-1 flex flex-col gap-3 border-t bg-background/95 px-1 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/90 sm:flex-row sm:items-center sm:justify-between">
+          <div className="hidden items-center gap-3 text-[11px] text-muted-foreground sm:flex">
+            <span>
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-medium">Esc</kbd> Cancel
+            </span>
+            <span>
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-medium">Ctrl</kbd>
+              {' + '}
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-medium">Enter</kbd>{' '}
+              Save payment
+            </span>
+          </div>
+          <div className="flex justify-end gap-2 sm:ms-auto">
+            <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={saving || loadingContext}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="mr-1 size-4 animate-spin" /> Saving…
+                </>
+              ) : (
+                <>
+                  <Save className="mr-1 size-4" />
+                  {isEdit ? 'Update payment' : 'Save payment'}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       )}
     </form>

@@ -86,6 +86,18 @@ fn log_line(path: &PathBuf, message: &str) {
     }
 }
 
+async fn wait_for_local_server(port: u16) {
+    for _ in 0..100 {
+        if tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .is_ok()
+        {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+}
+
 pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -171,11 +183,19 @@ pub fn run() {
             }
 
             let server_log_path = log_path.clone();
+            let webapp_for_server = webapp_dir.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(err) = server::serve(std_listener, webapp_dir, VERSION.to_string()).await {
+                if let Err(err) =
+                    server::serve(std_listener, webapp_for_server, VERSION.to_string()).await
+                {
                     log_line(&server_log_path, &format!("local web server failed: {err:#}"));
                 }
             });
+
+            // The webview loads immediately after this — give axum a moment to accept
+            // connections so the first paint is not a blank page.
+            tauri::async_runtime::block_on(wait_for_local_server(PORT));
+            log_line(&log_path, "local web server accepting connections");
 
             updater::spawn(app.handle().clone());
 

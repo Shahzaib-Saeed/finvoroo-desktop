@@ -67,14 +67,14 @@ export function PaymentDetailsSection({
   }, [canCreateCustomer, readOnly, customerDialog, onCustomerChange]);
 
   return (
-    <div className="rounded-lg border bg-card min-w-0 w-full">
-      <div className="border-b px-4 py-2.5 flex items-center justify-between gap-3">
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
         <div>
-          <h3 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
             Payment details
           </h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Pick the customer — then tick invoices below. Amount fills itself.
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Customer, method, and deposit account for this receipt.
           </p>
         </div>
         {form.customer_id && onViewLedger ? (
@@ -82,19 +82,22 @@ export function PaymentDetailsSection({
             type="button"
             variant="outline"
             size="sm"
-            className="h-7 shrink-0 px-2.5 text-[11px]"
+            className="h-8 shrink-0 gap-1.5 px-3 text-xs"
             onClick={onViewLedger}
           >
-            <BookOpenText className="size-3.5 mr-1" />
+            <BookOpenText className="size-3.5" />
             View ledger
+            <kbd className="hidden rounded border bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">
+              Alt+L
+            </kbd>
           </Button>
         ) : null}
       </div>
 
-      <div className="p-4 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-          <div className="space-y-1.5 min-w-0 sm:col-span-2 xl:col-span-1">
-            <Label className="text-sm">
+      <div className="space-y-4 p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="min-w-0 space-y-1.5">
+            <Label className="text-xs font-medium">
               Customer <span className="text-destructive">*</span>
             </Label>
             <SearchableCombobox
@@ -108,24 +111,26 @@ export function PaymentDetailsSection({
               triggerClassName="h-10 w-full"
               actionItems={createCustomerActions}
             />
-            {errors.customer_id && (
+            {errors.customer_id ? (
               <p className="text-xs text-destructive">{errors.customer_id}</p>
-            )}
+            ) : null}
           </div>
 
-          <div className="space-y-1.5 min-w-0">
-            <Label className="text-sm">Reference number</Label>
+          <div className="min-w-0 space-y-1.5">
+            <Label className="text-xs font-medium">Reference number</Label>
             <Input
               className="h-10"
               value={form.reference}
               onChange={(e) => onFieldChange('reference', e.target.value)}
-              placeholder="Optional"
+              placeholder="Optional cheque/ref #"
               disabled={readOnly}
             />
           </div>
 
-          <div className="space-y-1.5 min-w-0">
-            <Label className="text-sm">Payment method</Label>
+          <div className="min-w-0 space-y-1.5">
+            <Label className="text-xs font-medium">
+              Payment method <span className="text-destructive">*</span>
+            </Label>
             <SearchableCombobox
               value={form.payment_method || 'cash'}
               onValueChange={(v) => onFieldChange('payment_method', v || 'cash')}
@@ -138,8 +143,8 @@ export function PaymentDetailsSection({
             />
           </div>
 
-          <div className="space-y-1.5 min-w-0">
-            <Label className="text-sm">
+          <div className="min-w-0 space-y-1.5">
+            <Label className="text-xs font-medium">
               Payment date <span className="text-destructive">*</span>
             </Label>
             <DatePicker
@@ -149,15 +154,15 @@ export function PaymentDetailsSection({
               allowClear={false}
               disabled={readOnly}
             />
-            {errors.payment_date && (
+            {errors.payment_date ? (
               <p className="text-xs text-destructive">{errors.payment_date}</p>
-            )}
+            ) : null}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1.5 min-w-0">
-            <Label className="text-sm">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="min-w-0 space-y-1.5">
+            <Label className="text-xs font-medium">
               Amount received <span className="text-destructive">*</span>
             </Label>
             <Input
@@ -170,11 +175,11 @@ export function PaymentDetailsSection({
               placeholder="Auto from invoices"
               disabled={readOnly}
             />
-            {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
+            {errors.amount ? <p className="text-xs text-destructive">{errors.amount}</p> : null}
           </div>
 
-          <div className="space-y-1.5 min-w-0">
-            <Label className="text-sm">Deposit to account</Label>
+          <div className="min-w-0 space-y-1.5">
+            <Label className="text-xs font-medium">Deposit to account</Label>
             <AccountPickerSelect
               value={form.deposit_account_id || '_none'}
               onValueChange={(v) =>
@@ -185,7 +190,7 @@ export function PaymentDetailsSection({
               allowNone
               noneValue="_none"
               noneLabel="Undeposited / default"
-              placeholder="Select bank or undeposited funds account"
+              placeholder="Select bank or undeposited funds"
               currency={baseCurrency}
               canCreate={canCreateCoa}
               onAccountCreated={onAccountCreated}
@@ -193,22 +198,21 @@ export function PaymentDetailsSection({
               className="h-10 w-full"
             />
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <JobOrderPickerSelect
             value={form.job_order_id}
             onValueChange={(v) => onFieldChange('job_order_id', v)}
             disabled={readOnly}
-            label="Job order (profitability)"
+            label="Job order"
           />
-          <div className="space-y-1.5 min-w-0">
-            <Label className="text-sm">Memo / internal notes</Label>
+
+          <div className="min-w-0 space-y-1.5">
+            <Label className="text-xs font-medium">Memo / notes</Label>
             <Input
               className="h-10"
               value={form.memo}
               onChange={(e) => onFieldChange('memo', e.target.value)}
-              placeholder="Optional note for audit trail"
+              placeholder="Audit trail note"
               disabled={readOnly}
             />
           </div>

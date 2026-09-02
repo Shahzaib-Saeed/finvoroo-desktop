@@ -311,13 +311,25 @@ export function PaymentsPage() {
       {
         id: "select",
         accessorKey: "id",
-        header: () => <DataGridTableRowSelectAll size="sm" />,
-        cell: ({ row }) => <DataGridTableRowSelect row={row} size="sm" />,
+        header: () => (
+          <div className="flex items-center justify-center">
+            <DataGridTableRowSelectAll size="sm" />
+          </div>
+        ),
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center">
+            <DataGridTableRowSelect row={row} size="sm" />
+          </div>
+        ),
         enableSorting: false,
         enableHiding: false,
         enableResizing: false,
         size: 44,
-        meta: { cellClassName: "ps-3", headerTitle: "Select" },
+        meta: {
+          headerClassName: "px-0 text-center",
+          cellClassName: "px-0 text-center",
+          headerTitle: "Select",
+        },
       },
       {
         accessorKey: "payment_date",
@@ -468,33 +480,6 @@ export function PaymentsPage() {
         meta: { headerTitle: "Method" },
       },
       {
-        accessorKey: "reference",
-        id: "reference",
-        header: ({ column }) => (
-          <DataGridColumnHeader title="System #" visibility column={column} />
-        ),
-        cell: ({ row }) => {
-          const p = row.original;
-          const systemNo = getPaymentSystemNumber(p);
-          if (!hasClientPaymentReference(p) || !systemNo) {
-            return <span className="text-sm text-muted-foreground">—</span>;
-          }
-          return (
-            <span
-              className="text-sm text-muted-foreground font-mono truncate block max-w-[140px]"
-              title={systemNo}
-            >
-              {systemNo}
-            </span>
-          );
-        },
-        size: 130,
-        enableSorting: true,
-        enableHiding: true,
-        enableResizing: true,
-        meta: { headerTitle: "System #", defaultHidden: true },
-      },
-      {
         id: "linked",
         accessorFn: (row) => (row.is_posted ? "posted" : "unposted"),
         header: ({ column }) => (
@@ -550,7 +535,9 @@ export function PaymentsPage() {
       },
       {
         id: "actions",
-        header: () => <span className="sr-only">Actions</span>,
+        header: () => (
+          <span className="text-xs font-medium text-muted-foreground">Actions</span>
+        ),
         enableSorting: false,
         enableHiding: false,
         enableResizing: false,
@@ -616,7 +603,7 @@ export function PaymentsPage() {
           );
         },
         size: 100,
-        meta: { headerTitle: "Actions" },
+        meta: { headerTitle: "Actions", headerClassName: "text-end" },
       },
     ],
     [base, openCustomerDetails, openEdit],

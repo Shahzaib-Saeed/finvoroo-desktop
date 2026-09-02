@@ -1,6 +1,6 @@
 [package]
 name = "finvoroo-desktop"
-version = "0.1.7"
+version = "0.1.8"
 description = "Finvoroo Desktop — native Windows shell for the Finvoroo ERP web app"
 authors = ["Finvoroo"]
 edition = "2021"

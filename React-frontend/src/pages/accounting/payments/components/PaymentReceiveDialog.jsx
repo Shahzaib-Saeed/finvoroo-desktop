@@ -40,10 +40,12 @@ function PaymentReceiveSheetBody({
         className={PAYMENT_RECEIVE_SHEET_CLASS}
         overlayClassName={PAYMENT_RECEIVE_SHEET_OVERLAY_CLASS}
       >
-        <SheetHeader className="border-b py-3.5 px-5 shrink-0 text-start space-y-1">
-          <SheetTitle className="font-semibold text-base">Receive payment</SheetTitle>
-          <p className="text-xs text-muted-foreground font-normal">
-            Select customer → tick invoices → save. Amount fills automatically.
+        <SheetHeader className="shrink-0 space-y-1 border-b bg-muted/10 px-5 py-4 text-start">
+          <SheetTitle className="text-base font-semibold tracking-tight">
+            Receive Payment
+          </SheetTitle>
+          <p className="text-xs font-normal text-muted-foreground">
+            Select customer → enter payment details → save transaction
           </p>
         </SheetHeader>
         <SheetBody className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">

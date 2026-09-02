@@ -12,9 +12,9 @@ import { formatCurrency, rowRemainingDue } from '../constants';
 import { cn } from '@/lib/utils';
 
 const TH =
-  'border-r border-b border-border bg-muted/40 px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground align-middle whitespace-nowrap last:border-r-0';
-const TD = 'border-r border-b border-border align-middle p-0 last:border-r-0';
-const TD_READ = 'border-r border-b border-border align-middle px-2.5 py-1.5 last:border-r-0';
+  'border-b border-border/70 bg-muted/30 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground align-middle whitespace-nowrap';
+const TD = 'border-b border-border/50 align-middle p-0';
+const TD_READ = 'border-b border-border/50 align-middle px-3 py-2';
 
 const NO_SPINNER = [
   '[appearance:textfield]',
@@ -67,21 +67,21 @@ export function PaymentAllocationTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-lg border border-border/70">
       <table
         className={cn(
           'w-full table-fixed border-collapse text-sm',
-          showAdvanced ? 'min-w-[1100px]' : 'min-w-[720px]',
+          showAdvanced ? 'min-w-[1100px]' : 'min-w-[760px]',
         )}
       >
         <colgroup>
-          <col className="w-10" />
-          <col className="w-[96px]" />
+          <col className="w-11" />
+          <col className="w-[100px]" />
           <col className="w-[120px]" />
+          <col className="w-[130px]" />
+          <col className="w-[110px]" />
+          <col className="w-[150px]" />
           <col className="w-[120px]" />
-          <col className="w-[110px]" />
-          <col className="w-[140px]" />
-          <col className="w-[110px]" />
           {showAdvanced ? (
             <>
               <col className="w-[140px]" />
@@ -93,8 +93,15 @@ export function PaymentAllocationTable({
         </colgroup>
         <thead>
           <tr>
-            <th className={cn(TH, 'text-center')} title="Include this invoice">
-              Pay
+            <th className={cn(TH, 'px-0 text-center')} title="Select all invoices">
+              <div className="flex h-full items-center justify-center">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={(v) => onToggleAllRows?.(!!v)}
+                  disabled={readOnly}
+                  aria-label="Select all invoices"
+                />
+              </div>
             </th>
             <th className={TH}>Date</th>
             <th className={TH}>Invoice #</th>
@@ -102,8 +109,8 @@ export function PaymentAllocationTable({
             <th className={cn(TH, 'text-right')} title="Optional settlement write-off">
               Discount
             </th>
-            <th className={cn(TH, 'text-right text-primary')}>Cash</th>
-            <th className={cn(TH, 'text-right')}>Left</th>
+            <th className={cn(TH, 'text-right text-emerald-800')}>Cash applied</th>
+            <th className={cn(TH, 'text-right')}>Remaining</th>
             {showAdvanced ? (
               <>
                 <th className={TH}>Credit note</th>
@@ -124,10 +131,13 @@ export function PaymentAllocationTable({
             return (
               <tr
                 key={row.invoice_id || index}
-                className={cn(row.selected && 'bg-emerald-50/40 dark:bg-emerald-950/15')}
+                className={cn(
+                  'transition-colors',
+                  row.selected && 'bg-emerald-50/50',
+                )}
               >
-                <td className={cn(TD, isLast && 'border-b-0', 'text-center')}>
-                  <div className="flex h-9 items-center justify-center">
+                <td className={cn(TD, isLast && 'border-b-0', 'px-0 text-center')}>
+                  <div className="flex h-10 items-center justify-center">
                     <Checkbox
                       checked={row.selected}
                       onCheckedChange={(v) => onToggleRow(index, !!v)}
@@ -140,19 +150,19 @@ export function PaymentAllocationTable({
                   className={cn(
                     TD_READ,
                     isLast && 'border-b-0',
-                    'text-xs text-muted-foreground whitespace-nowrap',
+                    'text-xs text-muted-foreground whitespace-nowrap tabular-nums',
                   )}
                 >
                   {row.invoice_date || '—'}
                 </td>
-                <td className={cn(TD_READ, isLast && 'border-b-0', 'text-sm font-medium')}>
+                <td className={cn(TD_READ, isLast && 'border-b-0', 'font-medium text-foreground')}>
                   {row.invoice_number}
                 </td>
                 <td
                   className={cn(
                     TD_READ,
                     isLast && 'border-b-0',
-                    'text-right text-xs tabular-nums font-medium',
+                    'text-right text-sm tabular-nums font-medium',
                   )}
                 >
                   {formatCurrency(row.balance_due, row.currency || currency)}
@@ -206,14 +216,12 @@ export function PaymentAllocationTable({
                   className={cn(
                     TD_READ,
                     isLast && 'border-b-0',
-                    'text-right text-xs tabular-nums font-medium',
-                    settled ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground',
+                    'text-right text-sm tabular-nums font-semibold',
+                    settled ? 'text-emerald-700' : 'text-muted-foreground',
                   )}
                 >
                   {row.selected
-                    ? settled
-                      ? 'Settled'
-                      : formatCurrency(remaining, row.currency || currency)
+                    ? formatCurrency(remaining, row.currency || currency)
                     : '—'}
                 </td>
                 {showAdvanced ? (

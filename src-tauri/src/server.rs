@@ -22,12 +22,23 @@ use crate::php_sidecar::{cloud_api_base, is_cloud_only_api_path, sidecar_base_ur
 pub const CLOUD_SPA_ORIGIN: &str = "https://app.finvoroo.com";
 
 const CLOUD_FETCH_TIMEOUT: Duration = Duration::from_secs(4);
+const CLOUD_ASSET_FETCH_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Upstream headers that must not be forwarded into WebView2 — they describe
+/// app.finvoroo.com, not the local shell origin (127.0.0.1:47391).
+const SKIP_PROXY_RESPONSE_HEADERS: &[&str] = &[
+    "content-security-policy",
+    "content-security-policy-report-only",
+    "strict-transport-security",
+    "transfer-encoding",
+];
 
 #[derive(Clone)]
 struct AppServerState {
     webapp_dir: PathBuf,
     cloud_origin: String,
     client: reqwest::Client,
+    asset_client: reqwest::Client,
     version: String,
 }
 
@@ -64,10 +75,17 @@ pub fn router(webapp_dir: PathBuf, version: String) -> Router {
         .build()
         .unwrap_or_else(|_| reqwest::Client::new());
 
+    let asset_client = reqwest::Client::builder()
+        .timeout(CLOUD_ASSET_FETCH_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::limited(4))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+
     let state = AppServerState {
         webapp_dir,
         cloud_origin,
         client,
+        asset_client,
         version,
     };
 
@@ -118,7 +136,7 @@ async fn cloud_reachable(state: &AppServerState) -> bool {
 async fn handle_spa_request(state: AppServerState, request: Request) -> Response {
     let method = request.method().clone();
     if method != Method::GET && method != Method::HEAD {
-        return serve_local(&state, request).await;
+        return serve_local(&state, request, false).await;
     }
 
     let path_and_query = request
@@ -128,24 +146,62 @@ async fn handle_spa_request(state: AppServerState, request: Request) -> Response
         .unwrap_or("/")
         .to_string();
 
-    if let Some(response) = try_cloud_spa(&state, &method, &path_and_query).await {
+    let path_only = path_and_query.split('?').next().unwrap_or("/");
+    let static_asset = is_static_asset_path(path_only);
+
+    if let Some(response) = try_cloud_spa(&state, &method, &path_and_query, static_asset).await {
         return response;
     }
 
-    serve_local(&state, request).await
+    if static_asset {
+        let local = serve_local(&state, request, false).await;
+        if local.status() != StatusCode::NOT_FOUND {
+            return local;
+        }
+        tracing::warn!(path = %path_only, "cloud and embedded SPA asset unavailable");
+        return Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Asset unavailable"))
+            .unwrap();
+    }
+
+    serve_local(&state, request, true).await
+}
+
+fn is_static_asset_path(path: &str) -> bool {
+    path.starts_with("/assets/")
+        || path.starts_with("/media/")
+        || path.ends_with(".js")
+        || path.ends_with(".css")
+        || path.ends_with(".map")
+        || path.ends_with(".woff2")
+        || path.ends_with(".woff")
+        || path.ends_with(".ttf")
+        || path.ends_with(".png")
+        || path.ends_with(".jpg")
+        || path.ends_with(".jpeg")
+        || path.ends_with(".webp")
+        || path.ends_with(".svg")
+        || path.ends_with(".ico")
 }
 
 async fn try_cloud_spa(
     state: &AppServerState,
     method: &Method,
     path_and_query: &str,
+    static_asset: bool,
 ) -> Option<Response> {
     if path_and_query.starts_with("/__finvoroo/") {
         return None;
     }
 
     let target = format!("{}{}", state.cloud_origin, path_and_query);
-    let mut builder = state.client.request(method.clone(), &target);
+    let client = if static_asset {
+        &state.asset_client
+    } else {
+        &state.client
+    };
+    let mut builder = client.request(method.clone(), &target);
 
     if method == Method::GET {
         builder = builder.header(reqwest::header::CACHE_CONTROL, "no-cache");
@@ -156,12 +212,24 @@ async fn try_cloud_spa(
         return None;
     }
 
+    if static_asset {
+        let ct = upstream
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        if ct.contains("text/html") {
+            return None;
+        }
+    }
+
     let status = StatusCode::from_u16(upstream.status().as_u16()).ok()?;
     let mut response = Response::builder().status(status);
     let headers = response.headers_mut()?;
 
     for (name, value) in upstream.headers().iter() {
-        if name == reqwest::header::TRANSFER_ENCODING {
+        let lower = name.as_str().to_ascii_lowercase();
+        if SKIP_PROXY_RESPONSE_HEADERS.iter().any(|skip| *skip == lower) {
             continue;
         }
         if let (Ok(hname), Ok(hval)) = (
@@ -183,10 +251,17 @@ async fn try_cloud_spa(
     response.body(Body::from(bytes)).ok()
 }
 
-async fn serve_local(state: &AppServerState, request: Request) -> Response {
+async fn serve_local(state: &AppServerState, request: Request, spa_fallback: bool) -> Response {
     let index = state.webapp_dir.join("index.html");
-    let mut service = ServeDir::new(&state.webapp_dir).not_found_service(ServeFile::new(index));
-    match service.call(request).await {
+    let result = if spa_fallback {
+        ServeDir::new(&state.webapp_dir)
+            .not_found_service(ServeFile::new(index))
+            .call(request)
+            .await
+    } else {
+        ServeDir::new(&state.webapp_dir).call(request).await
+    };
+    match result {
         Ok(response) => response.into_response(),
         Err(_) => Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -370,6 +445,22 @@ mod tests {
         std::fs::write(dir.join("index.html"), "<html>root</html>").unwrap();
         std::fs::write(dir.join("app.js"), "console.log('hi')").unwrap();
         dir
+    }
+
+    #[tokio::test]
+    async fn missing_asset_does_not_return_index_html() {
+        let dir = fixture_dir();
+        let app = router(dir, "0.1.4".into());
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/assets/missing-chunk.js")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]
