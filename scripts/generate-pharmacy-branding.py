@@ -16,6 +16,7 @@ ICONS = TAURI / "icons"
 WINDOWS = TAURI / "windows"
 BRANDING = ROOT / "branding"
 SOURCE = BRANDING / "pharmacy-pos-logo.png"
+WEB_LOGO = ROOT / "React-frontend" / "public" / "media" / "images" / "finvoroopharmacy.png"
 CONF = json.loads((TAURI / "tauri.conf.json").read_text(encoding="utf-8"))
 VERSION = CONF.get("version", "0.0.0")
 PRODUCT = CONF.get("productName", "Finvoroo Pharmacy POS")
@@ -38,6 +39,13 @@ def crop_mark(logo: Image.Image) -> Image.Image:
     w, h = logo.size
     side = min(h, w)
     return logo.crop((0, 0, side, side))
+
+
+def load_icon_mark(banner: Image.Image) -> Image.Image:
+    """App/taskbar icon — use the square web logo; do not overwrite that file."""
+    if WEB_LOGO.exists():
+        return Image.open(WEB_LOGO).convert("RGBA")
+    return crop_mark(banner)
 
 
 def save_png(img: Image.Image, path: Path) -> None:
@@ -125,8 +133,8 @@ def draw_header(mark: Image.Image, banner: Image.Image) -> Image.Image:
 
 def main() -> None:
     logo = load_logo()
-    mark = crop_mark(logo)
-    banner = logo.crop((mark.size[0] + 8, 0, logo.size[0], logo.size[1]))
+    mark = load_icon_mark(logo)
+    banner = logo.crop((crop_mark(logo).size[0] + 8, 0, logo.size[0], logo.size[1]))
 
     ICONS.mkdir(parents=True, exist_ok=True)
     WINDOWS.mkdir(parents=True, exist_ok=True)
@@ -141,10 +149,6 @@ def main() -> None:
     header = draw_header(mark, banner)
     sidebar.save(WINDOWS / "installer-sidebar.bmp", format="BMP")
     header.save(WINDOWS / "installer-header.bmp", format="BMP")
-
-    web_dir = ROOT / "React-frontend" / "public" / "media" / "images"
-    web_dir.mkdir(parents=True, exist_ok=True)
-    logo.save(web_dir / "finvoroopharmacy.png", format="PNG", optimize=True)
 
     print(f"Branding generated for {PRODUCT} v{VERSION}")
     print(f"  icons -> {ICONS}")
