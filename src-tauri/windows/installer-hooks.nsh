@@ -1,4 +1,4 @@
-; Finvoroo Desktop — NSIS hooks for the Windows installer.
+; Finvoroo Pharmacy POS — NSIS hooks for the Windows installer.
 ;
 ; Offline data (Dexie/IndexedDB) lives in WebView2's per-app profile, keyed by
 ; this app's identifier (com.finvoroo.desktop) and scoped to its local origin

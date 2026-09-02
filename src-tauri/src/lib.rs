@@ -205,7 +205,7 @@ pub fn run() {
                     .expect("valid local URL"),
             );
             WebviewWindowBuilder::new(app, "main", url)
-                .title("Finvoroo")
+                .title("Finvoroo Pharmacy POS")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(1024.0, 700.0)
                 .resizable(true)

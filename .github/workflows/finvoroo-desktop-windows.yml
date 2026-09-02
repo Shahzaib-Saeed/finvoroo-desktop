@@ -98,6 +98,11 @@ jobs:
           }
           Write-Host "webapp bundle OK ($($assets.Count) asset file(s))."
 
+      - name: Generate Pharmacy POS branding (icons + installer art)
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 scripts/generate-pharmacy-branding.py
+
       - name: Build Windows NSIS installer (Tauri)
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
